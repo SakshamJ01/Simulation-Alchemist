@@ -157,15 +157,26 @@ def test_deterministic_replay_bitwise() -> None:
 
 # ----------------------------------------------------------------------
 # Core immutability: src/sim_alchemist/core/ must not have been modified.
-# (The six files' git-tracked hashes are fixed for the validated baseline.)
+# (The files' git-tracked hashes are fixed for the validated baseline.)
+#
+# Task 1.3 sanctioned extension: the guard is RE-PINNED to cover the full
+# post-1.3 core -- including the new declarative-composition files
+# (world.py, registry.py, composer.py) and the Task 1.2 scheduler.py -- and
+# engine.py's hash is re-baselined because Task 1.3 deliberately extends the
+# generic AlchemistEngine (engines=None default, _install, scheduler-driven
+# run).  This hardened guard blocks *future* drift after Task 1.3.
 # ----------------------------------------------------------------------
 CORE_COMMIT_HASHES = {
-    "__init__.py": "73F4B2F6BC7353E2290324C569E4FC12DF7AD76D631E79CFD319F07F8AABA046",
+    "__init__.py": "27CC7EAAD620BD9E283F722154024246021B00B92613BA41501EBEE7F64464D2",
     "capabilities.py": "F13D4430E3B34B2364C895F18422984DC6D4388C91BE49C00B653EBE2D3F9188",
     "clock.py": "D49F5202F9F2C9E0A18A30A9A5BC59B676DF5E967B9D5518D0CB590C01714394",
-    "engine.py": "F59E5E069D0AF238430F7E9589727B026BB16331D2E6D5B029A235563DAF184C",
+    "composer.py": "E1B9A242A5A7002C520F6B8D6F2D9F3E36B29484CB00D309B9105422DC8830B4",
+    "engine.py": "6260F90E45DD1D6E54FE677F6BB9DDA42F06A99E7B8E406A821C8E95E6A475E3",
     "events.py": "EF1DDF2206E21DC05CE835CFBC1A9CD0B089EEF861E58C3D50D7D54723005903",
+    "registry.py": "CA14083FC66FDDCA1DCB59D30B643920299E86A65CBB84E746537D68CAF626D1",
+    "scheduler.py": "B9BD0E78E3874B80B492466E7D323661A7556C0E23139B6FDB8A0D56AF5BCA65",
     "state.py": "ADB33ADEDC4749288451D0648CE465476DA1C8877D5EDA798034F023B3CD8158",
+    "world.py": "253555421BF9D7737E465FDCFA85C7586F8E721BEA170D9834609558CE511175",
 }
 
 

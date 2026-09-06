@@ -1,35 +1,52 @@
 """Field-Guided Movers model: py-pde field + Pymunk probe bodies.
 
-This is Experiment B in the Task 1.1 capability-composition proof.
+This is Experiment B in the Task 1.1 capability-composition proof, refactored
+for Task 1.3.  The experiment owns:
+    * its science (``MoversConfig``, ``Mover``/``MoverSpace``, ``MoversAdapter``,
+      ``MoversTrajectory``), and
+    * its thin engine facade (``FieldGuidedMoversEngine``).
 
-    AlchemistCore
-    Folder: src/sim_alchemist/core/  (UNCHANGED)
-    Engines:
-        py-pde   -> PyPDEAdapter       (field, gradient, source injection)
-        pymunk   -> MoversAdapter      (point bodies, force integration)
+All *coupling* -- the declared macro-step order, the gradient->force and
+mover->source rules, and the declarative world definition -- lives in
+``experiments.field_guided_movers.coupling``.  The facade contains no
+scheduling logic: it composes itself through the generic core composer and is
+driven by the core ``StepScheduler``.
 
-The experiment itself owns only the *coupling rules*: how the field
-gradient becomes a physical force and how a mover deposits/consumes
-chemical.  Those rules live here, outside the core.
+The coupling rules ``gradient_force`` and ``mover_source`` are re-exported
+here so the experiment's public surface is unchanged.
 """
 
 from __future__ import annotations
 
 import itertools
 import math
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 import pymunk
 
+from experiments.field_guided_movers.coupling import (
+    FIELD_GUIDED_MOVERS_SCHEDULE,
+    MoversState,
+    build_field_guided_movers_operations,
+    build_field_guided_movers_registry,
+    build_field_guided_movers_world,
+    gradient_force,
+    mover_source,
+)
 from sim_alchemist.adapters.base import BaseAdapter
-from sim_alchemist.adapters.pde import PyPDEAdapter
 from sim_alchemist.core.capabilities import Capability, CapabilitySet
+from sim_alchemist.core.composer import build_components, compose_into
 from sim_alchemist.core.engine import AlchemistEngine
 from sim_alchemist.core.events import Event, EventType
-from sim_alchemist.core.scheduler import StepSchedule, StepScheduler
+
+__all__ = [
+    "FIELD_GUIDED_MOVERS_SCHEDULE",
+    "MoversConfig",
+    "gradient_force",
+    "mover_source",
+]
 
 DEFAULT_START_POSITIONS: tuple[tuple[float, float], ...] = (
     (0.25, 0.25),
@@ -295,46 +312,6 @@ class MoversAdapter(BaseAdapter):
         self._pending_forces.clear()
 
 
-def gradient_force(
-    pde: PyPDEAdapter,
-    position: tuple[float, float],
-    force_fmax: float,
-    force_gsat: float,
-    field_name: str = "u",
-) -> tuple[float, float]:
-    """Experiment rule: field gradient -> bounded physical force.
-
-    F = Fmax * tanh(|grad u| / g_sat) * grad u / |grad u|.
-    """
-    x, y = position
-    gx, gy = pde.gradient(x, y, field_name)
-    gmag = float(np.hypot(gx, gy))
-    if gmag == 0.0:
-        return 0.0, 0.0
-    magnitude = force_fmax * math.tanh(gmag / force_gsat)
-    return magnitude * float(gx) / gmag, magnitude * float(gy) / gmag
-
-
-def mover_source(
-    mover: Mover,
-    config: MoversConfig,
-    field_name: str = "u",
-) -> dict[str, Any]:
-    """Experiment rule: mover position -> chemical source/sink.
-
-    The mover deposits activator ``u`` and consumes inhibitor ``v`` at its
-    current position.  The effect is computed here (experiment-owned) and
-    handed to the PDE adapter's generic source injection.
-    """
-    return {
-        "x": mover.position[0],
-        "y": mover.position[1],
-        "u": config.source_u,
-        "v": config.source_v,
-        "radius": config.source_radius,
-    }
-
-
 def run_field_guided_movers(config: MoversConfig) -> MoversTrajectory:
     """Run one composed Field-Guided Movers world."""
     engine = FieldGuidedMoversEngine(config=config)
@@ -386,193 +363,63 @@ class MoversTrajectory:
 
 
 class FieldGuidedMoversEngine(AlchemistEngine):
-    """Experiment B engine: py-pde field driven by Pymunk movers.
+    """Experiment B facade: py-pde field driven by Pymunk movers.
 
-    Macro-step ordering (deterministic):
-        1. read body geometry (mover positions) from Pymunk
-        2. evolve the reaction-diffusion field (sources from last step feed RHS)
-        3. sample field gradient at each mover COM -> bounded force
-        4. integrate Pymunk dynamics (force, damping, bounds clamp)
-        5. inject source/sink at the *new* body positions (reverse coupling)
-        6. record observables
+    Macro-step ordering (declared, not hard-coded):
+        1. evolve the reaction-diffusion field
+        2. sample field gradient at each mover COM -> bounded force
+        3. integrate Pymunk dynamics (force, damping, bounds clamp)
+        4. inject source/sink at the *new* body positions (reverse coupling)
+        5. record observables
 
-    The ordering is *declared* here as ``SCHEDULE`` (see above) and run by the
-    core ``StepScheduler``; this experiment owns only the coupling rules.
+    The ordering is *declared* as ``SCHEDULE`` and dispatched by the core
+    ``StepScheduler``; this experiment owns only the coupling rules.
     """
 
-    # Declared, deterministic macro-step ordering (Task 1.2).  TIME_STEP
-    # publication happens as a per-step hook (``_on_step``), matching the
-    # pre-refactor loop exactly.
-    SCHEDULE: tuple[str, ...] = (
-        "field.step",
-        "movers.force",
-        "movers.step",
-        "field.source",
-        "observables.record",
-    )
+    SCHEDULE: tuple[str, ...] = FIELD_GUIDED_MOVERS_SCHEDULE
 
     def __init__(self, config: MoversConfig) -> None:
-        pde_adapter = PyPDEAdapter(
-            n=config.n,
-            du=config.du,
-            dv=config.dv,
-            a=config.a,
-            b=config.b,
-            dt=config.pde_dt,
-            seed=config.seed,
-            field_step=config.macro_timestep,
-        )
-        movers_adapter = MoversAdapter(config=config)
+        super().__init__()
 
-        super().__init__(
-            engines=[pde_adapter, movers_adapter],
-            macro_timestep=config.macro_timestep,
-            max_steps=config.n_steps,
-            seed=config.seed,
-            config=config.as_dict(),
-        )
-
-        self._pde_adapter = pde_adapter
-        self._movers_adapter = movers_adapter
         self._config = config
         self.trajectory = MoversTrajectory(config=config)
 
-    def initialize(self) -> None:
-        super().initialize()
-        # Route adapter-published events onto the shared bus (Alchemist owns
-        # event routing).  The core wires TIME_STEP subscribers already; this
-        # makes adapter->bus publication available to the experiment.
-        self._pde_adapter.set_event_bus(self.event_bus)
-        self._movers_adapter.set_event_bus(self.event_bus)
-        field = self._pde_adapter.get_field()
-        if field is not None and self.trajectory.start_u.size == 0:
-            self.trajectory.start_u = field.u.copy()
-        self._cur_total_force = 0.0
-        self._cur_total_grad = 0.0
-        self._cur_sources_present = 0
+        world = build_field_guided_movers_world(config)
+        adapters = build_components(build_field_guided_movers_registry(), world)
+        self._pde_adapter, self._movers_adapter = adapters
 
-    def _build_scheduler(self) -> StepScheduler:
-        """Build the core step scheduler from this experiment's declared order.
-
-        The schedule is *declared here* (configuration), not hard-coded in the
-        core.  Reordering these names changes execution order without touching
-        ``src/sim_alchemist/core/``.
-        """
-        registry = self._bind_operations()
-        schedule = StepSchedule(list(self.SCHEDULE), registry)
-        self._schedule = schedule
-        self._scheduler = StepScheduler(
-            schedule,
-            self.clock,
-            world_state=self.world_state,
-            on_step=self._on_step,
-        )
-        return self._scheduler
-
-    def _on_step(self, time: float, dt: float, step: int) -> None:
-        """Per-macro-step hook: Alchemist owns event routing on the bus."""
-        time_event = Event.time_step("alchemist", time, dt)
-        self.event_bus.publish(time_event)
-
-    def _bind_operations(self) -> dict[str, Callable[[float], None]]:
-        return {
-            "field.step": self._run_field_step,
-            "movers.force": self._run_movers_force,
-            "movers.step": self._run_movers_step,
-            "field.source": self._run_field_source,
-            "observables.record": self._run_observables_record,
-        }
-
-    def _run_field_step(self, dt: float) -> None:
-        # 1+2. geometry read is implicit via adapter state; evolve the field
-        self._pde_adapter.step(self._config.macro_timestep)
-
-    def _run_movers_force(self, dt: float) -> None:
-        # 3+4. sample gradients -> bounded forces at current positions
-        total_force = 0.0
-        total_grad = 0.0
-        if self._config.apply_forces:
-            space = self._movers_adapter._space  # type: ignore[attr-defined]
-            if space is not None:
-                for m in space.movers:
-                    fx, fy = gradient_force(
-                        self._pde_adapter, m.position,
-                        self._config.force_fmax, self._config.force_gsat,
-                    )
-                    self._movers_adapter.apply_force(m.id, fx, fy)
-                    total_force += math.hypot(fx, fy)
-                    gx, gy = self._pde_adapter.gradient(m.position[0], m.position[1], "u")
-                    total_grad += math.hypot(gx, gy)
-        self._cur_total_force = total_force
-        self._cur_total_grad = total_grad
-
-    def _run_movers_step(self, dt: float) -> None:
-        # 4. integrate dynamics (force, damping, world-bounds clamp)
-        self._movers_adapter.step(self._config.macro_timestep)
-
-    def _run_field_source(self, dt: float) -> None:
-        # 5. reverse coupling: sources at the *new* body positions
-        sources_present = 0
-        if self._config.apply_sources:
-            space = self._movers_adapter._space  # type: ignore[attr-defined]
-            if space is not None:
-                sources = [mover_source(m, self._config) for m in space.movers]
-                self._pde_adapter.apply_sources(sources)
-                sources_present = len(sources)
-        self._cur_sources_present = sources_present
-
-    def _run_observables_record(self, dt: float) -> None:
-        # 6. record observables
-        self._record_observables(
-            self._cur_total_force,
-            self._cur_total_grad,
-            self._cur_sources_present,
+        state = MoversState()
+        operations = build_field_guided_movers_operations(
+            self._pde_adapter,
+            self._movers_adapter,
+            self._config,
+            self.trajectory,
+            state,
         )
 
-    def _macro_step(self) -> None:
-        """Execute one macro step by delegating to the core scheduler.
+        def _movers_initialize() -> None:
+            self._pde_adapter.set_event_bus(self.event_bus)
+            self._movers_adapter.set_event_bus(self.event_bus)
+            field = self._pde_adapter.get_field()
+            if field is not None and self.trajectory.start_u.size == 0:
+                self.trajectory.start_u = field.u.copy()
 
-        The exact baseline ordering is now *declared* as a schedule in
-        ``SCHEDULE`` (with the TIME_STEP publish as a per-step hook) and
-        dispatched by ``StepScheduler``; the science lives in the ``_run_*``
-        handlers.
-        """
-        self._scheduler.macro_step()
+        def _on_step(time: float, dt: float, step: int) -> None:
+            # Per-macro-step hook: Alchemist owns event routing on the bus.
+            time_event = Event.time_step("alchemist", time, dt)
+            self.event_bus.publish(time_event)
 
-    def _record_observables(
-        self,
-        total_force: float,
-        total_grad: float,
-        n_sources: int,
-    ) -> None:
-        field = self._pde_adapter.get_field()
-        if field is None:
-            return
-        mover_positions = self._movers_adapter.get_positions()
-        n = max(1, len(mover_positions))
-        self.trajectory.t_field.append(field.t)
-        self.trajectory.u_snaps.append(field.u.copy())
-
-        for mover_id, pos in mover_positions.items():
-            self.trajectory.positions.setdefault(mover_id, []).append(pos)
-
-        speed_sum = 0.0
-        state = self._movers_adapter.get_state()
-        for vel in state["velocities"].values():
-            speed_sum += float(np.hypot(vel[0], vel[1]))
-        self.trajectory.speeds.append(speed_sum / n)
-        self.trajectory.force_mags.append(total_force / n)
-        self.trajectory.gradient_mags.append(total_grad / n)
+        compose_into(
+            self,
+            world,
+            adapters,
+            operations,
+            on_step=_on_step,
+            on_initialize=_movers_initialize,
+        )
 
     def run(self) -> MoversTrajectory:  # type: ignore[override]
         """Run the full composed world and return its trajectory."""
-        if not self._initialized:
-            self.initialize()
-
-        composition = self.validate_composition()
-        if not composition.valid:
-            raise RuntimeError(f"Invalid composition: {composition.missing}")
-
-        self.trajectory.trace = self._build_scheduler().run()
-
+        super().run()
+        self.trajectory.trace = self._scheduler.trace
         return self.trajectory

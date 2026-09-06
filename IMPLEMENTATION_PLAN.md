@@ -1,8 +1,8 @@
 ﻿# Simulation Alchemist — Implementation Plan
 
-**Status:** BASELINE v0.1 COMPLETE — Tasks 0.1–0.3 validated. Next task is
-extracting the reusable Alchemist core from the verified prototype; do not
-start Phase 1 architecture until that extraction task is issued.
+**Status:** BASELINE v0.1 COMPLETE — Tasks 0.1–0.3 validated, Tasks 1.2–1.3
+validated. Next is the plugin/adapter registry and generalized world
+composition layer; do not start Phase 1 architecture until that is issued.
 **Date:** 2026-09-05 (updated 2026-09-06)
 
 ---
@@ -17,15 +17,31 @@ start Phase 1 architecture until that extraction task is issued.
 - **Task 0.3** — dynamic chemo-mechanical loop: pymunk walls are driven by
   bounded field-gradient forces; validation A–G and stability S1–S6 pass;
   figures in `figures/` are the baseline evidence.
+- **Task 1.2** — core scheduler extraction: `StepScheduler` + `StepSchedule`
+  moved to `src/sim_alchemist/core/scheduler.py` with valid-operations
+  validation at install time, deterministic time progression, and full trace.
+  51 pytest tests passing; both experiments' `SCHEDULE` attributes execute
+  through the core scheduler without any experiment-specific scheduling logic.
+- **Task 1.3** — declarative composition layer: `WorldDefinition`/`ComponentSpec`
+  (PYAML-loadable), `ComponentRegistry` + `default_registry()`, `compose()` /
+  `compose_into()` adapter-building + capability-resolution path, plain
+  `AlchemistEngine` execution, thin experiment facades, YAML worlds
+  (`worlds/*.yaml`), 17 A–M composition tests (`tests/test_composition.py`);
+  plain-compose path proved bitwise identical to both facades; full canonical
+  regression (A 160 steps, B closed 160 steps) matches baseline hashes.
 
-Result: **Baseline v0.1** — a reproducible, uv-locked, pytest-wrapped
-validated prototype in `chemomech/`.
+Result: **Baseline v0.1 + Task 1.2–1.3** — a reproducible, uv-locked,
+pytest-wrapped, validated prototype with a generic composition core in
+`src/sim_alchemist/core/`.
 
 ### NEXT
-- Extraction of the reusable Alchemist core from the validated prototype:
-  shared clock, event bus, world state, `SimulationEngine` adapter protocol,
-  and capability schema — driven by the wiring already proven in
-  `chemomech/simulation.py`.
+- Plugin/adapter registry (extensible `ComponentRegistry` with external
+  adapters and capability discovery).
+- Generalized world composition beyond `compose()` (world graph, runtime
+  mutation, experiment database).
+- Deterministic replay (the foundation is here; cross-platform replay needs
+  careful version pinning).
+- Phase 0 remaining: CLI, SQLite persistence, mutation/lineage engine.
 
 ### DEFERRED
 - Plugin marketplace
@@ -323,7 +339,7 @@ simulation-alchemist/
 
 | Layer | Choice | Evidence |
 |-------|--------|----------|
-| Composition / orchestration | custom loop | `chemomech/simulation.py` (macro-step order documented) |
+| Composition / orchestration | generic core composer | `src/sim_alchemist/core/{world,registry,composer,engine}.py` + `worlds/*.yaml` |
 | Continuous field engine | py-pde 0.58.0 | Schnakenberg RD, maskable walls, clamped obstacles |
 | Rigid-body physics engine | Pymunk 7.3.0 | dynamic wall rods, bounded forces, bounds clamping |
 | Agent engine | Mesa 3.5.1 | deterministic sensing/decision agents |
@@ -351,9 +367,11 @@ simulation-alchemist/
 ## 16. Development Phases
 
 **Baseline context:** Tasks 0.1–0.3 produced the validated chemo-mechanical
-prototype, so the empirical foundation exists before any framework phase.
-The immediate next work item (extraction) pulls the reusable Alchemist core
-out of `chemomech/simulation.py` before the planned phases proceed.
+prototype; Tasks 1.2–1.3 extracted the reusable core (scheduler, composition
+layer, world model, adapter protocol, capability schema, YAML worlds) and
+validates both experiments through the generic `AlchemistEngine` + core
+`StepScheduler`.  The remainder of Phase 0 (plugin registry, mutation engine,
+SQLite persistence) and Phase 1+ now proceed on the extracted foundation.
 
 ### Phase 0: Foundation (Week 1-2)
 Project scaffolding, SimulationEngine protocol, in-process event bus, simulation clock, SQLite persistence, basic CLI.

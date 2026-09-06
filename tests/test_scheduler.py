@@ -171,12 +171,14 @@ def test_each_engine_runs_exactly_its_declared_order() -> None:
     cfg = MoversConfig(n_steps=2)
     engine_b = FieldGuidedMoversEngine(config=cfg)
     engine_b.run()
+    assert engine_b._scheduler is not None
     b_ops = engine_b._scheduler.trace.operations()
     assert b_ops == list(engine_b.SCHEDULE) * cfg.n_steps
 
     world = WorldConfig(n=16, n_steps=2)
     engine_a = ChemomechanicalEngine(config=world)
     engine_a.run()
+    assert engine_a._scheduler is not None
     a_ops = engine_a._scheduler.trace.operations()
     assert a_ops == list(engine_a.SCHEDULE) * world.n_steps
 

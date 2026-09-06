@@ -11,6 +11,7 @@ dependencies = [
     "numpy==2.5.2",
     "py-pde==0.58.0",
     "pymunk==7.3.0",
+    "pyyaml==6.0.2",
 ]
 
 [dependency-groups]
@@ -24,6 +25,9 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = [".", "src"]
+markers = [
+    "slow: full 160-step bitwise regression runs (several minutes)",
+]
 filterwarnings = [
     "ignore:Setting the shape on a NumPy array has been deprecated in NumPy 2.5.:DeprecationWarning:pde\\.fields\\.base",
 ]

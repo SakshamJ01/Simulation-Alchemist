@@ -5,11 +5,13 @@
 A framework for composing multiple independent simulation systems into a
 unified simulated world. This repository currently holds **Baseline v0.1**:
 the validated chemo-mechanical prototype (Tasks 0.1–0.3) plus the Task 1.2
-scheduler and the **Task 1.3 declarative composition layer** — the verified
-starting point for the framework. Both experiments (A: chemo-morphogenesis,
-B: field-guided movers) now execute through the generic `AlchemistEngine` +
-core `StepScheduler` against declaratively-described worlds; the science and
-scheduling live in experiment coupling modules, not in engine subclasses.
+scheduler, the **Task 1.3 declarative composition layer**, and the **Task 1.5
+Adaptive Network Morphogenesis experiment (Experiment C)** — the verified
+starting point for the framework. Three experiments (A: chemo-morphogenesis,
+B: field-guided movers, C: adaptive network morphogenesis) execute through the
+generic `AlchemistEngine` + core `StepScheduler` against declaratively-described
+worlds; the science and scheduling live in experiment coupling modules, not in
+engine subclasses.
 
 ## Current Repository State (validated prototype — do not paper over)
 
@@ -34,15 +36,30 @@ closed loop:
   `FIELD_GUIDED_MOVERS_SCHEDULE`, gradient→force and mover→source rules, the
   world builder, and the registry override that swaps the experiment's
   point-mover adapter under the `pymunk` component id.
+- **NDlib** — network subsystem (Experiment C). `AdaptiveNetworkAdapter`
+  (`experiments/network_morphogenesis/adapter.py`, `engine_id="network"`)
+  wraps NDlib's `ContinuousModel` for continuous node *loads* that diffuse
+  over a grid graph via a custom weighted-averaging / transport rule; it
+  provides the `network_diffusion` capability (and `agent_intentions`, so the
+  wall `pymunk` adapter's requirement is met without Mesa). Integer node
+  labels are mandatory (NDlib/AGraph limitation).
+- **experiments/network_morphogenesis/coupling.py** — Experiment C coupling:
+  the declared macro-step order (`NETWORK_MORPHOGENESIS_SCHEDULE`: geometry
+  sync → field step → physics force/step → wall growth → network step →
+  route → field source → record), the gradient/force and load/source rules,
+  the world builder, and the registry that adds the `network` component id on
+  top of the core `default_registry()`.
 - **src/sim_alchemist/core/** — Task 1.3 composition core:
   `world.py` (typed `WorldDefinition`/`ComponentSpec`, YAML load/save),
   `registry.py` (`ComponentRegistry` + `default_registry()`), `composer.py`
   (`compose`/`compose_into`/`build_components`/`resolve_capabilities`),
   `engine.py` (generic `AlchemistEngine` that installs a composed world and
   dispatches it through the core scheduler).
-- **worlds/** — declarative YAML worlds for Experiments A and B.
+- **worlds/** — declarative YAML worlds for Experiments A, B, and C
+  (`chemo_morphogenesis.yaml`, `field_guided_movers.yaml`,
+  `adaptive_network.yaml`).
 
-Both experiments are ALSO runnable without their facades: a plain
+All three experiments are ALSO runnable without their facades: a plain
 `AlchemistEngine` composed via `compose(world, registry, operations)` —
 proved bitwise identical to the facade path.
 
@@ -79,9 +96,10 @@ Do not start building that until the extraction task is issued.
 | Rigid-body wall physics | Pymunk | `chemomech/physics.py` |
 | Agent sensing/decision | Mesa | `chemomech/agents.py` |
 | Macro-step scheduler | core (extracted Task 1.2) | `src/sim_alchemist/core/scheduler.py` |
-| Composition / orchestration | schedules + coupling loop | `chemomech/engine.py`, `experiments/field_guided_movers/model.py` |
+| Network diffusion | NDlib `ContinuousModel` | `experiments/network_morphogenesis/adapter.py` |
+| Composition / orchestration | schedules + coupling loop | `chemomech/engine.py`, `experiments/field_guided_movers/model.py`, `experiments/network_morphogenesis/model.py` |
 | Task 1.3 composition core | generic core | `src/sim_alchemist/core/{world,registry,composer,engine}.py` |
-| Experiment coupling + worlds | YAML + closures | `chemomech/coupling.py`, `experiments/field_guided_movers/coupling.py`, `worlds/*.yaml` |
+| Experiment coupling + worlds | YAML + closures | `chemomech/coupling.py`, `experiments/field_guided_movers/coupling.py`, `experiments/network_morphogenesis/coupling.py`, `worlds/*.yaml` |
 | Validation A–G + figures | numpy / matplotlib | `chemomech/validate.py` |
 | Stability checks S1–S6 | numpy | `run_stability.py` |
 
@@ -94,11 +112,11 @@ progression, and tracing; the science stays in the experiments.
 Since Task 1.3 the world, schedule, and component list are *data*: a
 `WorldDefinition` (PYAML-loadable) lists the components and their configs, the
 declared macro-step order, and the required capabilities. `compose()` resolves
-capabilities, builds adapters from the `default_registry()` (Experiment B
-overrides via its own registry), installs them in a plain `AlchemistEngine`,
-and dispatches the schedule through the core `StepScheduler`. The science and
-the per-operation coupling rules live in the experiment coupling modules, not
-in engine subclasses.
+capabilities, builds adapters from the `default_registry()` (Experiments B and
+C override / extend it via their own registries), installs them in a plain
+`AlchemistEngine`, and dispatches the schedule through the core `StepScheduler`.
+The science and the per-operation coupling rules live in the experiment
+coupling modules, not in engine subclasses.
 
 ## Running the Project (reproducible)
 
@@ -125,6 +143,9 @@ The environment is managed by uv against Python 3.13:
   walls).
 - The Pymunk/PDE coupling is an experimental model, not a calibrated
   physics/simulation claim.
+- The network update is a custom continuous weighted-averaging / transport
+  rule over node loads — **not** a physically calibrated nutrient transport
+  model; reservoir nodes are recharged to sustain the load gradient.
 - Claims of sustained non-equilibrium behaviour remain hypotheses to be tested.
 - Deterministic replay is same-runtime/environment; it is not universal
   cross-platform bitwise equivalence.

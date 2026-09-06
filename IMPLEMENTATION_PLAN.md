@@ -1,9 +1,10 @@
 ﻿# Simulation Alchemist — Implementation Plan
 
 **Status:** BASELINE v0.1 COMPLETE — Tasks 0.1–0.3 validated, Tasks 1.2–1.3
-validated. Next is the plugin/adapter registry and generalized world
-composition layer; do not start Phase 1 architecture until that is issued.
-**Date:** 2026-09-05 (updated 2026-09-06)
+validated, Task 1.5 (Experiment C: Adaptive Network Morphogenesis) validated.
+Next is the plugin/adapter registry and generalized world composition layer;
+do not start Phase 1 architecture until that is issued.
+**Date:** 2026-09-05 (updated 2026-09-07)
 
 ---
 
@@ -29,10 +30,24 @@ composition layer; do not start Phase 1 architecture until that is issued.
   (`worlds/*.yaml`), 17 A–M composition tests (`tests/test_composition.py`);
   plain-compose path proved bitwise identical to both facades; full canonical
   regression (A 160 steps, B closed 160 steps) matches baseline hashes.
+- **Task 1.5** — THIRD composed experiment (Adaptive Network Morphogenesis,
+  Experiment C) proving a genuine A↔B↔C↔A feedback triangle through the same
+  generic core: an NDlib `ContinuousModel` network adapter
+  (`experiments/network_morphogenesis/adapter.py`, `engine_id="network"`,
+  capability `network_diffusion`) whose continuous node loads inject py-pde
+  field sources; the field gradient drives Pymunk wall growth; wall geometry
+  reweights network edges, rerouting diffusion. `network_morphogenesis/coupling.py`
+  declares `NETWORK_MORPHOGENESIS_SCHEDULE` + world/registry builders;
+  `worlds/adaptive_network.yaml` is the declarative twin. No change to
+  `src/sim_alchemist/core/` (immutability guard holds). 26 C1–C10 tests in
+  `tests/test_network_morphogenesis.py` pass (capability resolution, bitwise
+  determinism, closed-loop divergence from open/inert controls, sustained
+  adaptive growth, boundedness, YAML/plain-compose equivalence, shared core).
 
-Result: **Baseline v0.1 + Task 1.2–1.3** — a reproducible, uv-locked,
+Result: **Baseline v0.1 + Task 1.2–1.3–1.5** — a reproducible, uv-locked,
 pytest-wrapped, validated prototype with a generic composition core in
-`src/sim_alchemist/core/`.
+`src/sim_alchemist/core/` that now drives three independent composed
+experiments (A chemo-morphogenesis, B field-guided movers, C adaptive network).
 
 ### NEXT
 - Plugin/adapter registry (extensible `ComponentRegistry` with external

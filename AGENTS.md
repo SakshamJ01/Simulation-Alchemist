@@ -6,8 +6,8 @@ A framework for composing multiple independent simulation systems into a
 unified simulated world. This repository currently holds **Baseline v0.1**:
 the validated chemo-mechanical prototype (Tasks 0.1–0.3) that is the verified
 starting point for the framework. The Simulation Alchemist composition core
-has **not** been extracted yet; the composition loop lives un-refactored in
-`chemomech/simulation.py`.
+(excluding the Task 1.2 scheduler) has **not** been extracted yet; the
+composition loop lives un-refactored in `chemomech/simulation.py`.
 
 ## Current Repository State (validated prototype — do not paper over)
 
@@ -21,10 +21,12 @@ closed loop:
 - **Pymunk** — rigid-body/wall subsystem. Dynamic rod bodies driven by
   field-gradient forces, with damping and bounds clamping. Owned by
   `chemomech/physics.py`.
-- **chemomech/simulation.py** — the current composition/orchestration loop.
+- **chemomech/simulation.py** — the composition/orchestration entry point.
   It reads live wall transforms, rasterizes them into the PDE mask, advances
   the field, samples the force, integrates pymunk, steps the Mesa model, and
-  translates agent wall intentions into the physics space.
+  translates agent wall intentions into the physics space. The per-step
+  ordering is now *declared* (`ChemomechanicalEngine.SCHEDULE`) and dispatched
+  by the core `StepScheduler` (Task 1.2).
 
 This is a **validated scientific prototype**: `run_validation.py`
 (checks A–G) and `run_stability.py` (checks S1–S6) pass, and the figures in
@@ -55,9 +57,16 @@ Do not start building that until the extraction task is issued.
 | Reaction-diffusion field | py-pde | `chemomech/reaction_diffusion.py` |
 | Rigid-body wall physics | Pymunk | `chemomech/physics.py` |
 | Agent sensing/decision | Mesa | `chemomech/agents.py` |
-| Composition / orchestration | custom loop | `chemomech/simulation.py` |
+| Macro-step scheduler | core (extracted Task 1.2) | `src/sim_alchemist/core/scheduler.py` |
+| Composition / orchestration | schedules + coupling loop | `chemomech/engine.py`, `experiments/field_guided_movers/model.py` |
 | Validation A–G + figures | numpy / matplotlib | `chemomech/validate.py` |
 | Stability checks S1–S6 | numpy | `run_stability.py` |
+
+Each experiment declares its macro-step ordering as a plain ordered tuple of
+operation names (`ChemomechanicalEngine.SCHEDULE`, `FieldGuidedMoversEngine.
+SCHEDULE`) resolved through that engine's op registry and executed by the
+core `StepScheduler`. The scheduler owns ordering, validation, time
+progression, and tracing; the science stays in the experiments.
 
 ## Running the Project (reproducible)
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -12,6 +13,7 @@ from sim_alchemist.adapters.mesa import MesaAdapter
 from sim_alchemist.adapters.pde import PyPDEAdapter
 from sim_alchemist.adapters.pymunk import PymunkAdapter
 from sim_alchemist.core.engine import AlchemistEngine
+from sim_alchemist.core.scheduler import StepSchedule, StepScheduler
 
 if TYPE_CHECKING:
     from chemomech.simulation import Trajectory, WorldConfig
@@ -36,6 +38,20 @@ class ChemomechanicalEngine(AlchemistEngine):
     config: WorldConfig
     trajectory: Trajectory = field(default_factory=lambda: None)  # type: ignore[assignment] # set in __post_init__
     _dissolved_total: int = 0
+
+    # Declared, deterministic macro-step ordering (Task 1.2).  This is an
+    # ordered list of operation names resolved through the registry in
+    # ``_bind_operations`` by the core ``StepScheduler``.  The names in this
+    # tuple reproduce the exact validated baseline ordering.
+    SCHEDULE: tuple[str, ...] = (
+        "geometry.sync",
+        "field.step",
+        "physics.force",
+        "physics.step",
+        "agents.step",
+        "agents.apply",
+        "observables.record",
+    )
 
     def __post_init__(self) -> None:
         from chemomech.simulation import Trajectory
@@ -128,16 +144,47 @@ class ChemomechanicalEngine(AlchemistEngine):
         self._mesa_adapter.set_wallspace(pymunk_wallspace)
         self._mesa_adapter.create_model()
 
+        # Per-macro-step scratch values shared between schedule operations.
+        self._cur_total_force = 0.0
+        self._cur_n_walls = 0
+        self._cur_speed_sum = 0.0
+
         self._initialized = True
 
+    def _build_scheduler(self) -> StepScheduler:
+        """Build the core step scheduler from this experiment's declared order.
+
+        The schedule is *declared here* (configuration), not hard-coded in the
+        core engine.  Reordering these names changes execution order without
+        touching ``src/sim_alchemist/core/``.
+        """
+        registry = self._bind_operations()
+        schedule = StepSchedule(list(self.SCHEDULE), registry)
+        self._schedule = schedule
+        self._scheduler = StepScheduler(schedule, self.clock, world_state=self.world_state)
+        return self._scheduler
+
     def _macro_step(self) -> None:
-        """Execute one macro step with exact baseline ordering."""
-        _ = self.clock.next_macro_step()
+        """Execute one macro step by delegating to the core scheduler.
 
-        # Update world state
-        self.world_state.time = self.clock.current_time
-        self.world_state.step = self.clock.step_count
+        The exact baseline ordering is now *declared* as a schedule in
+        ``SCHEDULE`` and dispatched by ``StepScheduler``; the science lives in
+        the ``_run_*`` handlers below.
+        """
+        self._scheduler.macro_step()
 
+    def _bind_operations(self) -> dict[str, Callable[[float], None]]:
+        return {
+            "geometry.sync": self._run_geometry_sync,
+            "field.step": self._run_field_step,
+            "physics.force": self._run_physics_force,
+            "physics.step": self._run_physics_step,
+            "agents.step": self._run_agents_step,
+            "agents.apply": self._run_agents_apply,
+            "observables.record": self._run_observables_record,
+        }
+
+    def _run_geometry_sync(self, dt: float) -> None:
         # 1+2. geometry -> PDE mask (live pymunk transforms, rasterized)
         blocked = self._pymunk_adapter.get_geometry()["blocked"]
         if self.config.feedback and self.config.build_walls:
@@ -145,9 +192,11 @@ class ChemomechanicalEngine(AlchemistEngine):
         else:
             self._pde_adapter.set_blocked(np.zeros_like(blocked))
 
+    def _run_field_step(self, dt: float) -> None:
         # 3. evolve the morphogen field forced by the current geometry
         self._pde_adapter.step(self.config.field_step)
 
+    def _run_physics_force(self, dt: float) -> None:
         # 4+5. sample the gradient at each wall COM and apply the bounded force
         total_force = 0.0
         if self.config.apply_forces and self._pymunk_adapter._wallspace:
@@ -155,7 +204,9 @@ class ChemomechanicalEngine(AlchemistEngine):
                 fx, fy = self._chemomechanical_force(w)
                 self._pymunk_adapter.apply_force(w.id, fx, fy)
                 total_force += math.hypot(fx, fy)
+        self._cur_total_force = total_force
 
+    def _run_physics_step(self, dt: float) -> None:
         # 6. integrate wall dynamics (force, damping, world-bounds clamp)
         self._pymunk_adapter.step(self.config.field_step)
 
@@ -168,15 +219,19 @@ class ChemomechanicalEngine(AlchemistEngine):
                 math.hypot(w.body.velocity.x, w.body.velocity.y) / self._pymunk_adapter._wallspace.scale
                 for w in self._pymunk_adapter._wallspace.walls
             )
+        self._cur_n_walls = n_walls
+        self._cur_speed_sum = speed_sum
 
+    def _run_agents_step(self, dt: float) -> None:
         # 7. agents sense the *new* field and decide (Mesa, deterministic)
         self._mesa_adapter.step(self.config.field_step)
 
+    def _run_agents_apply(self, dt: float) -> None:
         # 8. translate agent actions: dissolve first, then create
         self._translate_agent_actions()
 
-        # Record observables at the end of the macro step
-        self._record_observables(total_force, n_walls, speed_sum)
+    def _run_observables_record(self, dt: float) -> None:
+        self._record_observables(self._cur_total_force, self._cur_n_walls, self._cur_speed_sum)
 
     def _chemomechanical_force(self, wall) -> tuple[float, float]:
         """Mechanochemical force on a wall: F = Fmax * tanh(|grad u|/g_sat) * u_hat."""
@@ -248,7 +303,6 @@ class ChemomechanicalEngine(AlchemistEngine):
         if not composition.valid:
             raise RuntimeError(f"Invalid composition: {composition.missing}")
 
-        while not self.clock.is_finished:
-            self._macro_step()
+        self._build_scheduler().run()
 
         return self.trajectory

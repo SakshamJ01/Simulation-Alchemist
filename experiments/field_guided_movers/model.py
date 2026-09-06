@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import itertools
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -28,6 +29,7 @@ from sim_alchemist.adapters.pde import PyPDEAdapter
 from sim_alchemist.core.capabilities import Capability, CapabilitySet
 from sim_alchemist.core.engine import AlchemistEngine
 from sim_alchemist.core.events import Event, EventType
+from sim_alchemist.core.scheduler import StepSchedule, StepScheduler
 
 DEFAULT_START_POSITIONS: tuple[tuple[float, float], ...] = (
     (0.25, 0.25),
@@ -351,6 +353,7 @@ class MoversTrajectory:
     force_mags: list[float] = field(default_factory=list)
     gradient_mags: list[float] = field(default_factory=list)
     start_u: np.ndarray = field(default_factory=lambda: np.empty(0))
+    trace: Any = field(default=None, init=False, repr=False)
 
     @property
     def final_u(self) -> np.ndarray:
@@ -359,6 +362,10 @@ class MoversTrajectory:
     @property
     def n_movers(self) -> int:
         return len(self.positions)
+
+    def engine_trace(self) -> Any:
+        """The core scheduler execution trace of the run (for replay checks)."""
+        return self.trace
 
     def net_displacements(self) -> dict[int, float]:
         disp: dict[int, float] = {}
@@ -388,7 +395,21 @@ class FieldGuidedMoversEngine(AlchemistEngine):
         4. integrate Pymunk dynamics (force, damping, bounds clamp)
         5. inject source/sink at the *new* body positions (reverse coupling)
         6. record observables
+
+    The ordering is *declared* here as ``SCHEDULE`` (see above) and run by the
+    core ``StepScheduler``; this experiment owns only the coupling rules.
     """
+
+    # Declared, deterministic macro-step ordering (Task 1.2).  TIME_STEP
+    # publication happens as a per-step hook (``_on_step``), matching the
+    # pre-refactor loop exactly.
+    SCHEDULE: tuple[str, ...] = (
+        "field.step",
+        "movers.force",
+        "movers.step",
+        "field.source",
+        "observables.record",
+    )
 
     def __init__(self, config: MoversConfig) -> None:
         pde_adapter = PyPDEAdapter(
@@ -426,22 +447,48 @@ class FieldGuidedMoversEngine(AlchemistEngine):
         field = self._pde_adapter.get_field()
         if field is not None and self.trajectory.start_u.size == 0:
             self.trajectory.start_u = field.u.copy()
+        self._cur_total_force = 0.0
+        self._cur_total_grad = 0.0
+        self._cur_sources_present = 0
 
-    def _macro_step(self) -> None:
-        _dt = self.clock.next_macro_step()
-        self.world_state.time = self.clock.current_time
-        self.world_state.step = self.clock.step_count
+    def _build_scheduler(self) -> StepScheduler:
+        """Build the core step scheduler from this experiment's declared order.
 
-        # Alchemist owns event routing on the shared bus.
-        time_event = Event.time_step("alchemist", self.clock.current_time, _dt)
+        The schedule is *declared here* (configuration), not hard-coded in the
+        core.  Reordering these names changes execution order without touching
+        ``src/sim_alchemist/core/``.
+        """
+        registry = self._bind_operations()
+        schedule = StepSchedule(list(self.SCHEDULE), registry)
+        self._schedule = schedule
+        self._scheduler = StepScheduler(
+            schedule,
+            self.clock,
+            world_state=self.world_state,
+            on_step=self._on_step,
+        )
+        return self._scheduler
+
+    def _on_step(self, time: float, dt: float, step: int) -> None:
+        """Per-macro-step hook: Alchemist owns event routing on the bus."""
+        time_event = Event.time_step("alchemist", time, dt)
         self.event_bus.publish(time_event)
 
-        # 1. geometry: mover positions from Pymunk (read via adapter state)
+    def _bind_operations(self) -> dict[str, Callable[[float], None]]:
+        return {
+            "field.step": self._run_field_step,
+            "movers.force": self._run_movers_force,
+            "movers.step": self._run_movers_step,
+            "field.source": self._run_field_source,
+            "observables.record": self._run_observables_record,
+        }
 
-        # 2. evolve the field one macro step
+    def _run_field_step(self, dt: float) -> None:
+        # 1+2. geometry read is implicit via adapter state; evolve the field
         self._pde_adapter.step(self._config.macro_timestep)
 
-        # 3+4. sample gradients -> bounded forces -> integrate dynamics
+    def _run_movers_force(self, dt: float) -> None:
+        # 3+4. sample gradients -> bounded forces at current positions
         total_force = 0.0
         total_grad = 0.0
         if self._config.apply_forces:
@@ -456,10 +503,15 @@ class FieldGuidedMoversEngine(AlchemistEngine):
                     total_force += math.hypot(fx, fy)
                     gx, gy = self._pde_adapter.gradient(m.position[0], m.position[1], "u")
                     total_grad += math.hypot(gx, gy)
+        self._cur_total_force = total_force
+        self._cur_total_grad = total_grad
 
+    def _run_movers_step(self, dt: float) -> None:
+        # 4. integrate dynamics (force, damping, world-bounds clamp)
         self._movers_adapter.step(self._config.macro_timestep)
 
-        # 5. reverse coupling: sources at the NEW body positions
+    def _run_field_source(self, dt: float) -> None:
+        # 5. reverse coupling: sources at the *new* body positions
         sources_present = 0
         if self._config.apply_sources:
             space = self._movers_adapter._space  # type: ignore[attr-defined]
@@ -467,9 +519,25 @@ class FieldGuidedMoversEngine(AlchemistEngine):
                 sources = [mover_source(m, self._config) for m in space.movers]
                 self._pde_adapter.apply_sources(sources)
                 sources_present = len(sources)
+        self._cur_sources_present = sources_present
 
+    def _run_observables_record(self, dt: float) -> None:
         # 6. record observables
-        self._record_observables(total_force, total_grad, sources_present)
+        self._record_observables(
+            self._cur_total_force,
+            self._cur_total_grad,
+            self._cur_sources_present,
+        )
+
+    def _macro_step(self) -> None:
+        """Execute one macro step by delegating to the core scheduler.
+
+        The exact baseline ordering is now *declared* as a schedule in
+        ``SCHEDULE`` (with the TIME_STEP publish as a per-step hook) and
+        dispatched by ``StepScheduler``; the science lives in the ``_run_*``
+        handlers.
+        """
+        self._scheduler.macro_step()
 
     def _record_observables(
         self,
@@ -505,7 +573,6 @@ class FieldGuidedMoversEngine(AlchemistEngine):
         if not composition.valid:
             raise RuntimeError(f"Invalid composition: {composition.missing}")
 
-        while not self.clock.is_finished:
-            self._macro_step()
+        self.trajectory.trace = self._build_scheduler().run()
 
         return self.trajectory

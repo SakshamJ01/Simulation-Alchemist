@@ -52,8 +52,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from .agents import AgentConfig, ChemoMechanicalModel, WallBuildingAgent
-from .physics import WallSpace
+from .agents import AgentConfig
+from .engine import ChemomechanicalEngine
 from .reaction_diffusion import RDField
 
 if TYPE_CHECKING:
@@ -149,96 +149,10 @@ def chemomechanical_force(
 
 
 def run_world(config: WorldConfig) -> Trajectory:
-    """Execute one composed world and return its trajectory."""
-    field = RDField(
-        n=config.n,
-        du=config.du,
-        dv=config.dv,
-        a=config.a,
-        b=config.b,
-        dt=config.pde_dt,
-        seed=config.seed,
-    )
-    wallspace = WallSpace(
-        n=config.n,
-        mass=config.wall_mass,
-        damping=config.wall_damping,
-        dt_phys=config.phys_dt,
-        phys_substeps=config.phys_substeps,
-    )
-    model = ChemoMechanicalModel(
-        field=field,
-        wallspace=wallspace,
-        agent_configs=config.default_agents(),
-        seed=config.seed,
-    )
+    """Execute one composed world and return its trajectory.
 
-    traj = Trajectory(config=config)
-    dissolved_total = 0
-
-    for _ in range(config.n_steps):
-        # 1+2. geometry -> PDE mask (live pymunk transforms, rasterized).
-        blocked = wallspace.blocked()
-        if config.feedback and config.build_walls:
-            field.set_blocked(blocked)
-        else:
-            field.set_blocked(np.zeros_like(blocked))
-
-        # 3. evolve the morphogen field forced by the current geometry.
-        field.advance(config.field_step)
-
-        # 4+5. sample the gradient at each wall COM and apply the bounded force.
-        total_force = 0.0
-        if config.apply_forces and wallspace.walls:
-            for w in wallspace.walls:
-                fx, fy = chemomechanical_force(
-                    field, w, config.force_fmax, config.force_gsat
-                )
-                wallspace.apply_force(w, fx, fy, torque=0.0)
-                total_force += math.hypot(fx, fy)
-
-        # 6. integrate wall dynamics (force, damping, world-bounds clamp).
-        wallspace.step()
-        speed_sum = sum(
-            math.hypot(w.body.velocity.x, w.body.velocity.y) / wallspace.scale
-            for w in wallspace.walls
-        )
-        n_walls = len(wallspace.walls)
-
-        # 7. agents sense the *new* field and decide (Mesa, deterministic).
-        model.step()
-
-        # 8. translate agent actions: dissolve first, then create.
-        for agent in model.agents:
-            if not isinstance(agent, WallBuildingAgent):
-                continue
-            for w in agent.pending_dissolve:
-                if w in agent.own_walls:
-                    agent.own_walls.remove(w)
-                wallspace.remove_wall(w)
-                dissolved_total += 1
-            pending = agent.pending_wall
-            if config.build_walls and pending is not None:
-                p1, p2, radius, _angle = pending
-                wall = wallspace.add_wall(
-                    p1, p2, radius, t=field.t, owner=agent.unique_id
-                )
-                agent.own_walls.append(wall)
-
-        # Record observables at the end of the macro step.
-        traj.t_field.append(field.t)
-        traj.u_snaps.append(field.u.copy())
-        traj.blocked_snaps.append(blocked.copy())
-        traj.walls_per_step.append(wallspace.wall_count())
-        traj.wall_geometry_snaps.append(wallspace.segments_world())
-        traj.force_mags.append(total_force / max(1, n_walls))
-        traj.wall_speeds.append(speed_sum / max(1, n_walls))
-        traj.dissolved_count.append(dissolved_total)
-        for w in wallspace.walls:
-            traj.wall_tracks.setdefault(w.id, []).append(
-                (field.t, w.center[0], w.center[1], w.angle)
-            )
-        for i, agent in enumerate(model.agents):
-            traj.agent_histories.setdefault(i, []).append(agent.history[-1])
-
-    return traj
+    This function now uses the Alchemist core engine under the hood,
+    preserving the exact same behavior as the original hardcoded loop.
+    """
+    engine = ChemomechanicalEngine(config=config)
+    return engine.run()

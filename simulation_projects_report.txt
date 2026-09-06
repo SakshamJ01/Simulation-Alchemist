@@ -1,0 +1,217 @@
+=== PyBullet ===
+URL: https://github.com/bulletphysics/bullet3
+Repo: bulletphysics/bullet3
+Language: C++ with Python bindings
+License: zlib
+Status: Active, last commit recent
+Latest: 3.2.7 (2025-01-30)
+Python: 3.4-3.8+ (from PyPI classifiers)
+Windows: Yes (via MSVC build, prebuilt wheels)
+Deterministic: Yes, after resetSimulation and same object order
+Fixed-step: Yes, setTimeStep + stepSimulation with fixed dt
+State export: saveState/loadState binary/JSON
+Event injection: setJointMotorControl2, setExternalForce, setCollisionMask
+Headless: Yes, p.DIRECT mode (no GUI needed)
+FPS: ~240 FPS (fixed 1/240s step, CPU renderer)
+Doc: 7/10 (good docs, many examples, YouTube tutorials)
+Integration: 3/10 (well-established physics engine, widely used)
+Risks: Physics determinism edge cases, GPU variation affects rendering FPS
+
+=== Mesa ===
+URL: https://github.com/projectmesa/mesa
+Repo: projectmesa/mesa
+Language: Python
+License: Apache 2.0
+Status: Active, Mesa 4 in active development, last commit recent
+Latest: 3.0.x stable, 4.0.0a0 pre-release
+Python: >=3.9
+Windows: Yes (tested via Docker/WSL, binary wheels available)
+Deterministic: With fixed seed; pseudo-random agent ordering
+Fixed-step: Yes, model.run_for(duration)/run_until(end_time)
+State export: Model state, agent data collections, knowledge bases
+Event injection: model.step(), schedule_event(), model.run_for()
+Headless: Yes, headless batch execution config available
+FPS: N/A (event-driven ABM, not real-time; ticks per second vary)
+Doc: 8/10 (excellent docs, JOSS paper, tutorial series)
+Integration: 2/10 (ABM framework, designed for composition, easy to wire)
+Risks: Stochasticity requires careful seeding for reproducibility; visualization deps
+
+=== Pymunk ===
+URL: https://github.com/viblo/pymunk
+Repo: viblo/pymunk
+Language: Python (wraps C)
+License: MIT
+Latest: 7.3.0 (2026-06-17)
+Python: >=3.9
+Windows: Yes (prebuilt wheels available; VS needed for source compilation)
+Deterministic: Yes, fixed-step Space.step() with same initial state
+Fixed-step: Yes, space.step(dt) - explicit fixed timestep
+State export: Space objects, bodies, shapes, constraints, velocities
+Event injection: None (poll-based step loop; events via collision handlers)
+Headless: Yes, no GUI dependencies needed
+FPS: ~60-200 depending on scene complexity (2D physics)
+Doc: 8/10 (good docs, tutorials, benchmark suite)
+Integration: 2/10 (pure Python, minimal deps, CFFI-based)
+Risks: Windows compilation needs Visual Studio; CFFI binary compatibility
+
+=== SimPy ===
+URL: https://gitlab.com/team-simpy/simpy
+Repo: team-simpy/simpy
+Language: Python
+License: MIT
+Latest: 4.1.2
+Python: >=3.8
+Windows: Yes (prebuilt wheels, CPython and PyPy3)
+Deterministic: Yes, sequential event processing FIFO; reproducible with same seed
+Fixed-step: Limited - step() method available, but not fixed dt by default; 'as fast as possible'
+State export: Environment state, event queue, process states
+Event injection: env.timeout(), env.event(), env.process()
+Headless: Yes, no GUI dependencies
+FPS: N/A (event-driven, 'as fast as possible' mode)
+Doc: 9/10 (excellent docs, book, extensive tutorials, API reference)
+Integration: 2/10 (very popular, many examples, standard DES framework)
+Risks: Generator-based code not serializable; not suitable for checkpointing/parallel
+
+=== SerializableSimpy ===
+URL: https://gitlab.com/uniluxembourg/hpc/research/cadom/serializable-simpy
+Repo: poshtkohi/serializable-simpy
+Language: Python
+License: Apache 2.0
+Latest: 0.0.3
+Python: >=3.9
+Windows: Yes (wheels available)
+Deterministic: Yes, yield-less design; same-seed determinism
+Fixed-step: Yes, delta time step support for parallel sync
+State export: Full environment pickleable (checkpoint/restore)
+Event injection: env.timeout(callback) - callback-based not generator-based
+Headless: Yes, designed headless, no GUI
+FPS: ~25K events/sec benchmark (sequential); parallel scales with cores
+Doc: 6/10 (academic JOSS paper, some usage gaps)
+Integration: 4/10 (requires paradigm shift from yield; API incompatibility with SimPy)
+Risks: API incompatibility with SimPy; parallel requires manual decomposition
+
+=== Hypnic Core ===
+URL: https://github.com/DISHANTUS/HYPNIC-CORE
+Repo: DISHANTUS/HYPNIC-CORE
+Language: Python/TypeScript/HTML
+License: MIT
+Latest: Created 2026-07-08, active development
+Python: Part of ecosystem (contracts in Python)
+Windows: Likely yes via npm/node; Python bindings available
+Deterministic: Yes, fixed 60Hz ticks, single seeded RNG; bit-exact determinism
+Fixed-step: Yes, 60Hz fixed timestep; no wall-clock time inside step
+State export: Per-tick state hashes; fully described by (world, seed, input log)
+Event injection: Through World contracts; events defined in ecosystem protocols
+Headless: Yes, verified in CI across Node and headless browser
+FPS: Not applicable (deterministic tick-based, not real-time)
+Doc: 7/10 (good spec, CI verified, contract documentation)
+Integration: 6/10 (contract-based, needs full Hypnic ecosystem: Weaver + Core)
+Risks: Early stage; Python bindings limited; ecosystem still growing
+
+=== SimWeave ===
+URL: https://github.com/Notabot123/simweave
+Repo: Notabot123/simweave
+Language: Python
+License: Apache 2.0
+Latest: Recent, active
+Python: >=3.9
+Windows: Yes (wheels available)
+Deterministic: Yes, seeded Monte Carlo runs; deterministic per seed
+Fixed-step: Yes, atomic clock with fixed dt; skip_idle_gaps for efficiency
+State export: Environment clock state, process states
+Event injection: Process events, clock callbacks, DEVS-style segments
+Headless: Yes, designed headless; no GUI, no FastAPI dependency
+FPS: Monte Carlo throughput, not real-time FPS; vectorized aggregation
+Doc: 7/10 (readme + examples, some gaps)
+Integration: 3/10 (lightweight, standalone library; EdgeWeave integration)
+Risks: Smaller community; EdgeWeave dependency for full workflow
+
+=== llmsim ===
+URL: https://github.com/nobelk/llmsim
+Repo: nobelk/llmsim
+Language: Python
+License: Apache 2.0
+Latest: Approaching 1.0, active development (Phase 5 example gallery)
+Python: >=3.14 (very recent requirement)
+Windows: Likely yes, source builds; maturin for Python 3.14+
+Deterministic: Yes, same-seed determinism tests gated at each phase
+Fixed-step: Yes, configurable delta steps; barrier-safe window protocol
+State export: Full simulation state; RNG tree for reproducibility
+Event injection: yield sim.offload(fn, ...); compute offload to worker pool
+Headless: Yes, designed headless; no GUI dependencies
+FPS: N/A (DES, event-driven; replication throughput ~6-7x on 8 cores)
+Doc: 8/10 (full guides, API reference, measured scaling curves at outloop.blog)
+Integration: 5/10 (Python 3.14+ requirement; free-threading experimental)
+Risks: Python 3.14+ only; free-threading CPython experimental; no <3.14 support
+
+=== PathSim ===
+URL: https://github.com/pathsim/pathsim
+Repo: pathsim/pathsim
+Language: Python
+License: MIT
+Latest: Recent, active (created 2024-07-12)
+Python: >=3.9
+Windows: Yes (wheels available)
+Deterministic: Yes, with fixed seed & fixed dt; implicit/integrator dependent
+Fixed-step: Yes, dt parameter; multiple explicit/implicit/adaptive integrators
+State export: Simulation state, block outputs, solver state
+Event handling: Zero-crossing detection for hybrid systems
+Headless: Yes, no GUI dependencies
+FPS: Typical 30-60 FPS depending on solver; stiff systems may be slower
+Doc: 7/10 (good docs, PathView editor, JOSS paper reference)
+Integration: 3/10 (block diagram, Pythonic; minimal deps: numpy, scipy, matplotlib)
+Risks: C++ extensions possible for some solvers; PathView separate tool
+
+=== UPSTAGE ===
+URL: https://github.com/gtri/upstage
+Repo: gtri/upstage
+Language: Python
+License: Other (NOASSERTION) - effectively open source
+Latest: v0.4.0 (2025-09-30)
+Python: >=3.11
+Windows: Yes (via nix or source; pip install upstage-des)
+Deterministic: With fixed seed; built on SimPy 4
+Fixed-step: Via SimPy 4 under layer; incremental time progression
+State export: Actor states, knowledge bases, key/value states
+Event injection: Tasks, task networks, interrupt handling
+Headless: Yes, no GUI required
+FPS: N/A (DES, events per second; not real-time)
+Doc: 7/10 (good user guide, tutorials, UPSTAGE vs SimPy comparison)
+Integration: 3/10 (SimPy 4 layer on top; adds task/network abstraction)
+Risks: Depends on SimPy 4 stability; newer framework, less battle-tested
+
+=== DE-Sim ===
+URL: https://github.com/KarrLab/de_sim
+Repo: KarrLab/de_sim
+Language: Python
+License: MIT
+Latest: 1.0.5 (2020-11-15)
+Python: >=3.7
+Windows: Yes (wheels available)
+Deterministic: Yes, same RNG seed; reproducible executions
+Fixed-step: Limited (event-driven DES); events at discrete instants
+State export: Checkpointable state; results checkpointing supported
+Event injection: Schedule events, set stop conditions (callbacks)
+Headless: Yes, no GUI
+FPS: N/A (DES, events per second; not real-time)
+Doc: 7/10 (JOSS paper, docs.karrlab.org, interactive notebooks)
+Integration: 3/10 (object-oriented, data-driven; SQLAlchemy, pandas)
+Risks: Last release 2020; may be stale; community activity lower
+
+=== Disco Engine ===
+URL: https://github.com/disco-engine/disco-engine
+Repo: disco-engine/disco-engine
+Language: Python
+License: Apache 2.0
+Latest: 0.0.7
+Python: >=3.9
+Windows: Yes (wheels available)
+Deterministic: Yes, single-threaded per worker process
+Fixed-step: Yes, per-worker stepping; deterministic single-threaded
+State export: NodeRuntime state, event queues, promise queues
+Event injection: Events/promises over transports (in-process, IPC, gRPC)
+Headless: Yes, TestRun headless mode; no GUI
+FPS: N/A (DES, throughput-oriented; not real-time FPS)
+Doc: 6/10 (readme + API, some gaps in distributed config)
+Integration: 5/10 (distributed, plugin architecture; transport layer complexity)
+Risks: Distributed complexity; transport layer (IPC/gRPC) adds integration overhead; early stage

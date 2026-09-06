@@ -1,0 +1,28 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# Test tooling
+.pytest_cache/
+.hypothesis/
+.ruff_cache/
+.pyright/
+
+# Virtual environments
+.venv/
+
+# Editor / system artifacts
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Generated output directories
+dist/
+build/
+
+# NOTE: figures/ is intentionally NOT ignored -- the baseline evidence figures
+# are part of the verified Task 0.3 repository and should be tracked.

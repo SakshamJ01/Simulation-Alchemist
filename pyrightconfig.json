@@ -1,0 +1,4 @@
+{
+  "typeCheckingMode": "standard",
+  "include": ["chemomech", "tests", "run_validation.py", "run_stability.py"]
+}

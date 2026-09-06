@@ -1,0 +1,714 @@
+warning: in the working copy of 'AGENTS.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'IMPLEMENTATION_PLAN.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'experiments/network_morphogenesis/model.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pyproject.toml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/sim_alchemist/core/__init__.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/test_field_guided_movers.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/test_network_morphogenesis.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'uv.lock', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/AGENTS.md b/AGENTS.md[m
+[1mindex 0f68c4e..98674e8 100644[m
+[1m--- a/AGENTS.md[m
+[1m+++ b/AGENTS.md[m
+[36m@@ -1,17 +1,23 @@[m
+ # AGENTS.md[m
+ [m
+[32m+[m[32m> **Quick recovery:** before substantial work, read `PROJECT_STATE.md` (the[m
+[32m+[m[32m> canonical compact snapshot of task/milestone status) and inspect the actual[m
+[32m+[m[32m> repository state — do NOT trust previous conversation context.[m
+[32m+[m
+ ## Project: Simulation Alchemist — Baseline v0.1[m
+ [m
+ A framework for composing multiple independent simulation systems into a[m
+ unified simulated world. This repository currently holds **Baseline v0.1**:[m
+ the validated chemo-mechanical prototype (Tasks 0.1–0.3) plus the Task 1.2[m
+[31m-scheduler, the **Task 1.3 declarative composition layer**, and the **Task 1.5[m
+[31m-Adaptive Network Morphogenesis experiment (Experiment C)** — the verified[m
+[31m-starting point for the framework. Three experiments (A: chemo-morphogenesis,[m
+[32m+[m[32mscheduler, the **Task 1.3 declarative composition layer**, the **Task 1.5[m
+[32m+[m[32mAdaptive Network Morphogenesis experiment (Experiment C)**, and the **Task 1.6[m
+[32m+[m[32mgeneric mutation / lineage / variant-runner layer** — the verified starting[m
+[32m+[m[32mpoint for the framework. Three experiments (A: chemo-morphogenesis,[m
+ B: field-guided movers, C: adaptive network morphogenesis) execute through the[m
+ generic `AlchemistEngine` + core `StepScheduler` against declaratively-described[m
+ worlds; the science and scheduling live in experiment coupling modules, not in[m
+[31m-engine subclasses.[m
+[32m+[m[32mengine subclasses. **Next milestone: Task 1.7 — deterministic variant sweeps +[m
+[32m+[m[32mgeneric experiment ranking (not started).**[m
+ [m
+ ## Current Repository State (validated prototype — do not paper over)[m
+ [m
+[36m@@ -55,6 +61,21 @@[m [mclosed loop:[m
+   (`compose`/`compose_into`/`build_components`/`resolve_capabilities`),[m
+   `engine.py` (generic `AlchemistEngine` that installs a composed world and[m
+   dispatches it through the core scheduler).[m
+[32m+[m[32m- **src/sim_alchemist/core/mutation.py** — Task 1.6 generic, deterministic[m
+[32m+[m[32m  world mutation: `Mutation`/`MutationRecord`/`ParameterSpec`, immutable[m
+[32m+[m[32m  `apply_mutation`/`apply_mutations` (deep-clone + rebuild, parent never[m
+[32m+[m[32m  edited), `clone_world`, `range_validator`/`one_of`. Path grammar is[m
+[32m+[m[32m  dot-separated data navigation only (no `eval`); structural fields are[m
+[32m+[m[32m  immovable.[m
+[32m+[m[32m- **src/sim_alchemist/core/lineage.py** — Task 1.6 SQLite-backed lineage:[m
+[32m+[m[32m  `LineageStore` (metadata + compact metrics only, never trajectories),[m
+[32m+[m[32m  `RunRecord`, deterministic `run_id_of` (sha256 of world content + seed).[m
+[32m+[m[32m- **src/sim_alchemist/core/runner.py** — Task 1.6 `VariantRunner` (executor:[m
+[32m+[m[32m  any `WorldDefinition` → `ExecOutcome`), `compare_metrics`/`compare_runs`[m
+[32m+[m[32m  (generic per-metric `MetricDelta`), `MissingParentRunError`.[m
+[32m+[m[32m- **experiments/network_morphogenesis/experiment.py** — Task 1.6[m
+[32m+[m[32m  experiment-facing side: `PARAMETER_SPECS` (the three meaningful mutable[m
+[32m+[m[32m  parameters), `build_network_metrics`, `run_network_world` executor.[m
+ - **worlds/** — declarative YAML worlds for Experiments A, B, and C[m
+   (`chemo_morphogenesis.yaml`, `field_guided_movers.yaml`,[m
+   `adaptive_network.yaml`).[m
+[36m@@ -70,8 +91,9 @@[m [msame checks.[m
+ [m
+ There is **no** capability discovery, plugin architecture, adapter registry[m
+ beyond the in-process `default_registry()`, generalized world composition[m
+[31m-beyond `compose()`, or experiment database yet. Do not document or implement[m
+[31m-those as if they existed here.[m
+[32m+[m[32mbeyond `compose()`, experiment database, or variant **sweeps / ranking** yet[m
+[32m+[m[32m(Task 1.6 gives singular mutations + lineage, not sweeps). Do not document or[m
+[32m+[m[32mimplement those as if they existed here.[m
+ [m
+ ## What Simulation Alchemist Will Become (NOT yet implemented)[m
+ [m
+[36m@@ -81,7 +103,6 @@[m [mthose as if they existed here.[m
+   factories[m
+ - Shared world model, simulation clock, event bus (already: clock, event bus,[m
+   world state, adapter `SimulationEngine` protocol exist in the validated core)[m
+[31m-- Mutation/lineage engine with SQLite persistence[m
+ - Deterministic replay system (partially here: same-runtime replay)[m
+ [m
+ The next phase is extracting reusable Alchemist abstractions (clock, event bus,[m
+[36m@@ -99,9 +120,11 @@[m [mDo not start building that until the extraction task is issued.[m
+ | Network diffusion | NDlib `ContinuousModel` | `experiments/network_morphogenesis/adapter.py` |[m
+ | Composition / orchestration | schedules + coupling loop | `chemomech/engine.py`, `experiments/field_guided_movers/model.py`, `experiments/network_morphogenesis/model.py` |[m
+ | Task 1.3 composition core | generic core | `src/sim_alchemist/core/{world,registry,composer,engine}.py` |[m
+[32m+[m[32m| Mutation / lineage / variant runner | generic core | `src/sim_alchemist/core/{mutation,lineage,runner}.py` |[m
+ | Experiment coupling + worlds | YAML + closures | `chemomech/coupling.py`, `experiments/field_guided_movers/coupling.py`, `experiments/network_morphogenesis/coupling.py`, `worlds/*.yaml` |[m
+ | Validation A–G + figures | numpy / matplotlib | `chemomech/validate.py` |[m
+ | Stability checks S1–S6 | numpy | `run_stability.py` |[m
+[32m+[m[32m| Experiment C mutation layer | generic core + executor | `experiments/network_morphogenesis/experiment.py`, `run_variant_demo.py` |[m
+ [m
+ Each experiment declares its macro-step ordering as a plain ordered tuple of[m
+ operation names (`ChemomechanicalEngine.SCHEDULE`, `FieldGuidedMoversEngine.[m
+[36m@@ -125,6 +148,7 @@[m [mThe environment is managed by uv against Python 3.13:[m
+ - `uv sync` — install the locked environment into `.venv`[m
+ - `uv run python run_validation.py` — full Task 0.3 validation (A–G) + figures[m
+ - `uv run python run_stability.py` — stability/boundedness checks (S1–S6)[m
+[32m+[m[32m- `uv run python run_variant_demo.py` — Task 1.6 base/variant/lineage demo[m
+ - `uv run pytest` — test suite wrapping the same scientific checks[m
+ [m
+ ## Key Development Commands[m
+[1mdiff --git a/IMPLEMENTATION_PLAN.md b/IMPLEMENTATION_PLAN.md[m
+[1mindex 150aec3..405e9c2 100644[m
+[1m--- a/IMPLEMENTATION_PLAN.md[m
+[1m+++ b/IMPLEMENTATION_PLAN.md[m
+[36m@@ -1,9 +1,10 @@[m
+ ﻿# Simulation Alchemist — Implementation Plan[m
+ [m
+ **Status:** BASELINE v0.1 COMPLETE — Tasks 0.1–0.3 validated, Tasks 1.2–1.3[m
+[31m-validated, Task 1.5 (Experiment C: Adaptive Network Morphogenesis) validated.[m
+[31m-Next is the plugin/adapter registry and generalized world composition layer;[m
+[31m-do not start Phase 1 architecture until that is issued.[m
+[32m+[m[32mvalidated, Task 1.5 (Experiment C: Adaptive Network Morphogenesis) validated,[m
+[32m+[m[32m**Task 1.6 (generic mutation + SQLite experiment lineage) COMPLETE.** Next is[m
+[32m+[m[32m**Task 1.7 — deterministic variant sweeps + generic experiment ranking** (not[m
+[32m+[m[32mstarted). Do not start that until it is issued.[m
+ **Date:** 2026-09-05 (updated 2026-09-07)[m
+ [m
+ ---[m
+[36m@@ -43,20 +44,48 @@[m [mdo not start Phase 1 architecture until that is issued.[m
+   `tests/test_network_morphogenesis.py` pass (capability resolution, bitwise[m
+   determinism, closed-loop divergence from open/inert controls, sustained[m
+   adaptive growth, boundedness, YAML/plain-compose equivalence, shared core).[m
+[31m-[m
+[31m-Result: **Baseline v0.1 + Task 1.2–1.3–1.5** — a reproducible, uv-locked,[m
+[32m+[m[32m- **Task 1.6** — GENERIC MUTATION + EXPERIMENT LINEAGE: first generic[m
+[32m+[m[32m  experiment-facing mutation/lineage capability, fully experiment-free in the[m
+[32m+[m[32m  core. `src/sim_alchemist/core/mutation.py` (declarative `Mutation`/[m
+[32m+[m[32m  `MutationRecord`/`ParameterSpec`, validators, immutable `apply_mutation`/[m
+[32m+[m[32m  `apply_mutations` with deep-clone semantics, dot-path grammar restricted to[m
+[32m+[m[32m  data, no `eval`, structural fields immovable), `lineage.py` (SQLite-backed[m
+[32m+[m[32m  `LineageStore` storing metadata + compact metrics only — never trajectories —[m
+[32m+[m[32m  with deterministic `run_id_of` from world hash + seed, idempotent records),[m
+[32m+[m[32m  `runner.py` (`VariantRunner` over any executor, `compare_metrics`/[m
+[32m+[m[32m  `compare_runs` generic per-metric `MetricDelta`). Experiment C declares its[m
+[32m+[m[32m  three meaningful parameters (`components.network.config.loss`,[m
+[32m+[m[32m  `config.force_fmax`, `config.source_amplitude`) in[m
+[32m+[m[32m  `experiments/network_morphogenesis/experiment.py` plus `build_network_metrics`[m
+[32m+[m[32m  and the `run_network_world` executor; `NetworkMorphogenesisConfig.from_world`[m
+[32m+[m[32m  added to `model.py`. 26 A–L tests (`tests/test_mutation_lineage.py`) pass;[m
+[32m+[m[32m  demo `run_variant_demo.py` shows a real 159-wall base run vs a loss 0.05→0.14[m
+[32m+[m[32m  variant (growth edges 9→6, field std +0.374, wall movement +7.7) with[m
+[32m+[m[32m  deterministic run ids and recorded lineage. Core immutability guard[m
+[32m+[m[32m  re-baselined to the post-1.6 core (adds mutation/lineage/runner.py).[m
+[32m+[m[32m  `pyproject.toml` fixes the packaging gaps found while closing: `ndlib==5.1.1`[m
+[32m+[m[32m  was missing though imported at runtime; added a build-system[m
+[32m+[m[32m  (`[tool.hatch.build.targets.wheel]`) so `uv sync` installs the project[m
+[32m+[m[32m  itself. `uv.lock` regenerated (57 packages).[m
+[32m+[m
+[32m+[m[32mResult: **Baseline v0.1 + Task 1.2–1.3–1.5–1.6** — a reproducible, uv-locked,[m
+ pytest-wrapped, validated prototype with a generic composition core in[m
+ `src/sim_alchemist/core/` that now drives three independent composed[m
+[31m-experiments (A chemo-morphogenesis, B field-guided movers, C adaptive network).[m
+[32m+[m[32mexperiments (A chemo-morphogenesis, B field-guided movers, C adaptive network)[m
+[32m+[m[32mand one generic mutation/lineage layer over them.[m
+ [m
+ ### NEXT[m
+[32m+[m[32m- **Task 1.7 — deterministic variant sweeps + generic experiment ranking**[m
+[32m+[m[32m  (mutation spaces, Cartesian variant generation with documented ordering,[m
+[32m+[m[32m  batch `SweepRunner`, generic metric collection + ranking, base-as-control,[m
+[32m+[m[32m  sweep metadata into the existing lineage store). Not started.[m
+ - Plugin/adapter registry (extensible `ComponentRegistry` with external[m
+   adapters and capability discovery).[m
+ - Generalized world composition beyond `compose()` (world graph, runtime[m
+   mutation, experiment database).[m
+ - Deterministic replay (the foundation is here; cross-platform replay needs[m
+   careful version pinning).[m
+[31m-- Phase 0 remaining: CLI, SQLite persistence, mutation/lineage engine.[m
+[32m+[m[32m- Phase 0 remaining: CLI.[m
+ [m
+ ### DEFERRED[m
+ - Plugin marketplace[m
+[1mdiff --git a/experiments/network_morphogenesis/model.py b/experiments/network_morphogenesis/model.py[m
+[1mindex 8165d98..7abf024 100644[m
+[1m--- a/experiments/network_morphogenesis/model.py[m
+[1m+++ b/experiments/network_morphogenesis/model.py[m
+[36m@@ -29,6 +29,7 @@[m [mfrom sim_alchemist.adapters.pde import PyPDEAdapter[m
+ from sim_alchemist.adapters.pymunk import PymunkAdapter[m
+ from sim_alchemist.core.composer import build_components, compose_into[m
+ from sim_alchemist.core.engine import AlchemistEngine[m
+[32m+[m[32mfrom sim_alchemist.core.world import WorldDefinition[m
+ [m
+ __all__ = [[m
+     "NETWORK_MORPHOGENESIS_SCHEDULE",[m
+[36m@@ -81,6 +82,22 @@[m [mclass NetworkMorphogenesisConfig:[m
+             "wall_radius": self.wall_radius, "wall_mass": self.wall_mass,[m
+         }[m
+ [m
+[32m+[m[32m    @classmethod[m
+[32m+[m[32m    def from_world(cls, world: WorldDefinition) -> NetworkMorphogenesisConfig:[m
+[32m+[m[32m        """Reconstruct the facade-equivalent config from a world snapshot.[m
+[32m+[m
+[32m+[m[32m        ``build_network_morphogenesis_world`` mirrors every config field into[m
+[32m+[m[32m        the world's shared ``config`` dict, so this is an exact inverse for[m
+[32m+[m[32m        world-driven (incl. mutated) execution.[m
+[32m+[m[32m        """[m
+[32m+[m[32m        field_names = set(cls.__dataclass_fields__)[m
+[32m+[m[32m        kwargs: dict[str, Any] = {[m
+[32m+[m[32m            k: v for k, v in world.config.items() if k in field_names[m
+[32m+[m[32m        }[m
+[32m+[m[32m        if "n_steps" not in kwargs:[m
+[32m+[m[32m            kwargs["n_steps"] = int(world.max_steps)[m
+[32m+[m[32m        return cls(**kwargs)[m
+[32m+[m
+ [m
+ @dataclass[m
+ class NetworkMorphogenesisTrajectory:[m
+[1mdiff --git a/pyproject.toml b/pyproject.toml[m
+[1mindex 294043f..c316dd1 100644[m
+[1m--- a/pyproject.toml[m
+[1m+++ b/pyproject.toml[m
+[36m@@ -1,3 +1,7 @@[m
+[32m+[m[32m[build-system][m
+[32m+[m[32mrequires = ["hatchling"][m
+[32m+[m[32mbuild-backend = "hatchling.build"[m
+[32m+[m
+ [project][m
+ name = "simulation-alchemist"[m
+ version = "0.1.0"[m
+[36m@@ -7,6 +11,7 @@[m [mrequires-python = ">=3.13,<3.14"[m
+ dependencies = [[m
+     "matplotlib==3.11.1",[m
+     "mesa==3.5.1",[m
+[32m+[m[32m    "ndlib==5.1.1",[m
+     "networkx==3.6.1",[m
+     "numpy==2.5.2",[m
+     "py-pde==0.58.0",[m
+[36m@@ -22,6 +27,9 @@[m [mdev = [[m
+     "ruff",[m
+ ][m
+ [m
+[32m+[m[32m[tool.hatch.build.targets.wheel][m
+[32m+[m[32mpackages = ["src/sim_alchemist"][m
+[32m+[m
+ [tool.pytest.ini_options][m
+ testpaths = ["tests"][m
+ pythonpath = [".", "src"][m
+[1mdiff --git a/src/sim_alchemist/core/__init__.py b/src/sim_alchemist/core/__init__.py[m
+[1mindex c8079b4..8793b33 100644[m
+[1m--- a/src/sim_alchemist/core/__init__.py[m
+[1m+++ b/src/sim_alchemist/core/__init__.py[m
+[36m@@ -13,7 +13,30 @@[m [mfrom .composer import ([m
+ )[m
+ from .engine import AlchemistEngine, CapabilityResolver, CompositionResult[m
+ from .events import Event, EventBus, EventType[m
+[32m+[m[32mfrom .lineage import LineageStore, RunRecord, run_id_of, world_hash[m
+[32m+[m[32mfrom .mutation import ([m
+[32m+[m[32m    InvalidMutationValueError,[m
+[32m+[m[32m    Mutation,[m
+[32m+[m[32m    MutationError,[m
+[32m+[m[32m    MutationRecord,[m
+[32m+[m[32m    ParameterSpec,[m
+[32m+[m[32m    UnknownMutationPathError,[m
+[32m+[m[32m    apply_mutation,[m
+[32m+[m[32m    apply_mutations,[m
+[32m+[m[32m    clone_world,[m
+[32m+[m[32m    one_of,[m
+[32m+[m[32m    range_validator,[m
+[32m+[m[32m)[m
+ from .registry import AdapterFactory, ComponentRegistry, default_registry[m
+[32m+[m[32mfrom .runner import ([m
+[32m+[m[32m    ExecOutcome,[m
+[32m+[m[32m    MetricDelta,[m
+[32m+[m[32m    MissingParentRunError,[m
+[32m+[m[32m    RunResult,[m
+[32m+[m[32m    VariantRunner,[m
+[32m+[m[32m    compare_metrics,[m
+[32m+[m[32m    compare_runs,[m
+[32m+[m[32m)[m
+ from .scheduler import ExecutionTrace, StepOperation, StepSchedule, StepScheduler[m
+ from .state import WorldState[m
+ from .world import ComponentSpec, WorldDefinition, load_world_yaml[m
+[36m@@ -31,20 +54,42 @@[m [m__all__ = [[m
+     "Event",[m
+     "EventBus",[m
+     "EventType",[m
+[32m+[m[32m    "ExecOutcome",[m
+     "ExecutionTrace",[m
+[32m+[m[32m    "InvalidMutationValueError",[m
+[32m+[m[32m    "LineageStore",[m
+[32m+[m[32m    "MetricDelta",[m
+[32m+[m[32m    "MissingParentRunError",[m
+[32m+[m[32m    "Mutation",[m
+[32m+[m[32m    "MutationError",[m
+[32m+[m[32m    "MutationRecord",[m
+[32m+[m[32m    "ParameterSpec",[m
+[32m+[m[32m    "RunRecord",[m
+[32m+[m[32m    "RunResult",[m
+     "SimulationClock",[m
+     "SimulationEngine",[m
+     "StepOperation",[m
+     "StepSchedule",[m
+     "StepScheduler",[m
+     "UnknownComponentError",[m
+[32m+[m[32m    "UnknownMutationPathError",[m
+     "UnresolvedCapabilityError",[m
+[32m+[m[32m    "VariantRunner",[m
+     "WorldDefinition",[m
+     "WorldState",[m
+[32m+[m[32m    "apply_mutation",[m
+[32m+[m[32m    "apply_mutations",[m
+     "build_components",[m
+[32m+[m[32m    "clone_world",[m
+[32m+[m[32m    "compare_metrics",[m
+[32m+[m[32m    "compare_runs",[m
+     "compose",[m
+     "compose_into",[m
+     "default_registry",[m
+     "load_world_yaml",[m
+[32m+[m[32m    "one_of",[m
+[32m+[m[32m    "range_validator",[m
+     "resolve_capabilities",[m
+[32m+[m[32m    "run_id_of",[m
+[32m+[m[32m    "world_hash",[m
+ ][m
+[1mdiff --git a/tests/test_field_guided_movers.py b/tests/test_field_guided_movers.py[m
+[1mindex e596708..ab09808 100644[m
+[1m--- a/tests/test_field_guided_movers.py[m
+[1m+++ b/tests/test_field_guided_movers.py[m
+[36m@@ -159,21 +159,28 @@[m [mdef test_deterministic_replay_bitwise() -> None:[m
+ # Core immutability: src/sim_alchemist/core/ must not have been modified.[m
+ # (The files' git-tracked hashes are fixed for the validated baseline.)[m
+ #[m
+[31m-# Task 1.3 sanctioned extension: the guard is RE-PINNED to cover the full[m
+[32m+[m[32m# Task 1.3 sanctioned extension: the guard was RE-PINNED to cover the full[m
+ # post-1.3 core -- including the new declarative-composition files[m
+ # (world.py, registry.py, composer.py) and the Task 1.2 scheduler.py -- and[m
+[31m-# engine.py's hash is re-baselined because Task 1.3 deliberately extends the[m
+[32m+[m[32m# engine.py's hash was re-baselined because Task 1.3 deliberately extends the[m
+ # generic AlchemistEngine (engines=None default, _install, scheduler-driven[m
+[31m-# run).  This hardened guard blocks *future* drift after Task 1.3.[m
+[32m+[m[32m# run).[m
+[32m+[m[32m#[m
+[32m+[m[32m# Task 1.6 sanctioned extension: the guard is RE-PINNED again to cover the[m
+[32m+[m[32m# new generic mutation/lineage/runner modules (mutation.py, lineage.py,[m
+[32m+[m[32m# runner.py) and the updated __init__.py that re-exports them.[m
+ # ----------------------------------------------------------------------[m
+ CORE_COMMIT_HASHES = {[m
+[31m-    "__init__.py": "27CC7EAAD620BD9E283F722154024246021B00B92613BA41501EBEE7F64464D2",[m
+[32m+[m[32m    "__init__.py": "2B737ECB71E5DC25C86B680A8F1C7DC92A12D2F6D68149532D21D38C91C99224",[m
+     "capabilities.py": "F13D4430E3B34B2364C895F18422984DC6D4388C91BE49C00B653EBE2D3F9188",[m
+     "clock.py": "D49F5202F9F2C9E0A18A30A9A5BC59B676DF5E967B9D5518D0CB590C01714394",[m
+     "composer.py": "E1B9A242A5A7002C520F6B8D6F2D9F3E36B29484CB00D309B9105422DC8830B4",[m
+     "engine.py": "6260F90E45DD1D6E54FE677F6BB9DDA42F06A99E7B8E406A821C8E95E6A475E3",[m
+     "events.py": "EF1DDF2206E21DC05CE835CFBC1A9CD0B089EEF861E58C3D50D7D54723005903",[m
+[32m+[m[32m    "lineage.py": "9CC2A17F36E6AD775402275EE79FDC05E00FC0721871ADED8C015B8A090A6045",[m
+[32m+[m[32m    "mutation.py": "7FCDCD4EFC6B575E203282955D8320222B5F37631A709F5A2637A82A9F94ED77",[m
+     "registry.py": "CA14083FC66FDDCA1DCB59D30B643920299E86A65CBB84E746537D68CAF626D1",[m
+[32m+[m[32m    "runner.py": "7BE10256EDD565AB65B982614CB9BEC9728D46DE1D9E2376D356CC3079322803",[m
+     "scheduler.py": "B9BD0E78E3874B80B492466E7D323661A7556C0E23139B6FDB8A0D56AF5BCA65",[m
+     "state.py": "ADB33ADEDC4749288451D0648CE465476DA1C8877D5EDA798034F023B3CD8158",[m
+     "world.py": "253555421BF9D7737E465FDCFA85C7586F8E721BEA170D9834609558CE511175",[m
+[36m@@ -186,7 +193,7 @@[m [mdef test_core_file_unchanged(filename) -> None:[m
+     assert path.is_file(), f"core file {filename} missing"[m
+     h = hashlib.sha256(path.read_bytes()).hexdigest().upper()[m
+     assert h == CORE_COMMIT_HASHES[filename], ([m
+[31m-        f"src/sim_alchemist/core/{filename} was modified! Task 1.1 must not change the core."[m
+[32m+[m[32m        f"src/sim_alchemist/core/{filename} was modified! Task 1.6 must not change the core."[m
+     )[m
+ [m
+ [m
+[1mdiff --git a/tests/test_network_morphogenesis.py b/tests/test_network_morphogenesis.py[m
+[1mindex 057f8cc..8786dd9 100644[m
+[1m--- a/tests/test_network_morphogenesis.py[m
+[1m+++ b/tests/test_network_morphogenesis.py[m
+[36m@@ -404,7 +404,8 @@[m [mdef test_network_adapter_contract():[m
+ [m
+ # ----------------------------------------------------------------------[m
+ # Core immutability guard: src/sim_alchemist/core/ must not have changed.[m
+[31m-# Reuses the fixed hashes from the Experiment B guard.[m
+[32m+[m[32m# Reuses the fixed hashes from the Experiment B guard (re-baselined at[m
+[32m+[m[32m# Task 1.6 to include the mutation/lineage/runner modules).[m
+ # ----------------------------------------------------------------------[m
+ def test_core_files_unchanged() -> None:[m
+     import test_field_guided_movers as b[m
+[36m@@ -414,7 +415,7 @@[m [mdef test_core_files_unchanged() -> None:[m
+         assert path.is_file(), f"core file {filename} missing"[m
+         h = hashlib.sha256(path.read_bytes()).hexdigest().upper()[m
+         assert h == expected, ([m
+[31m-            f"src/sim_alchemist/core/{filename} was modified! Task 1.5 must not change the core."[m
+[32m+[m[32m            f"src/sim_alchemist/core/{filename} was modified! Task 1.6 must not change the core."[m
+         )[m
+ [m
+ [m
+[1mdiff --git a/uv.lock b/uv.lock[m
+[1mindex ec6e851..8eb4515 100644[m
+[1m--- a/uv.lock[m
+[1m+++ b/uv.lock[m
+[36m@@ -18,6 +18,25 @@[m [mwheels = [[m
+     { url = "https://files.pythonhosted.org/packages/66/24/0bef8a8bbf403b536fb2368b6c3fb5f6669b3ef7fdbc2456a3affdd19836/beniget-0.5.0-py3-none-any.whl", hash = "sha256:909efcd083af1ac4a5db311f57c415df8cb05c4307eda345edeafac3cd930043", size = 19856, upload-time = "2025-11-29T16:17:42.069Z" },[m
+ ][m
+ [m
+[32m+[m[32m[[package]][m
+[32m+[m[32mname = "bokeh"[m
+[32m+[m[32mversion = "3.10.0"[m
+[32m+[m[32msource = { registry = "https://pypi.org/simple" }[m
+[32m+[m[32mdependencies = [[m
+[32m+[m[32m    { name = "jinja2" },[m
+[32m+[m[32m    { name = "narwhals" },[m
+[32m+[m[32m    { name = "numpy" },[m
+[32m+[m[32m    { name = "packaging" },[m
+[32m+[m[32m    { name = "pillow" },[m
+[32m+[m[32m    { name = "pyyaml" },[m
+[32m+[m[32m    { name = "tornado", marker = "sys_platform != 'emscripten'" },[m
+[32m+[m[32m    { name = "xyzservices" },[m
+[32m+[m[32m][m
+[32m+[m[32msdist = { url = "https://files.pythonhosted.org/packages/4c/e8/93d270023eb987348f9b5a2aef0103f903511b934519cd2bbefde451868d/bokeh-3.10.0.tar.gz", hash = "sha256:73f0b0c06d7925ca2b6d52b2dc51c2533a11f667cc6944f1f06c039ccc57c5ce", size = 5982193, upload-time = "2026-08-18T17:47:09.943Z" }[m
+[32m+[m[32mwheels = [[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/c5/0a/1423bb61b5f06376fe6ccf79c8781e2bb5e36c78c1814c78913b7425950f/bokeh-3.10.0-py3-none-any.whl", hash = "sha256:6bb8dbd4a555f71a921be5bd45c3bfaa15b390257fbadae76901927bd58629b7", size = 6649702, upload-time = "2026-08-18T17:47:07.287Z" },[m
+[32m+[m[32m][m
+[32m+[m
+ [[package]][m
+ name = "cffi"[m
+ version = "2.1.1"[m
+[36m@@ -94,6 +113,31 @@[m [mwheels = [[m
+     { url = "https://files.pythonhosted.org/packages/e7/05/c19819d5e3d95294a6f5947fb9b9629efb316b96de511b418c53d245aae6/cycler-0.12.1-py3-none-any.whl", hash = "sha256:85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30", size = 8321, upload-time = "2023-10-07T05:32:16.783Z" },[m
+ ][m
+ [m
+[32m+[m[32m[[package]][m
+[32m+[m[32mname = "decorator"[m
+[32m+[m[32mversion = "5.3.1"[m
+[32m+[m[32msource = { registry = "https://pypi.org/simple" }[m
+[32m+[m[32msdist = { url = "https://files.pythonhosted.org/packages/60/8b/32f9823da46cde7df2087faa08cd98d01b908f8dcab982cdba9c84e85355/decorator-5.3.1.tar.gz", hash = "sha256:4cbcdd55a6efadb9dbea26b858f4fb3264567b52d69ca0d25b721b553f60ea82", size = 58084, upload-time = "2026-05-18T06:03:28.057Z" }[m
+[32m+[m[32mwheels = [[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/05/7f/798705f5296a58ca505d600456748d1be48078eac8a7050d8a98bc9edb89/decorator-5.3.1-py3-none-any.whl", hash = "sha256:f47fe6fdbd2edd623ecfe36875d37aba411624e2670dd395dddae1358689bb3c", size = 10365, upload-time = "2026-05-18T06:03:26.517Z" },[m
+[32m+[m[32m][m
+[32m+[m
+[32m+[m[32m[[package]][m
+[32m+[m[32mname = "dynetx"[m
+[32m+[m[32mversion = "0.3.2"[m
+[32m+[m[32msource = { registry = "https://pypi.org/simple" }[m
+[32m+[m[32mdependencies = [[m
+[32m+[m[32m    { name = "decorator" },[m
+[32m+[m[32m    { name = "future" },[m
+[32m+[m[32m    { name = "networkx" },[m
+[32m+[m[32m    { name = "numpy" },[m
+[32m+[m[32m    { name = "tqdm" },[m
+[32m+[m[32m][m
+[32m+[m[32msdist = { url = "https://files.pythonhosted.org/packages/f3/6d/d2874fefd792bc2814c7076f80faff123188b5edf9afb37ecb33e3223cec/dynetx-0.3.2.tar.gz", hash = "sha256:b933c1246b05af0edfac724349bb8b8ad0403f34f8fc6cf69c7b525ab28032be", size = 35199, upload-time = "2023-06-06T08:44:34.285Z" }[m
+[32m+[m[32mwheels = [[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/cb/66/a185a9ba8edcf75c4aacf37198702727a322772c72b8312ca26a35ebbf69/dynetx-0.3.2-py3-none-any.whl", hash = "sha256:349fa6e55d6a1fc1ef694539bc6056d93990d9fa77e9640228703d591285172c", size = 39222, upload-time = "2023-06-06T08:44:33.09Z" },[m
+[32m+[m[32m][m
+[32m+[m
+ [[package]][m
+ name = "fonttools"[m
+ version = "4.64.0"[m
+[36m@@ -111,6 +155,15 @@[m [mwheels = [[m
+     { url = "https://files.pythonhosted.org/packages/82/f8/7188153c4b265c899cd035de6a062677d51f67118a4ba640902bd9683e90/fonttools-4.64.0-py3-none-any.whl", hash = "sha256:4a05783ff54ce4c7a28f18e5772efdf63c219374bd9ffc55452182e1cef8be60", size = 1195327, upload-time = "2026-08-31T15:44:31.741Z" },[m
+ ][m
+ [m
+[32m+[m[32m[[package]][m
+[32m+[m[32mname = "future"[m
+[32m+[m[32mversion = "1.0.0"[m
+[32m+[m[32msource = { registry = "https://pypi.org/simple" }[m
+[32m+[m[32msdist = { url = "https://files.pythonhosted.org/packages/a7/b2/4140c69c6a66432916b26158687e821ba631a4c9273c474343badf84d3ba/future-1.0.0.tar.gz", hash = "sha256:bd2968309307861edae1458a4f8a4f3598c03be43b97521076aebf5d94c07b05", size = 1228490, upload-time = "2024-02-21T11:52:38.461Z" }[m
+[32m+[m[32mwheels = [[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/da/71/ae30dadffc90b9006d77af76b393cb9dfbfc9629f339fc1574a1c52e6806/future-1.0.0-py3-none-any.whl", hash = "sha256:929292d34f5872e70396626ef385ec22355a1fae8ad29e1a734c3e43f9fbc216", size = 491326, upload-time = "2024-02-21T11:52:35.956Z" },[m
+[32m+[m[32m][m
+[32m+[m
+ [[package]][m
+ name = "gast"[m
+ version = "0.7.0"[m
+[36m@@ -170,6 +223,26 @@[m [mwheels = [[m
+     { url = "https://files.pythonhosted.org/packages/b0/7f/db1a37e5f45be32c0e64f9ed1268eba56aeedcb2ef20d195fa60c6610347/hypothesis-6.167.1-cp315-abi3.abi3t-win_arm64.whl", hash = "sha256:627ce3bd166799a6c0ddcf1351049be5b9a772d5bce436216d42b41a935f42c0", size = 673123, upload-time = "2026-08-30T19:52:13.991Z" },[m
+ ][m
+ [m
+[32m+[m[32m[[package]][m
+[32m+[m[32mname = "igraph"[m
+[32m+[m[32mversion = "1.0.0"[m
+[32m+[m[32msource = { registry = "https://pypi.org/simple" }[m
+[32m+[m[32mdependencies = [[m
+[32m+[m[32m    { name = "texttable" },[m
+[32m+[m[32m][m
+[32m+[m[32msdist = { url = "https://files.pythonhosted.org/packages/23/be/56bef1919005b4caf1f71522b300d359f7faeb7ae93a3b0baa9b4f146a87/igraph-1.0.0.tar.gz", hash = "sha256:2414d0be2e4d77ee5357807d100974b40f6082bb1bb71988ec46cfb6728651ee", size = 5077105, upload-time = "2025-10-23T12:22:50.127Z" }[m
+[32m+[m[32mwheels = [[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/a5/03/3278ad0ceb3ea0e84d8ae3a85bdded4d0e57853aeb802a200feb43847b93/igraph-1.0.0-cp39-abi3-macosx_10_15_x86_64.whl", hash = "sha256:c2cbc415e02523e5a241eecee82319080bf928a70b1ba299f3b3e25bf029b6d4", size = 2257415, upload-time = "2025-10-23T12:22:27.246Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/0d/bc/6281ec7f9baaf71ee57c3b1748da2d3148d15d253e1a03006f204aa68ca5/igraph-1.0.0-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:1a27753cd80680a8f676c2d5a467aaa4a95e510b30748398ec4e4aeb982130e8", size = 2048555, upload-time = "2025-10-23T12:22:29.49Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/2a/38/3cd6428a4ed4c09a56df05998438e7774fd1d799ee4fb8fc481674f5f7fc/igraph-1.0.0-cp39-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:a55dc3a2a4e3fc3eba42479910c1511bfc3ecb33cdf5f0406891fd85f14b5aee", size = 5314141, upload-time = "2025-10-23T12:22:31.023Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/7d/da/dd2867c25adbb41563720f14b5fc895c98bf88be682a3faff4f7b3118d2a/igraph-1.0.0-cp39-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:2d04c2c76f686fb1f554ee35dfd3085f5e73b7965ba6b4cf06d53e66b1955522", size = 5683134, upload-time = "2025-10-23T12:22:32.423Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/e5/40/243c118d34ab80382d7009c4dcb99b887384c3d2ce84d29eeac19e2a007a/igraph-1.0.0-cp39-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:f2b52dc1757fff0fed29a9f7a276d971a11db4211569ed78b9eab36288dfcc9d", size = 6211583, upload-time = "2025-10-23T12:22:34.238Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/1d/b7/88f433819c54b496cb0315fce28e658970cb20ff5dbd52a5a605ce2888de/igraph-1.0.0-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:05c79a2a8fca695b2f217a6fa7f2549f896f757d4db41be32a055400cb19cc30", size = 6594509, upload-time = "2025-10-23T12:22:35.831Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/7b/5d/8f7f6f619d374e959aa3664ebc4b24c10abc90c2e8efbed97f2623fadaf5/igraph-1.0.0-cp39-abi3-win32.whl", hash = "sha256:c2bce3cd472fec3dd9c4d8a3ea5b6b9be65fb30edf760beb4850760dd4f2d479", size = 2725406, upload-time = "2025-10-23T12:22:37.588Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/af/77/a85b3745cf40a0572bae2de8cd9c2a2a8af78e5cf3e880fc0a249114e609/igraph-1.0.0-cp39-abi3-win_amd64.whl", hash = "sha256:faeff8ede0cf15eb4ded44b0fcea6e1886740146e60504c24ad2da14e0939563", size = 3221663, upload-time = "2025-10-23T12:22:39.404Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/ef/7e/5df541c37bdf6493035e89c22bd53f30d99b291bcda6c78e9a8afeecec2b/igraph-1.0.0-cp39-abi3-win_arm64.whl", hash = "sha256:b607cafc24b10a615e713ee96e58208ef27e0764af80140c7cc45d4724a3f2df", size = 2785701, upload-time = "2025-10-23T12:22:41.03Z" },[m
+[32m+[m[32m][m
+[32m+[m
+ [[package]][m
+ name = "iniconfig"[m
+ version = "2.3.0"[m
+[36m@@ -179,6 +252,18 @@[m [mwheels = [[m
+     { url = "https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl", hash = "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12", size = 7484, upload-time = "2025-10-18T21:55:41.639Z" },[m
+ ][m
+ [m
+[32m+[m[32m[[package]][m
+[32m+[m[32mname = "jinja2"[m
+[32m+[m[32mversion = "3.1.6"[m
+[32m+[m[32msource = { registry = "https://pypi.org/simple" }[m
+[32m+[m[32mdependencies = [[m
+[32m+[m[32m    { name = "markupsafe" },[m
+[32m+[m[32m][m
+[32m+[m[32msdist = { url = "https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz", hash = "sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d", size = 245115, upload-time = "2025-03-05T20:05:02.478Z" }[m
+[32m+[m[32mwheels = [[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl", hash = "sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67", size = 134899, upload-time = "2025-03-05T20:05:00.369Z" },[m
+[32m+[m[32m][m
+[32m+[m
+ [[package]][m
+ name = "kiwisolver"[m
+ version = "1.5.1"[m
+[36m@@ -217,6 +302,36 @@[m [mwheels = [[m
+     { url = "https://files.pythonhosted.org/packages/96/7f/9f5afcf6476b228d6b170408f377a0c4f91477fc1fc91f8141088b45bf46/llvmlite-0.49.0-cp313-cp313-win_amd64.whl", hash = "sha256:a1b414dc6b164738ec39dd8987cea73829057b7dd92fc6d91b52838385fc1dd2", size = 41865544, upload-time = "2026-08-11T16:24:53.962Z" },[m
+ ][m
+ [m
+[32m+[m[32m[[package]][m
+[32m+[m[32mname = "markupsafe"[m
+[32m+[m[32mversion = "3.0.3"[m
+[32m+[m[32msource = { registry = "https://pypi.org/simple" }[m
+[32m+[m[32msdist = { url = "https://files.pythonhosted.org/packages/7e/99/7690b6d4034fffd95959cbe0c02de8deb3098cc577c67bb6a24fe5d7caa7/markupsafe-3.0.3.tar.gz", hash = "sha256:722695808f4b6457b320fdc131280796bdceb04ab50fe1795cd540799ebe1698", size = 80313, upload-time = "2025-09-27T18:37:40.426Z" }[m
+[32m+[m[32mwheels = [[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/38/2f/907b9c7bbba283e68f20259574b13d005c121a0fa4c175f9bed27c4597ff/markupsafe-3.0.3-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:e1cf1972137e83c5d4c136c43ced9ac51d0e124706ee1c8aa8532c1287fa8795", size = 11622, upload-time = "2025-09-27T18:36:41.777Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/9c/d9/5f7756922cdd676869eca1c4e3c0cd0df60ed30199ffd775e319089cb3ed/markupsafe-3.0.3-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:116bb52f642a37c115f517494ea5feb03889e04df47eeff5b130b1808ce7c219", size = 12029, upload-time = "2025-09-27T18:36:43.257Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/00/07/575a68c754943058c78f30db02ee03a64b3c638586fba6a6dd56830b30a3/markupsafe-3.0.3-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:133a43e73a802c5562be9bbcd03d090aa5a1fe899db609c29e8c8d815c5f6de6", size = 24374, upload-time = "2025-09-27T18:36:44.508Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/a9/21/9b05698b46f218fc0e118e1f8168395c65c8a2c750ae2bab54fc4bd4e0e8/markupsafe-3.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:ccfcd093f13f0f0b7fdd0f198b90053bf7b2f02a3927a30e63f3ccc9df56b676", size = 22980, upload-time = "2025-09-27T18:36:45.385Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/7f/71/544260864f893f18b6827315b988c146b559391e6e7e8f7252839b1b846a/markupsafe-3.0.3-cp313-cp313-manylinux_2_31_riscv64.manylinux_2_39_riscv64.whl", hash = "sha256:509fa21c6deb7a7a273d629cf5ec029bc209d1a51178615ddf718f5918992ab9", size = 21990, upload-time = "2025-09-27T18:36:46.916Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/c2/28/b50fc2f74d1ad761af2f5dcce7492648b983d00a65b8c0e0cb457c82ebbe/markupsafe-3.0.3-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:a4afe79fb3de0b7097d81da19090f4df4f8d3a2b3adaa8764138aac2e44f3af1", size = 23784, upload-time = "2025-09-27T18:36:47.884Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/ed/76/104b2aa106a208da8b17a2fb72e033a5a9d7073c68f7e508b94916ed47a9/markupsafe-3.0.3-cp313-cp313-musllinux_1_2_riscv64.whl", hash = "sha256:795e7751525cae078558e679d646ae45574b47ed6e7771863fcc079a6171a0fc", size = 21588, upload-time = "2025-09-27T18:36:48.82Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/b5/99/16a5eb2d140087ebd97180d95249b00a03aa87e29cc224056274f2e45fd6/markupsafe-3.0.3-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:8485f406a96febb5140bfeca44a73e3ce5116b2501ac54fe953e488fb1d03b12", size = 23041, upload-time = "2025-09-27T18:36:49.797Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/19/bc/e7140ed90c5d61d77cea142eed9f9c303f4c4806f60a1044c13e3f1471d0/markupsafe-3.0.3-cp313-cp313-win32.whl", hash = "sha256:bdd37121970bfd8be76c5fb069c7751683bdf373db1ed6c010162b2a130248ed", size = 14543, upload-time = "2025-09-27T18:36:51.584Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/05/73/c4abe620b841b6b791f2edc248f556900667a5a1cf023a6646967ae98335/markupsafe-3.0.3-cp313-cp313-win_amd64.whl", hash = "sha256:9a1abfdc021a164803f4d485104931fb8f8c1efd55bc6b748d2f5774e78b62c5", size = 15113, upload-time = "2025-09-27T18:36:52.537Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/f0/3a/fa34a0f7cfef23cf9500d68cb7c32dd64ffd58a12b09225fb03dd37d5b80/markupsafe-3.0.3-cp313-cp313-win_arm64.whl", hash = "sha256:7e68f88e5b8799aa49c85cd116c932a1ac15caaa3f5db09087854d218359e485", size = 13911, upload-time = "2025-09-27T18:36:53.513Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/e4/d7/e05cd7efe43a88a17a37b3ae96e79a19e846f3f456fe79c57ca61356ef01/markupsafe-3.0.3-cp313-cp313t-macosx_10_13_x86_64.whl", hash = "sha256:218551f6df4868a8d527e3062d0fb968682fe92054e89978594c28e642c43a73", size = 11658, upload-time = "2025-09-27T18:36:54.819Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/99/9e/e412117548182ce2148bdeacdda3bb494260c0b0184360fe0d56389b523b/markupsafe-3.0.3-cp313-cp313t-macosx_11_0_arm64.whl", hash = "sha256:3524b778fe5cfb3452a09d31e7b5adefeea8c5be1d43c4f810ba09f2ceb29d37", size = 12066, upload-time = "2025-09-27T18:36:55.714Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/bc/e6/fa0ffcda717ef64a5108eaa7b4f5ed28d56122c9a6d70ab8b72f9f715c80/markupsafe-3.0.3-cp313-cp313t-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:4e885a3d1efa2eadc93c894a21770e4bc67899e3543680313b09f139e149ab19", size = 25639, upload-time = "2025-09-27T18:36:56.908Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/96/ec/2102e881fe9d25fc16cb4b25d5f5cde50970967ffa5dddafdb771237062d/markupsafe-3.0.3-cp313-cp313t-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:8709b08f4a89aa7586de0aadc8da56180242ee0ada3999749b183aa23df95025", size = 23569, upload-time = "2025-09-27T18:36:57.913Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/4b/30/6f2fce1f1f205fc9323255b216ca8a235b15860c34b6798f810f05828e32/markupsafe-3.0.3-cp313-cp313t-manylinux_2_31_riscv64.manylinux_2_39_riscv64.whl", hash = "sha256:b8512a91625c9b3da6f127803b166b629725e68af71f8184ae7e7d54686a56d6", size = 23284, upload-time = "2025-09-27T18:36:58.833Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/58/47/4a0ccea4ab9f5dcb6f79c0236d954acb382202721e704223a8aafa38b5c8/markupsafe-3.0.3-cp313-cp313t-musllinux_1_2_aarch64.whl", hash = "sha256:9b79b7a16f7fedff2495d684f2b59b0457c3b493778c9eed31111be64d58279f", size = 24801, upload-time = "2025-09-27T18:36:59.739Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/6a/70/3780e9b72180b6fecb83a4814d84c3bf4b4ae4bf0b19c27196104149734c/markupsafe-3.0.3-cp313-cp313t-musllinux_1_2_riscv64.whl", hash = "sha256:12c63dfb4a98206f045aa9563db46507995f7ef6d83b2f68eda65c307c6829eb", size = 22769, upload-time = "2025-09-27T18:37:00.719Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/98/c5/c03c7f4125180fc215220c035beac6b9cb684bc7a067c84fc69414d315f5/markupsafe-3.0.3-cp313-cp313t-musllinux_1_2_x86_64.whl", hash = "sha256:8f71bc33915be5186016f675cd83a1e08523649b0e33efdb898db577ef5bb009", size = 23642, upload-time = "2025-09-27T18:37:01.673Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/80/d6/2d1b89f6ca4bff1036499b1e29a1d02d282259f3681540e16563f27ebc23/markupsafe-3.0.3-cp313-cp313t-win32.whl", hash = "sha256:69c0b73548bc525c8cb9a251cddf1931d1db4d2258e9599c28c07ef3580ef354", size = 14612, upload-time = "2025-09-27T18:37:02.639Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/2b/98/e48a4bfba0a0ffcf9925fe2d69240bfaa19c6f7507b8cd09c70684a53c1e/markupsafe-3.0.3-cp313-cp313t-win_amd64.whl", hash = "sha256:1b4b79e8ebf6b55351f0d91fe80f893b4743f104bff22e90697db1590e47a218", size = 15200, upload-time = "2025-09-27T18:37:03.582Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/0e/72/e3cc540f351f316e9ed0f092757459afbc595824ca724cbc5a5d4263713f/markupsafe-3.0.3-cp313-cp313t-win_arm64.whl", hash = "sha256:ad2cf8aa28b8c020ab2fc8287b0f823d0a7d8630784c31e9ee5edea20f406287", size = 13973, upload-time = "2025-09-27T18:37:04.929Z" },[m
+[32m+[m[32m][m
+[32m+[m
+ [[package]][m
+ name = "matplotlib"[m
+ version = "3.11.1"[m
+[36m@@ -275,6 +390,47 @@[m [mwheels = [[m
+     { url = "https://files.pythonhosted.org/packages/43/e3/7d92a15f894aa0c9c4b49b8ee9ac9850d6e63b03c9c32c0367a13ae62209/mpmath-1.3.0-py3-none-any.whl", hash = "sha256:a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c", size = 536198, upload-time = "2023-03-07T16:47:09.197Z" },[m
+ ][m
+ [m
+[32m+[m[32m[[package]][m
+[32m+[m[32mname = "narwhals"[m
+[32m+[m[32mversion = "2.25.0"[m
+[32m+[m[32msource = { registry = "https://pypi.org/simple" }[m
+[32m+[m[32msdist = { url = "https://files.pythonhosted.org/packages/6f/7b/6248dada39781db1ab3ebf08943080df0796098515a87f6f8696d14ec744/narwhals-2.25.0.tar.gz", hash = "sha256:62c036c810662bf7820b7737077176313bc59350eeeefb808510f388c743e4b2", size = 677076, upload-time = "2026-08-20T18:10:15.454Z" }[m
+[32m+[m[32mwheels = [[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/eb/dc/55481808fd70ef1567cf13540ffd4702af3f74b112e35427564b03f79c2d/narwhals-2.25.0-py3-none-any.whl", hash = "sha256:1f0f403e8c7e4463cde9bfe78b12fdd809e3ae3dda6d9b2f802934fb9c7a6a8f", size = 467373, upload-time = "2026-08-20T18:10:13.834Z" },[m
+[32m+[m[32m][m
+[32m+[m
+[32m+[m[32m[[package]][m
+[32m+[m[32mname = "ndlib"[m
+[32m+[m[32mversion = "5.1.1"[m
+[32m+[m[32msource = { registry = "https://pypi.org/simple" }[m
+[32m+[m[32mdependencies = [[m
+[32m+[m[32m    { name = "bokeh" },[m
+[32m+[m[32m    { name = "dynetx" },[m
+[32m+[m[32m    { name = "future" },[m
+[32m+[m[32m    { name = "netdispatch" },[m
+[32m+[m[32m    { name = "networkx" },[m
+[32m+[m[32m    { name = "numpy" },[m
+[32m+[m[32m    { name = "python-igraph" },[m
+[32m+[m[32m    { name = "scipy" },[m
+[32m+[m[32m][m
+[32m+[m[32msdist = { url = "https://files.pythonhosted.org/packages/fe/9c/7a6e116912b564d3d9c2b4071ca8ef1c1789ca2ba810249af3a10304afa3/ndlib-5.1.1.tar.gz", hash = "sha256:a8ab2ce7ae3ce2f4116476da6a7d24b34a8b64a78af167a4f7d986153b49fc3c", size = 49999, upload-time = "2021-09-27T09:18:05.129Z" }[m
+[32m+[m[32mwheels = [[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/15/dc/1d7fd0b5a0917a8f27ae2d7fa6009857991ed05a89f65b352d937439f9ab/ndlib-5.1.1-py3-none-any.whl", hash = "sha256:06623493e9e5e077759da9c16923ccf4309c61460c972f921d66164d75f474e4", size = 110245, upload-time = "2021-09-27T09:18:03.296Z" },[m
+[32m+[m[32m][m
+[32m+[m
+[32m+[m[32m[[package]][m
+[32m+[m[32mname = "netdispatch"[m
+[32m+[m[32mversion = "0.1.0"[m
+[32m+[m[32msource = { registry = "https://pypi.org/simple" }[m
+[32m+[m[32mdependencies = [[m
+[32m+[m[32m    { name = "networkx" },[m
+[32m+[m[32m    { name = "python-igraph" },[m
+[32m+[m[32m][m
+[32m+[m[32msdist = { url = "https://files.pythonhosted.org/packages/14/29/a4c28babed6b90a7288be770579f5523bbcb86771e16d156446228e0a565/netdispatch-0.1.0.tar.gz", hash = "sha256:ef3f1b5c5847253eea7962d453f15906b10e1b9432ccd715796e1fdf2e4f9c35", size = 3415, upload-time = "2021-07-01T07:55:23.771Z" }[m
+[32m+[m[32mwheels = [[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/dd/ad/eb88790662e4215174d0f49d431010c83fedff2ad102f4e93abceaf085f0/netdispatch-0.1.0-py3-none-any.whl", hash = "sha256:28d7a148665ad42e03f294267c1f007d5614ae3c90b9172f85e80ebd38414b3e", size = 3324, upload-time = "2021-07-01T07:55:22.519Z" },[m
+[32m+[m[32m][m
+[32m+[m
+ [[package]][m
+ name = "networkx"[m
+ version = "3.6.1"[m
+[36m@@ -505,6 +661,18 @@[m [mwheels = [[m
+     { url = "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427", size = 229892, upload-time = "2024-03-01T18:36:18.57Z" },[m
+ ][m
+ [m
+[32m+[m[32m[[package]][m
+[32m+[m[32mname = "python-igraph"[m
+[32m+[m[32mversion = "1.0.0"[m
+[32m+[m[32msource = { registry = "https://pypi.org/simple" }[m
+[32m+[m[32mdependencies = [[m
+[32m+[m[32m    { name = "igraph" },[m
+[32m+[m[32m][m
+[32m+[m[32msdist = { url = "https://files.pythonhosted.org/packages/2b/b6/3c1476ec6bf06348ecea1d76af6c6b3a024dddbcd2de120d3a0de1eab29b/python_igraph-1.0.0.tar.gz", hash = "sha256:6da7ac4e9f6a9cf03734798bed6fb082bb9274f2ae288f6099121f0332803018", size = 9726, upload-time = "2025-10-23T12:28:36.266Z" }[m
+[32m+[m[32mwheels = [[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/31/5f/567fa047076d32d321bdafa248905a7186d2acee4916b046b11417af10d9/python_igraph-1.0.0-py3-none-any.whl", hash = "sha256:b0bb8d91cce2a1e0550fe45f9ec925bcd04152dfb5be3fa822b9f5f36eb3f380", size = 9157, upload-time = "2025-10-23T12:28:33.515Z" },[m
+[32m+[m[32m][m
+[32m+[m
+ [[package]][m
+ name = "pythran"[m
+ version = "0.19.0"[m
+[36m@@ -521,6 +689,23 @@[m [mwheels = [[m
+     { url = "https://files.pythonhosted.org/packages/4a/dd/6930fa349be42a3ceb14732ec922fb77f2dd9979f16a5df4e0f575369703/pythran-0.19.0-py3-none-any.whl", hash = "sha256:42ab2039b4eaec01084e92a2721a474e893047ba5ec87b14d45ee077ac883d08", size = 4423658, upload-time = "2026-08-17T19:41:42.315Z" },[m
+ ][m
+ [m
+[32m+[m[32m[[package]][m
+[32m+[m[32mname = "pyyaml"[m
+[32m+[m[32mversion = "6.0.2"[m
+[32m+[m[32msource = { registry = "https://pypi.org/simple" }[m
+[32m+[m[32msdist = { url = "https://files.pythonhosted.org/packages/54/ed/79a089b6be93607fa5cdaedf301d7dfb23af5f25c398d5ead2525b063e17/pyyaml-6.0.2.tar.gz", hash = "sha256:d584d9ec91ad65861cc08d42e834324ef890a082e591037abe114850ff7bbc3e", size = 130631, upload-time = "2024-08-06T20:33:50.674Z" }[m
+[32m+[m[32mwheels = [[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/ef/e3/3af305b830494fa85d95f6d95ef7fa73f2ee1cc8ef5b495c7c3269fb835f/PyYAML-6.0.2-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:efdca5630322a10774e8e98e1af481aad470dd62c3170801852d752aa7a783ba", size = 181309, upload-time = "2024-08-06T20:32:43.4Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/45/9f/3b1c20a0b7a3200524eb0076cc027a970d320bd3a6592873c85c92a08731/PyYAML-6.0.2-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:50187695423ffe49e2deacb8cd10510bc361faac997de9efef88badc3bb9e2d1", size = 171679, upload-time = "2024-08-06T20:32:44.801Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/7c/9a/337322f27005c33bcb656c655fa78325b730324c78620e8328ae28b64d0c/PyYAML-6.0.2-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:0ffe8360bab4910ef1b9e87fb812d8bc0a308b0d0eef8c8f44e0254ab3b07133", size = 733428, upload-time = "2024-08-06T20:32:46.432Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/a3/69/864fbe19e6c18ea3cc196cbe5d392175b4cf3d5d0ac1403ec3f2d237ebb5/PyYAML-6.0.2-cp313-cp313-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:17e311b6c678207928d649faa7cb0d7b4c26a0ba73d41e99c4fff6b6c3276484", size = 763361, upload-time = "2024-08-06T20:32:51.188Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/04/24/b7721e4845c2f162d26f50521b825fb061bc0a5afcf9a386840f23ea19fa/PyYAML-6.0.2-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:70b189594dbe54f75ab3a1acec5f1e3faa7e8cf2f1e08d9b561cb41b845f69d5", size = 759523, upload-time = "2024-08-06T20:32:53.019Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/2b/b2/e3234f59ba06559c6ff63c4e10baea10e5e7df868092bf9ab40e5b9c56b6/PyYAML-6.0.2-cp313-cp313-musllinux_1_1_aarch64.whl", hash = "sha256:41e4e3953a79407c794916fa277a82531dd93aad34e29c2a514c2c0c5fe971cc", size = 726660, upload-time = "2024-08-06T20:32:54.708Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/fe/0f/25911a9f080464c59fab9027482f822b86bf0608957a5fcc6eaac85aa515/PyYAML-6.0.2-cp313-cp313-musllinux_1_1_x86_64.whl", hash = "sha256:68ccc6023a3400877818152ad9a1033e3db8625d899c72eacb5a668902e4d652", size = 751597, upload-time = "2024-08-06T20:32:56.985Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/14/0d/e2c3b43bbce3cf6bd97c840b46088a3031085179e596d4929729d8d68270/PyYAML-6.0.2-cp313-cp313-win32.whl", hash = "sha256:bc2fa7c6b47d6bc618dd7fb02ef6fdedb1090ec036abab80d4681424b84c1183", size = 140527, upload-time = "2024-08-06T20:33:03.001Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/fa/de/02b54f42487e3d3c6efb3f89428677074ca7bf43aae402517bc7cca949f3/PyYAML-6.0.2-cp313-cp313-win_amd64.whl", hash = "sha256:8388ee1976c416731879ac16da0aff3f63b286ffdd57cdeb95f3f2e085687563", size = 156446, upload-time = "2024-08-06T20:33:04.33Z" },[m
+[32m+[m[32m][m
+[32m+[m
+ [[package]][m
+ name = "ruff"[m
+ version = "0.16.6"[m
+[36m@@ -579,14 +764,16 @@[m [mwheels = [[m
+ [[package]][m
+ name = "simulation-alchemist"[m
+ version = "0.1.0"[m
+[31m-source = { virtual = "." }[m
+[32m+[m[32msource = { editable = "." }[m
+ dependencies = [[m
+     { name = "matplotlib" },[m
+     { name = "mesa" },[m
+[32m+[m[32m    { name = "ndlib" },[m
+     { name = "networkx" },[m
+     { name = "numpy" },[m
+     { name = "py-pde" },[m
+     { name = "pymunk" },[m
+[32m+[m[32m    { name = "pyyaml" },[m
+ ][m
+ [m
+ [package.dev-dependencies][m
+[36m@@ -601,10 +788,12 @@[m [mdev = [[m
+ requires-dist = [[m
+     { name = "matplotlib", specifier = "==3.11.1" },[m
+     { name = "mesa", specifier = "==3.5.1" },[m
+[32m+[m[32m    { name = "ndlib", specifier = "==5.1.1" },[m
+     { name = "networkx", specifier = "==3.6.1" },[m
+     { name = "numpy", specifier = "==2.5.2" },[m
+     { name = "py-pde", specifier = "==0.58.0" },[m
+     { name = "pymunk", specifier = "==7.3.0" },[m
+[32m+[m[32m    { name = "pyyaml", specifier = "==6.0.2" },[m
+ ][m
+ [m
+ [package.metadata.requires-dev][m
+[36m@@ -645,6 +834,32 @@[m [mwheels = [[m
+     { url = "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl", hash = "sha256:e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5", size = 6299353, upload-time = "2025-04-27T18:04:59.103Z" },[m
+ ][m
+ [m
+[32m+[m[32m[[package]][m
+[32m+[m[32mname = "texttable"[m
+[32m+[m[32mversion = "1.7.0"[m
+[32m+[m[32msource = { registry = "https://pypi.org/simple" }[m
+[32m+[m[32msdist = { url = "https://files.pythonhosted.org/packages/1c/dc/0aff23d6036a4d3bf4f1d8c8204c5c79c4437e25e0ae94ffe4bbb55ee3c2/texttable-1.7.0.tar.gz", hash = "sha256:2d2068fb55115807d3ac77a4ca68fa48803e84ebb0ee2340f858107a36522638", size = 12831, upload-time = "2023-10-03T09:48:12.272Z" }[m
+[32m+[m[32mwheels = [[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/24/99/4772b8e00a136f3e01236de33b0efda31ee7077203ba5967fcc76da94d65/texttable-1.7.0-py2.py3-none-any.whl", hash = "sha256:72227d592c82b3d7f672731ae73e4d1f88cd8e2ef5b075a7a7f01a23a3743917", size = 10768, upload-time = "2023-10-03T09:48:10.434Z" },[m
+[32m+[m[32m][m
+[32m+[m
+[32m+[m[32m[[package]][m
+[32m+[m[32mname = "tornado"[m
+[32m+[m[32mversion = "6.5.8"[m
+[32m+[m[32msource = { registry = "https://pypi.org/simple" }[m
+[32m+[m[32msdist = { url = "https://files.pythonhosted.org/packages/10/d3/343e5bb989d6515b1646cf3d40135d73f3d5e45339bded401b56cdac24dd/tornado-6.5.8.tar.gz", hash = "sha256:9452e1b208a8bd771e2cb1f2ff564985b9b214bdebbe622793e1799e0a6bd23f", size = 520493, upload-time = "2026-08-07T02:12:42.971Z" }[m
+[32m+[m[32mwheels = [[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/f2/d5/007086fd8df5489338e204f65adce33fd4f21a4999dbb2b9cff2f897b5f4/tornado-6.5.8-cp39-abi3-macosx_10_9_universal2.whl", hash = "sha256:cc6aa787d7cfab7c3d35189dc7a56fbd2399a569624c730c6b55b3d6531d0403", size = 449487, upload-time = "2026-08-07T02:12:28.682Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/70/c8/5a24a99495903f594f6a199dd7beead1cbc0a13e2cb9102727bcaaf2a997/tornado-6.5.8-cp39-abi3-macosx_10_9_x86_64.whl", hash = "sha256:9715b5eb79735b2bcd454ce216a9275b7c0470e64ea1bf5742f78b2f72b26eeb", size = 447649, upload-time = "2026-08-07T02:12:30.306Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/6e/de/f2e733f386b85962d1b1dc82cd63d169b5b4580062b35397eac9244a41fe/tornado-6.5.8-cp39-abi3-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:547d63f450d570c14fe0e8db2cfb14c9bbd1c2503b4a6612586267955aa47b58", size = 450707, upload-time = "2026-08-07T02:12:31.95Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/0b/94/20efeee9a01c141e9ac47c397f81679dfda24b32768fc4fff24e76d36c2c/tornado-6.5.8-cp39-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:7e2360a0ffbe145eca8af0b19cb7203d79b1a98dd4cccdd6b368f6f49c2e3808", size = 451677, upload-time = "2026-08-07T02:12:33.512Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/42/ec/a96ccb8ccf0de2b7bc2c5fa1608a4803735018242e90c4882365a9fd418f/tornado-6.5.8-cp39-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:5d242290bdf7ab3151bc1065fdd75c0dcc21cbc7b49f22a4c56329c2d6566d22", size = 451510, upload-time = "2026-08-07T02:12:35.346Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/29/b5/93185859245ad3f00e62175f29607346788b696369347f0146e0421286bb/tornado-6.5.8-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:7b94ff0e128fe0542f3bd331fb44d06260fc4ac16881545159f34ef08aad4195", size = 450917, upload-time = "2026-08-07T02:12:36.963Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/97/cf/fe33cf062834487d34d1559746a4a12521033c22645b6d74d4bca702e018/tornado-6.5.8-cp39-abi3-win32.whl", hash = "sha256:67832909c4779c64942380cb5f044a5c6163d00831472d80e25e115de9917836", size = 451952, upload-time = "2026-08-07T02:12:38.512Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/cb/e1/468ad54333e92ccb62627e62cb88e5fc14a2171daa67ed47b1b8542d5b86/tornado-6.5.8-cp39-abi3-win_amd64.whl", hash = "sha256:11881db6b7c168494be2c2d12e65931451bdf7ee718535418ae1d8855dd5a0ee", size = 452391, upload-time = "2026-08-07T02:12:39.971Z" },[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/ad/3e/cd5e4f06e34cde33b8ef66cf36aa2b5ad46354cc1af7d2136bbe365fee1d/tornado-6.5.8-cp39-abi3-win_arm64.whl", hash = "sha256:68a7468c7e289f8514d7d664101753903217eff1bb6822c6b5994a0b5f5bcb26", size = 451411, upload-time = "2026-08-07T02:12:41.469Z" },[m
+[32m+[m[32m][m
+[32m+[m
+ [[package]][m
+ name = "tqdm"[m
+ version = "4.70.0"[m
+[36m@@ -674,3 +889,12 @@[m [msdist = { url = "https://files.pythonhosted.org/packages/92/ff/5a28bdfd8c3ebec42[m
+ wheels = [[m
+     { url = "https://files.pythonhosted.org/packages/e5/6d/b53b99a9f2766d095985947a5782f1702cabb129a34f7a802d7197af832f/tzdata-2026.3-py2.py3-none-any.whl", hash = "sha256:dc096730c87af6cab1b171c9d532be840741ff5d459015e7f6947bd7d7e54931", size = 348168, upload-time = "2026-07-10T08:50:36.46Z" },[m
+ ][m
+[32m+[m
+[32m+[m[32m[[package]][m
+[32m+[m[32mname = "xyzservices"[m
+[32m+[m[32mversion = "2026.9.1"[m
+[32m+[m[32msource = { registry = "https://pypi.org/simple" }[m
+[32m+[m[32msdist = { url = "https://files.pythonhosted.org/packages/c4/bd/b75d5c2312caec607ec995200fa1eb8453225fd869947ec743919c279544/xyzservices-2026.9.1.tar.gz", hash = "sha256:8d1a39bf6b192940cc5db5264eeefc1b20dd184f8b83b1303b078743744f5943", size = 1134047, upload-time = "2026-09-04T10:35:41.399Z" }[m
+[32m+[m[32mwheels = [[m
+[32m+[m[32m    { url = "https://files.pythonhosted.org/packages/a8/71/9219fe65ef32bddc0b5d14e1d98dfefe9d2c9c1b1d1e93efca1f29fcbd4d/xyzservices-2026.9.1-py3-none-any.whl", hash = "sha256:af4fddac0f1fa5f7951834e2c58e10109e722be548cb1fe4f1a8e8b18cef4c09", size = 98829, upload-time = "2026-09-04T10:35:40.08Z" },[m
+[32m+[m[32m][m

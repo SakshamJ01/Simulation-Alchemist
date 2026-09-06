@@ -1,17 +1,23 @@
 # AGENTS.md
 
+> **Quick recovery:** before substantial work, read `PROJECT_STATE.md` (the
+> canonical compact snapshot of task/milestone status) and inspect the actual
+> repository state — do NOT trust previous conversation context.
+
 ## Project: Simulation Alchemist — Baseline v0.1
 
 A framework for composing multiple independent simulation systems into a
 unified simulated world. This repository currently holds **Baseline v0.1**:
 the validated chemo-mechanical prototype (Tasks 0.1–0.3) plus the Task 1.2
-scheduler, the **Task 1.3 declarative composition layer**, and the **Task 1.5
-Adaptive Network Morphogenesis experiment (Experiment C)** — the verified
-starting point for the framework. Three experiments (A: chemo-morphogenesis,
+scheduler, the **Task 1.3 declarative composition layer**, the **Task 1.5
+Adaptive Network Morphogenesis experiment (Experiment C)**, and the **Task 1.6
+generic mutation / lineage / variant-runner layer** — the verified starting
+point for the framework. Three experiments (A: chemo-morphogenesis,
 B: field-guided movers, C: adaptive network morphogenesis) execute through the
 generic `AlchemistEngine` + core `StepScheduler` against declaratively-described
 worlds; the science and scheduling live in experiment coupling modules, not in
-engine subclasses.
+engine subclasses. **Next milestone: Task 1.7 — deterministic variant sweeps +
+generic experiment ranking (not started).**
 
 ## Current Repository State (validated prototype — do not paper over)
 
@@ -55,6 +61,21 @@ closed loop:
   (`compose`/`compose_into`/`build_components`/`resolve_capabilities`),
   `engine.py` (generic `AlchemistEngine` that installs a composed world and
   dispatches it through the core scheduler).
+- **src/sim_alchemist/core/mutation.py** — Task 1.6 generic, deterministic
+  world mutation: `Mutation`/`MutationRecord`/`ParameterSpec`, immutable
+  `apply_mutation`/`apply_mutations` (deep-clone + rebuild, parent never
+  edited), `clone_world`, `range_validator`/`one_of`. Path grammar is
+  dot-separated data navigation only (no `eval`); structural fields are
+  immovable.
+- **src/sim_alchemist/core/lineage.py** — Task 1.6 SQLite-backed lineage:
+  `LineageStore` (metadata + compact metrics only, never trajectories),
+  `RunRecord`, deterministic `run_id_of` (sha256 of world content + seed).
+- **src/sim_alchemist/core/runner.py** — Task 1.6 `VariantRunner` (executor:
+  any `WorldDefinition` → `ExecOutcome`), `compare_metrics`/`compare_runs`
+  (generic per-metric `MetricDelta`), `MissingParentRunError`.
+- **experiments/network_morphogenesis/experiment.py** — Task 1.6
+  experiment-facing side: `PARAMETER_SPECS` (the three meaningful mutable
+  parameters), `build_network_metrics`, `run_network_world` executor.
 - **worlds/** — declarative YAML worlds for Experiments A, B, and C
   (`chemo_morphogenesis.yaml`, `field_guided_movers.yaml`,
   `adaptive_network.yaml`).
@@ -70,8 +91,9 @@ same checks.
 
 There is **no** capability discovery, plugin architecture, adapter registry
 beyond the in-process `default_registry()`, generalized world composition
-beyond `compose()`, or experiment database yet. Do not document or implement
-those as if they existed here.
+beyond `compose()`, experiment database, or variant **sweeps / ranking** yet
+(Task 1.6 gives singular mutations + lineage, not sweeps). Do not document or
+implement those as if they existed here.
 
 ## What Simulation Alchemist Will Become (NOT yet implemented)
 
@@ -81,7 +103,6 @@ those as if they existed here.
   factories
 - Shared world model, simulation clock, event bus (already: clock, event bus,
   world state, adapter `SimulationEngine` protocol exist in the validated core)
-- Mutation/lineage engine with SQLite persistence
 - Deterministic replay system (partially here: same-runtime replay)
 
 The next phase is extracting reusable Alchemist abstractions (clock, event bus,
@@ -99,9 +120,11 @@ Do not start building that until the extraction task is issued.
 | Network diffusion | NDlib `ContinuousModel` | `experiments/network_morphogenesis/adapter.py` |
 | Composition / orchestration | schedules + coupling loop | `chemomech/engine.py`, `experiments/field_guided_movers/model.py`, `experiments/network_morphogenesis/model.py` |
 | Task 1.3 composition core | generic core | `src/sim_alchemist/core/{world,registry,composer,engine}.py` |
+| Mutation / lineage / variant runner | generic core | `src/sim_alchemist/core/{mutation,lineage,runner}.py` |
 | Experiment coupling + worlds | YAML + closures | `chemomech/coupling.py`, `experiments/field_guided_movers/coupling.py`, `experiments/network_morphogenesis/coupling.py`, `worlds/*.yaml` |
 | Validation A–G + figures | numpy / matplotlib | `chemomech/validate.py` |
 | Stability checks S1–S6 | numpy | `run_stability.py` |
+| Experiment C mutation layer | generic core + executor | `experiments/network_morphogenesis/experiment.py`, `run_variant_demo.py` |
 
 Each experiment declares its macro-step ordering as a plain ordered tuple of
 operation names (`ChemomechanicalEngine.SCHEDULE`, `FieldGuidedMoversEngine.
@@ -125,6 +148,7 @@ The environment is managed by uv against Python 3.13:
 - `uv sync` — install the locked environment into `.venv`
 - `uv run python run_validation.py` — full Task 0.3 validation (A–G) + figures
 - `uv run python run_stability.py` — stability/boundedness checks (S1–S6)
+- `uv run python run_variant_demo.py` — Task 1.6 base/variant/lineage demo
 - `uv run pytest` — test suite wrapping the same scientific checks
 
 ## Key Development Commands

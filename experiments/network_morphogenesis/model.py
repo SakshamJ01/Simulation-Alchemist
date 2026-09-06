@@ -29,6 +29,7 @@ from sim_alchemist.adapters.pde import PyPDEAdapter
 from sim_alchemist.adapters.pymunk import PymunkAdapter
 from sim_alchemist.core.composer import build_components, compose_into
 from sim_alchemist.core.engine import AlchemistEngine
+from sim_alchemist.core.world import WorldDefinition
 
 __all__ = [
     "NETWORK_MORPHOGENESIS_SCHEDULE",
@@ -80,6 +81,22 @@ class NetworkMorphogenesisConfig:
             "source_radius": self.source_radius,
             "wall_radius": self.wall_radius, "wall_mass": self.wall_mass,
         }
+
+    @classmethod
+    def from_world(cls, world: WorldDefinition) -> NetworkMorphogenesisConfig:
+        """Reconstruct the facade-equivalent config from a world snapshot.
+
+        ``build_network_morphogenesis_world`` mirrors every config field into
+        the world's shared ``config`` dict, so this is an exact inverse for
+        world-driven (incl. mutated) execution.
+        """
+        field_names = set(cls.__dataclass_fields__)
+        kwargs: dict[str, Any] = {
+            k: v for k, v in world.config.items() if k in field_names
+        }
+        if "n_steps" not in kwargs:
+            kwargs["n_steps"] = int(world.max_steps)
+        return cls(**kwargs)
 
 
 @dataclass

@@ -1,9 +1,10 @@
 ﻿# Simulation Alchemist — Implementation Plan
 
 **Status:** BASELINE v0.1 COMPLETE — Tasks 0.1–0.3 validated, Tasks 1.2–1.3
-validated, Task 1.5 (Experiment C: Adaptive Network Morphogenesis) validated.
-Next is the plugin/adapter registry and generalized world composition layer;
-do not start Phase 1 architecture until that is issued.
+validated, Task 1.5 (Experiment C: Adaptive Network Morphogenesis) validated,
+**Task 1.6 (generic mutation + SQLite experiment lineage) COMPLETE.** Next is
+**Task 1.7 — deterministic variant sweeps + generic experiment ranking** (not
+started). Do not start that until it is issued.
 **Date:** 2026-09-05 (updated 2026-09-07)
 
 ---
@@ -43,20 +44,48 @@ do not start Phase 1 architecture until that is issued.
   `tests/test_network_morphogenesis.py` pass (capability resolution, bitwise
   determinism, closed-loop divergence from open/inert controls, sustained
   adaptive growth, boundedness, YAML/plain-compose equivalence, shared core).
+- **Task 1.6** — GENERIC MUTATION + EXPERIMENT LINEAGE: first generic
+  experiment-facing mutation/lineage capability, fully experiment-free in the
+  core. `src/sim_alchemist/core/mutation.py` (declarative `Mutation`/
+  `MutationRecord`/`ParameterSpec`, validators, immutable `apply_mutation`/
+  `apply_mutations` with deep-clone semantics, dot-path grammar restricted to
+  data, no `eval`, structural fields immovable), `lineage.py` (SQLite-backed
+  `LineageStore` storing metadata + compact metrics only — never trajectories —
+  with deterministic `run_id_of` from world hash + seed, idempotent records),
+  `runner.py` (`VariantRunner` over any executor, `compare_metrics`/
+  `compare_runs` generic per-metric `MetricDelta`). Experiment C declares its
+  three meaningful parameters (`components.network.config.loss`,
+  `config.force_fmax`, `config.source_amplitude`) in
+  `experiments/network_morphogenesis/experiment.py` plus `build_network_metrics`
+  and the `run_network_world` executor; `NetworkMorphogenesisConfig.from_world`
+  added to `model.py`. 26 A–L tests (`tests/test_mutation_lineage.py`) pass;
+  demo `run_variant_demo.py` shows a real 159-wall base run vs a loss 0.05→0.14
+  variant (growth edges 9→6, field std +0.374, wall movement +7.7) with
+  deterministic run ids and recorded lineage. Core immutability guard
+  re-baselined to the post-1.6 core (adds mutation/lineage/runner.py).
+  `pyproject.toml` fixes the packaging gaps found while closing: `ndlib==5.1.1`
+  was missing though imported at runtime; added a build-system
+  (`[tool.hatch.build.targets.wheel]`) so `uv sync` installs the project
+  itself. `uv.lock` regenerated (57 packages).
 
-Result: **Baseline v0.1 + Task 1.2–1.3–1.5** — a reproducible, uv-locked,
+Result: **Baseline v0.1 + Task 1.2–1.3–1.5–1.6** — a reproducible, uv-locked,
 pytest-wrapped, validated prototype with a generic composition core in
 `src/sim_alchemist/core/` that now drives three independent composed
-experiments (A chemo-morphogenesis, B field-guided movers, C adaptive network).
+experiments (A chemo-morphogenesis, B field-guided movers, C adaptive network)
+and one generic mutation/lineage layer over them.
 
 ### NEXT
+- **Task 1.7 — deterministic variant sweeps + generic experiment ranking**
+  (mutation spaces, Cartesian variant generation with documented ordering,
+  batch `SweepRunner`, generic metric collection + ranking, base-as-control,
+  sweep metadata into the existing lineage store). Not started.
 - Plugin/adapter registry (extensible `ComponentRegistry` with external
   adapters and capability discovery).
 - Generalized world composition beyond `compose()` (world graph, runtime
   mutation, experiment database).
 - Deterministic replay (the foundation is here; cross-platform replay needs
   careful version pinning).
-- Phase 0 remaining: CLI, SQLite persistence, mutation/lineage engine.
+- Phase 0 remaining: CLI.
 
 ### DEFERRED
 - Plugin marketplace

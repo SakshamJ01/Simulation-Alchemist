@@ -50,7 +50,7 @@ Task 2.0 complete (Diversity-preserving multi-objective discovery)
 - pyright — 0 errors
 
 ## Current task
-Task 2.0 — Diversity-preserving multi-objective discovery.
+Task 2.1 — Cross-Composition Compatibility and Discovery Design — architecture research/design in progress (PLAN-ONLY, no source changes; deliverable: TASK_2.1_DESIGN.md).
 
 ## Completed in current task
 - `behavior.py` gains the behavioral-distance primitive layer: `behavior_vector` (deterministic flat vector, None/non-finite -> 0.0, divergence excluded by default), `behavior_distance` (Euclidean, symmetric, key-aware, missing/constant/NaN-safe), `select_diverse_frontier` (greedy `qw*quality + dw*min_dist` selection, deterministic tie-break, seed = highest quality), `compute_frontier_diagnostics` / `FrontierDiagnostics` (mean/min/max pairwise distance, unique behavioral signatures, mean quality)
@@ -72,7 +72,7 @@ Task 2.0 — Diversity-preserving multi-objective discovery.
 - Parameters hand-tuned for validated runs.
 
 ## Next exact task
-Task 2.1 — (not specified; not started).
+Task 2.2 — (not specified; not started).
 
 ## Do-not-change constraints
 - Keep `src/sim_alchemist/core/*` mutation/lineage/runner/sweep/behavior/search experiment-free.

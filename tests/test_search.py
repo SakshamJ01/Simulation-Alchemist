@@ -530,4 +530,7 @@ def test_o_timing_instrumentation() -> None:
         "execution_seconds",
         "analysis_seconds",
         "mean_seconds",
+        "n_distance_calcs",
     }
+    # Quality-only (default) search performs no diversity distance calcs.
+    assert t.n_distance_calcs == 0

@@ -14,13 +14,14 @@ Adaptive Network Morphogenesis experiment (Experiment C)**, the **Task 1.6
 generic mutation / lineage / variant-runner layer**, the **Task 1.7
 generic sweep / ranking layer**, and the **Task 1.8
 behavioral-characterization / interestingness layer**, and the **Task 1.9
-guided simulation search / first discovery loop** — the verified starting
+guided simulation search / first discovery loop**, and the **Task 2.0
+diversity-preserving multi-objective discovery layer** — the verified starting
 point for the framework. Three experiments (A: chemo-morphogenesis,
 B: field-guided movers, C: adaptive network morphogenesis) execute through the
 generic `AlchemistEngine` + core `StepScheduler` against declaratively-described
 worlds; the science and scheduling live in experiment coupling modules, not in
-engine subclasses. **Next milestone: Task 2.0 (not specified, not started). Robot
-do NOT start Task 2.0 until it is issued.**
+engine subclasses. **Next milestone: Task 2.1 (not specified, not started). Robot
+do NOT start Task 2.1 until it is issued.**
 
 ## Current Repository State (validated prototype — do not paper over)
 
@@ -96,18 +97,35 @@ closed loop:
   across the population, `run_id` tie-break), `RankedRow.explanation()`,
   `BehavioralAnalysisRunner` (Task 1.6/1.7 machinery reused),
   `behavior_analysis_id_of`. Only compact feature snapshots and analysis
-  records are persisted (never trajectories).
-- **src/sim_alchemist/core/search.py** — Task 1.9 generic, deterministic
-  **guided beam search over world variants**: `SearchSpec` (frozen, validated
-  config: name, generations, beam_width, children_per_parent, mutation_space,
-  profile, seed), `child_mutations` (dimension-major, value-minor, no-op skip,
-  single-param children, truncation), `SearchRunner` (sequential beam search:
-  gen 0 = root control, each generation mutates beam via `child_mutations`,
-  runs unique children, ranks pool via `rank_by_profile`, keeps `beam_width`
-  best), `SearchCandidate` / `SearchGeneration` / `SearchResult` (full
-  in-memory outcome with `best()`, `lineage_path()`, `mutation_path()`,
-  `explain_best()`), `SearchTiming`, `search_id_of` (deterministic 24-hex id).
-  Reuses existing Task 1.6/1.7/1.8 machinery; no new simulation concept.
+  records are persisted (never trajectories). Task 2.0 adds the behavioral-
+  distance primitives for diversity-aware selection: `behavior_vector`,
+  `behavior_distance` (Euclidean, missing/non-finite -> 0.0),
+  `select_diverse_frontier`, `compute_frontier_diagnostics`,
+  `FrontierDiagnostics`.
+- **src/sim_alchemist/core/search.py** — Task 1.9 **guided beam search over
+  world variants** plus the Task 2.0 **diversity-preserving multi-objective
+  discovery layer**: `SearchSpec` (frozen, validated config: name,
+  generations, beam_width, children_per_parent, mutation_space, profile,
+  seed, optional selection_profile), `child_mutations` (dimension-major,
+  value-minor, no-op skip, single-param children, truncation), `SearchRunner`
+  (sequential beam search: gen 0 = root control, each generation mutates beam
+  via `child_mutations`, runs unique children, ranks pool via
+  `rank_by_profile`, keeps `beam_width` best — or, with a **`SelectionProfile`
+  (quality_weight, diversity_weight)**, keeps a greedy diversity-aware frontier:
+  `qw × normalized quality + dw × min normalized behavioral distance to the
+  selected frontier`; first slot = highest quality; `diversity_weight=0`
+  reproduces Task 1.9 exactly), `SearchCandidate` / `SearchGeneration` /
+  `SearchResult` (full in-memory outcome with `best()`, `lineage_path()`,
+  `mutation_path()`, `explain_best()`, `explain_selection()`,
+  `explain_frontier()`, per-generation + final `FrontierDiagnostics`,
+  selection_* score metadata), `SearchTiming` (incl. `n_distance_calcs`),
+  `search_id_of` (deterministic 24-hex id). Diversity = **behavioral, not
+  parameter-based**: distances are computed over Task 1.8 behavior vectors
+  (`behavior_vector` / `behavior_distance` / `select_diverse_frontier` /
+  `compute_frontier_diagnostics` in behavior.py; min-max normalization,
+  None/non-finite -> 0.0, constant dims -> 0.0). No GA/evolutionary/Bayesian/
+  ML/RL/clustering; deterministic and sequential. Reuses existing Task
+  1.6/1.7/1.8 machinery; no new simulation concept.
 - **src/sim_alchemist/core/lineage.py** — Task 1.6/1.7/1.8/1.9 SQLite-backed
   lineage: `LineageStore` (metadata + compact metrics only, never
   trajectories), `RunRecord`, deterministic `run_id_of` (sha256 of world

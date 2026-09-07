@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
@@ -52,9 +53,13 @@ from sim_alchemist.core.behavior import (
     BehaviorFeatures,
     BehaviorRankingResult,
     FeaturedRun,
+    FrontierDiagnostics,
     InterestingnessProfile,
     ObservableSeries,
+    behavior_vector,
+    compute_frontier_diagnostics,
     rank_by_profile,
+    select_diverse_frontier,
 )
 from sim_alchemist.core.lineage import (
     LineageStore,
@@ -80,9 +85,61 @@ __all__ = [
     "SearchRunner",
     "SearchSpec",
     "SearchTiming",
+    "SelectionProfile",
     "child_mutations",
     "search_id_of",
 ]
+
+
+@dataclass(frozen=True)
+class SelectionProfile:
+    """Configures diversity-aware beam selection.
+
+    ``quality_weight`` controls how much the selection favors interestingness
+    (the ranking score); ``diversity_weight`` controls how much it favors
+    behavioral distance from already-selected candidates.  Both must be
+    non-negative and their sum must be positive.
+
+    When ``diversity_weight == 0`` the selection is identical to quality-only
+    (Task 1.9 behavior).  When ``quality_weight == 0`` the selection is
+    pure diversity (maximize behavioral distance from the frontier).
+    """
+
+    quality_weight: float = 1.0
+    diversity_weight: float = 0.0
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.quality_weight, (int, float)):
+            raise TypeError(
+                f"quality_weight must be numeric, got {type(self.quality_weight).__name__}"
+            )
+        if not isinstance(self.diversity_weight, (int, float)):
+            raise TypeError(
+                f"diversity_weight must be numeric, got {type(self.diversity_weight).__name__}"
+            )
+        qw = float(self.quality_weight)
+        dw = float(self.diversity_weight)
+        if not math.isfinite(qw) or qw < 0.0:
+            raise ValueError(f"quality_weight must be finite and >= 0, got {qw}")
+        if not math.isfinite(dw) or dw < 0.0:
+            raise ValueError(f"diversity_weight must be finite and >= 0, got {dw}")
+        if qw + dw <= 0.0:
+            raise ValueError(
+                f"quality_weight + diversity_weight must be > 0, got {qw + dw}"
+            )
+
+    def as_dict(self) -> dict[str, float]:
+        return {
+            "quality_weight": self.quality_weight,
+            "diversity_weight": self.diversity_weight,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> SelectionProfile:
+        return cls(
+            quality_weight=float(data["quality_weight"]),
+            diversity_weight=float(data["diversity_weight"]),
+        )
 
 
 @dataclass(frozen=True)
@@ -112,6 +169,7 @@ class SearchSpec:
     mutation_space: MutationSpace
     profile: InterestingnessProfile
     seed: int = 0
+    selection_profile: SelectionProfile | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name.strip():
@@ -131,7 +189,7 @@ class SearchSpec:
             raise ValueError("a search needs a profile with at least one weight")
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "name": self.name,
             "generations": self.generations,
             "beam_width": self.beam_width,
@@ -140,9 +198,13 @@ class SearchSpec:
             "profile": self.profile.as_dict(),
             "seed": self.seed,
         }
+        if self.selection_profile is not None:
+            out["selection_profile"] = self.selection_profile.as_dict()
+        return out
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> SearchSpec:
+        sp_data = data.get("selection_profile")
         return cls(
             name=str(data["name"]),
             generations=int(data["generations"]),
@@ -151,6 +213,9 @@ class SearchSpec:
             mutation_space=MutationSpace.from_dict(data["mutation_space"]),
             profile=InterestingnessProfile.from_dict(data["profile"]),
             seed=int(data.get("seed", 0)),
+            selection_profile=(
+                None if sp_data is None else SelectionProfile.from_dict(sp_data)
+            ),
         )
 
 
@@ -174,6 +239,7 @@ class SearchTiming:
     execution_seconds: float
     analysis_seconds: float
     mean_seconds: float
+    n_distance_calcs: int = 0
 
     def as_dict(self) -> dict[str, float | int]:
         return {
@@ -184,6 +250,7 @@ class SearchTiming:
             "execution_seconds": self.execution_seconds,
             "analysis_seconds": self.analysis_seconds,
             "mean_seconds": self.mean_seconds,
+            "n_distance_calcs": self.n_distance_calcs,
         }
 
 
@@ -214,6 +281,11 @@ class SearchCandidate:
     score: float | None = None
     selection_rank: int | None = None
     final_rank: int | None = None
+    behavior_vector: dict[str, float] | None = None
+    selection_quality_score: float | None = None
+    selection_diversity_score: float | None = None
+    selection_combined_score: float | None = None
+    selection_reason: str | None = None
 
     @property
     def world_hash(self) -> str:
@@ -239,6 +311,10 @@ class SearchCandidate:
             "score": self.score,
             "selection_rank": self.selection_rank,
             "final_rank": self.final_rank,
+            "selection_quality_score": self.selection_quality_score,
+            "selection_diversity_score": self.selection_diversity_score,
+            "selection_combined_score": self.selection_combined_score,
+            "selection_reason": self.selection_reason,
         }
 
     @classmethod
@@ -264,6 +340,27 @@ class SearchCandidate:
             final_rank=(
                 None if data.get("final_rank") is None else int(data["final_rank"])
             ),
+            behavior_vector=(
+                None
+                if data.get("behavior_vector") is None
+                else {k: float(v) for k, v in data["behavior_vector"].items()}
+            ),
+            selection_quality_score=(
+                None
+                if data.get("selection_quality_score") is None
+                else float(data["selection_quality_score"])
+            ),
+            selection_diversity_score=(
+                None
+                if data.get("selection_diversity_score") is None
+                else float(data["selection_diversity_score"])
+            ),
+            selection_combined_score=(
+                None
+                if data.get("selection_combined_score") is None
+                else float(data["selection_combined_score"])
+            ),
+            selection_reason=data.get("selection_reason"),
         )
 
 
@@ -284,9 +381,10 @@ class SearchGeneration:
     selected_candidate_ids: tuple[str, ...]
     best_candidate_id: str | None
     best_score: float | None
+    diagnostics: FrontierDiagnostics | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "generation": self.generation,
             "parent_candidate_ids": list(self.parent_candidate_ids),
             "child_candidate_ids": list(self.child_candidate_ids),
@@ -294,6 +392,9 @@ class SearchGeneration:
             "best_candidate_id": self.best_candidate_id,
             "best_score": self.best_score,
         }
+        if self.diagnostics is not None:
+            out["diagnostics"] = self.diagnostics.as_dict()
+        return out
 
 
 def search_id_of(world: WorldDefinition, spec: SearchSpec) -> str:
@@ -420,6 +521,7 @@ class SearchRunner:
         visited: set[str] = set()
         n_skipped = 0
         n_generated = 0
+        n_distance_calcs = 0
         counter = 0
         baseline_obs: Mapping[str, ObservableSeries] | None = None
 
@@ -547,23 +649,91 @@ class SearchRunner:
             if pool:
                 ranking = _rank_pool(pool)
                 rows = ranking.rows
+                rows_by_run = {r.run_id: r for r in rows}
                 for cand in pool:
-                    row = next(r for r in rows if r.run_id == cand.run_id)
+                    row = rows_by_run[cand.run_id]
                     if cand.selection_rank is None:
+                        updated = replace(cand, selection_rank=row.rank)
+                        candidates_by_id[cand.candidate_id] = updated
+                        by_run_id[cand.run_id] = updated
+                beam = spec.selection_profile
+                pool_vectors = {
+                    c.candidate_id: behavior_vector(
+                        c.features or BehaviorFeatures(units={})
+                    )
+                    for c in pool
+                }
+                if beam is not None:
+                    # Diversity-aware greedy selection (Task 2.0).
+                    entries = select_diverse_frontier(
+                        candidates=[
+                            (
+                                c.run_id,
+                                rows_by_run[c.run_id].score,
+                                pool_vectors[c.candidate_id],
+                            )
+                            for c in pool
+                        ],
+                        beam_width=spec.beam_width,
+                        quality_weight=beam.quality_weight,
+                        diversity_weight=beam.diversity_weight,
+                    )
+                    for rid, quality, div_dist, combined, _min_dist, reason in entries:
+                        cand = by_run_id[rid]
                         candidates_by_id[cand.candidate_id] = replace(
-                            cand, selection_rank=row.rank
+                            cand,
+                            selection_quality_score=float(quality),
+                            selection_diversity_score=float(div_dist),
+                            selection_combined_score=float(combined),
+                            selection_reason=reason,
                         )
-                top_run_ids = [
-                    row.run_id
-                    for row in rows[: min(spec.beam_width, len(rows))]
-                ]
-                selected_candidate_ids = tuple(
-                    by_run_id[rid].candidate_id for rid in top_run_ids
-                )
+                        by_run_id[rid] = candidates_by_id[cand.candidate_id]
+                    selected_run_ids = tuple(e[0] for e in entries)
+                    n_distance_calcs += sum(
+                        k * (len(pool) - k)
+                        for k in range(1, min(spec.beam_width, len(pool)))
+                    )
+                else:
+                    # Quality-only selection (Task 1.9 semantics).
+                    selected_run_ids = tuple(
+                        row.run_id
+                        for row in rows[: min(spec.beam_width, len(rows))]
+                    )
+                    for rid in selected_run_ids:
+                        cand = by_run_id[rid]
+                        candidates_by_id[cand.candidate_id] = replace(
+                            cand,
+                            selection_quality_score=float(rows_by_run[rid].score),
+                            selection_reason="highest_quality",
+                        )
+                        by_run_id[rid] = candidates_by_id[cand.candidate_id]
                 best_row = rows[0]
                 best_id = by_run_id[best_row.run_id].candidate_id
+                best_score = best_row.score
+                selected_candidate_ids = tuple(
+                    by_run_id[rid].candidate_id for rid in selected_run_ids
+                )
+                # Collapse diagnostics over this generation's kept beam.
+                beam_cands = [
+                    candidates_by_id[cid] for cid in selected_candidate_ids
+                ]
+                beam_q = [
+                    c.selection_quality_score
+                    for c in beam_cands
+                    if c.selection_quality_score is not None
+                ]
+                beam_vec = [
+                    behavior_vector(c.features or BehaviorFeatures(units={}))
+                    for c in beam_cands
+                ]
+                if beam_q and beam_vec:
+                    diagnostics = compute_frontier_diagnostics(beam_q, beam_vec)
+                else:
+                    diagnostics = None
             else:
                 best_id = None
+                best_score = None
+                diagnostics = None
             generations.append(
                 SearchGeneration(
                     generation=gen,
@@ -571,7 +741,8 @@ class SearchRunner:
                     child_candidate_ids=tuple(child_candidate_ids),
                     selected_candidate_ids=selected_candidate_ids,
                     best_candidate_id=best_id,
-                    best_score=None if best_id is None else best_row.score,
+                    best_score=best_score,
+                    diagnostics=diagnostics,
                 )
             )
 
@@ -584,13 +755,35 @@ class SearchRunner:
         )
         final_ranking = _rank_pool(all_candidates)
         for row in final_ranking.rows:
-            cand = by_run_id[row.run_id]
+            cand = next(c for c in all_candidates if c.run_id == row.run_id)
             candidates_by_id[cand.candidate_id] = replace(
-                cand, score=row.score, final_rank=row.rank
+                candidates_by_id[cand.candidate_id],
+                score=row.score,
+                final_rank=row.rank,
             )
         ranked_candidates = tuple(
             candidates_by_id[cid] for cid in candidate_order
         )
+
+        # Collapse diagnostics over the final kept beam (the last selected
+        # set), using final scores.
+        final_beam_ids = generations[-1].selected_candidate_ids
+        final_beam_cands = [
+            candidates_by_id[cid] for cid in final_beam_ids
+        ]
+        final_beam_q = [
+            c.score for c in final_beam_cands if c.score is not None
+        ]
+        final_beam_vec = [
+            behavior_vector(c.features or BehaviorFeatures(units={}))
+            for c in final_beam_cands
+        ]
+        if final_beam_q and final_beam_vec:
+            frontier_diagnostics = compute_frontier_diagnostics(
+                final_beam_q, final_beam_vec
+            )
+        else:
+            frontier_diagnostics = None
 
         timing = SearchTiming(
             n_generated=n_generated,
@@ -600,6 +793,7 @@ class SearchRunner:
             execution_seconds=execution_seconds,
             analysis_seconds=max(0.0, total_seconds - execution_seconds),
             mean_seconds=execution_seconds / max(1, len(candidate_order)),
+            n_distance_calcs=n_distance_calcs,
         )
 
         result = SearchResult(
@@ -611,6 +805,7 @@ class SearchRunner:
             generations=tuple(generations),
             final_ranking=final_ranking,
             timing=timing,
+            frontier_diagnostics=frontier_diagnostics,
         )
         self._store.record_search(
             SearchRecord.from_result(result, created_at=None)
@@ -636,6 +831,7 @@ class SearchResult:
     generations: tuple[SearchGeneration, ...]
     final_ranking: BehaviorRankingResult
     timing: SearchTiming
+    frontier_diagnostics: FrontierDiagnostics | None = None
 
     def candidate(self, candidate_id: str) -> SearchCandidate | None:
         return next(
@@ -686,6 +882,75 @@ class SearchResult:
         ) if self.best() is not None else None
         return row.explanation(top=top) if row is not None else []
 
+    def explain_selection(self, candidate_id: str) -> list[str]:
+        """Explain why a candidate was kept in the beam.
+
+        Reports the measured values that drove selection: the pool (ranking)
+        quality score, the minimum normalized behavioral distance to any
+        already-kept candidate, the combined diversity-aware selection score,
+        and the selection reason ("highest_quality" for the frontier seed,
+        "diversity_balanced" for later slots).  Everything comes from measured
+        values -- no invented numbers.
+        """
+        cand = self.candidate(candidate_id)
+        if cand is None:
+            return []
+        sp = self.spec.selection_profile
+        q = cand.selection_quality_score
+        d = cand.selection_diversity_score
+        combined = cand.selection_combined_score
+        reason = cand.selection_reason or "highest_quality"
+        lines: list[str] = [
+            (
+                f"candidate {cand.candidate_id} ({cand.kind}, generation "
+                f"{cand.generation})"
+            ),
+            f"  selection reason: {reason}",
+        ]
+        if sp is not None:
+            lines.append(
+                f"  selection profile: quality_weight={sp.quality_weight:g}, "
+                f"diversity_weight={sp.diversity_weight:g}"
+            )
+        lines.append(
+            f"  quality score (creation-pool ranking): "
+            f"{q:.4g}" if q is not None else "  quality score: undefined"
+        )
+        if d is not None:
+            lines.append(
+                "  min behavioral distance to kept frontier: "
+                f"{d:.4g} (normalized-vector Euclidean)"
+            )
+        if combined is not None:
+            lines.append(
+                f"  combined selection score: {combined:.4g}"
+            )
+        return lines
+
+    def explain_frontier(self) -> list[str]:
+        """Human-readable collapse diagnostics for the final kept beam."""
+        d = self.frontier_diagnostics
+        if d is None:
+            return []
+        lines = [
+            "FRONTIER COLLAPSE DIAGNOSTICS (final kept beam)",
+            f"  candidates in final beam: {d.n_candidates}",
+            f"  unique behavioral signatures: {d.n_unique_signatures}",
+            f"  mean quality score: {d.mean_quality:.4g}",
+            (
+                f"  pairwise distance  mean {d.mean_pairwise_distance:.4g} / "
+                f"min {d.min_pairwise_distance:.4g} / "
+                f"max {d.max_pairwise_distance:.4g} (normalized vectors)"
+            ),
+            (
+                "  -> evidence of behavioral collapse: no spread among the kept "
+                "candidates"
+                if d.n_unique_signatures <= 1
+                else "  -> behaviorally diverse frontier retained"
+            ),
+        ]
+        return lines
+
     def as_dict(self, *, canonical: bool = False) -> dict[str, Any]:
         """Compact description of the whole search.
 
@@ -702,6 +967,11 @@ class SearchResult:
             "candidates": [c.as_dict() for c in self.candidates],
             "generations": [g.as_dict() for g in self.generations],
             "final_ranking": self.final_ranking.as_dict(),
+            "frontier_diagnostics": (
+                self.frontier_diagnostics.as_dict()
+                if self.frontier_diagnostics is not None
+                else None
+            ),
         }
         if not canonical:
             data["timing"] = self.timing.as_dict()

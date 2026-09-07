@@ -63,11 +63,16 @@ __all__ = [
     "BehavioralAnalysisRunner",
     "Contribution",
     "FeaturedRun",
+    "FrontierDiagnostics",
     "InterestingnessProfile",
     "ObservableSeries",
     "RankedRow",
     "UnitFeatures",
+    "behavior_distance",
+    "behavior_vector",
+    "compute_frontier_diagnostics",
     "rank_by_profile",
+    "select_diverse_frontier",
 ]
 
 _EPS = 1e-12
@@ -1099,3 +1104,322 @@ class BehaviorAnalysisResult:
             "ranking": self.ranking.as_dict(),
             "timing": self.timing.as_dict(),
         }
+
+
+# ---------------------------------------------------------------------------
+# Behavioral distance for diversity-aware search (Task 2.0)
+# ---------------------------------------------------------------------------
+def behavior_vector(
+    features: BehaviorFeatures,
+    keys: Sequence[str] | None = None,
+) -> dict[str, float]:
+    """Extract a flat numeric vector from behavioral features.
+
+    Returns ``{"observable:feature": value}`` for all requested keys.
+    ``None`` (undefined) values are mapped to ``0.0`` so that Euclidean
+    distance is well-defined.  ``keys`` defaults to all non-divergence
+    features (temporal, trend, oscillation, stability) — divergence
+    features are excluded by default because they are ``None`` for the
+    baseline and would bias the distance toward 0.
+
+    The returned dict is sorted by key for determinism.
+    """
+    flat = features.flatten()
+    if keys is None:
+        keys = sorted(
+            k
+            for k in flat
+            if not k.endswith((":final_delta", ":rmsd", ":correlation",
+                               ":normalized_divergence"))
+        )
+    out: dict[str, float] = {}
+    for k in sorted(keys):
+        value = flat.get(k)
+        if value is None or not math.isfinite(value):
+            out[k] = 0.0
+        else:
+            out[k] = float(value)
+    return out
+
+
+def behavior_distance(
+    features_a: BehaviorFeatures,
+    features_b: BehaviorFeatures,
+    keys: Sequence[str] | None = None,
+    *,
+    vector_a: dict[str, float] | None = None,
+    vector_b: dict[str, float] | None = None,
+) -> float:
+    """Euclidean distance between two runs' behavioral feature vectors.
+
+    Both vectors are aligned on the same key set (union of both feature
+    vectors, or the explicit ``keys`` set); missing keys contribute 0.0.
+    The distance is computed over *raw* (non-normalized) values; callers
+    should normalize first if features have heterogeneous scales.
+
+    ``None`` values are treated as 0.0 (undefined features contribute zero
+    distance — they cannot distinguish two runs).
+
+    Optional pre-computed ``vector_a`` / ``vector_b`` avoid redundant
+    ``behavior_vector`` calls; if provided, ``keys`` is ignored for that
+    side.
+    """
+    if vector_a is None:
+        vector_a = behavior_vector(features_a, keys)
+    if vector_b is None:
+        vector_b = behavior_vector(features_b, keys)
+    if keys is not None:
+        key_set = set(keys)
+        vector_a = {k: v for k, v in vector_a.items() if k in key_set}
+        vector_b = {k: v for k, v in vector_b.items() if k in key_set}
+    all_keys = sorted(set(vector_a) | set(vector_b))
+    ssq = 0.0
+    for k in all_keys:
+        va = vector_a.get(k, 0.0)
+        vb = vector_b.get(k, 0.0)
+        if not math.isfinite(va):
+            va = 0.0
+        if not math.isfinite(vb):
+            vb = 0.0
+        diff = va - vb
+        ssq += diff * diff
+    return math.sqrt(ssq)
+
+
+def _normalize_vectors(
+    vectors: Sequence[dict[str, float]],
+) -> list[dict[str, float]]:
+    """Min-max normalization per key across a set of vectors.
+
+    Constant (zero-range) keys are normalized to 0.0 for every vector.
+    Keys missing from all vectors are dropped.
+    """
+    if not vectors:
+        return []
+    all_keys = sorted({k for v in vectors for k in v})
+    key_mins: dict[str, float] = {}
+    key_maxs: dict[str, float] = {}
+    for k in all_keys:
+        vals = [v[k] for v in vectors if k in v]
+        key_mins[k] = min(vals)
+        key_maxs[k] = max(vals)
+    out: list[dict[str, float]] = []
+    for v in vectors:
+        norm: dict[str, float] = {}
+        for k in all_keys:
+            if k not in v:
+                norm[k] = 0.0
+                continue
+            lo, hi = key_mins[k], key_maxs[k]
+            if hi - lo <= _EPS:
+                norm[k] = 0.0
+            else:
+                norm[k] = (v[k] - lo) / (hi - lo)
+        out.append(norm)
+    return out
+
+
+def select_diverse_frontier(
+    candidates: Sequence[tuple[str, float, dict[str, float]]],
+    beam_width: int,
+    quality_weight: float,
+    diversity_weight: float,
+    *,
+    run_id_key: str | None = None,
+) -> list[tuple[str, float, float, float, float, str]]:
+    """Greedy diversity-aware beam selection.
+
+    ``candidates`` is a sequence of ``(run_id, quality_score, behavior_vector)``
+    tuples, sorted by quality_score descending (highest first).
+
+    Returns a list of ``(run_id, quality_score, diversity_score,
+    combined_score, min_distance, selection_reason)`` for the selected
+    beam (up to ``beam_width`` candidates).
+
+    Algorithm:
+
+    1. First candidate is always the highest-quality candidate.
+    2. For each subsequent slot, for each unselected candidate, compute:
+       ``combined = qw * quality_norm + dw * min_dist_to_selected``
+       where ``min_dist_to_selected`` is the minimum Euclidean distance
+       (over normalized behavior vectors) to any already-selected
+       candidate.
+    3. Break ties by quality_score descending, then run_id ascending.
+    4. ``selection_reason`` is ``"highest_quality"`` for the first slot,
+       ``"diversity_balanced"`` for subsequent slots.
+
+    Both ``quality_weight`` and ``quality_score`` are expected to be
+    non-negative; ``quality_weight + diversity_weight`` must be > 0.
+    """
+    qw = float(quality_weight)
+    dw = float(diversity_weight)
+    if not math.isfinite(qw) or qw < 0.0:
+        raise ValueError(f"quality_weight must be finite and >= 0, got {quality_weight}")
+    if not math.isfinite(dw) or dw < 0.0:
+        raise ValueError(f"diversity_weight must be finite and >= 0, got {diversity_weight}")
+    if qw + dw <= 0.0:
+        raise ValueError(
+            f"quality_weight + diversity_weight must be > 0, got {qw + dw}"
+        )
+
+    if beam_width <= 0 or not candidates:
+        return []
+    beam_width = min(beam_width, len(candidates))
+    if beam_width == 0:
+        return []
+
+    run_ids = [c[0] for c in candidates]
+    quality_scores = [c[1] for c in candidates]
+    raw_vectors = [c[2] for c in candidates]
+
+    # Normalize quality scores to [0, 1].
+    q_vals = quality_scores
+    q_lo, q_hi = min(q_vals), max(q_vals)
+    if q_hi - q_lo <= _EPS:
+        q_norm = [0.0] * len(q_vals)
+    else:
+        q_norm = [(q - q_lo) / (q_hi - q_lo) for q in q_vals]
+
+    # Normalize behavior vectors to [0, 1] per dimension.
+    norm_vectors = _normalize_vectors(raw_vectors)
+
+    selected_indices: list[int] = []
+    remaining = set(range(len(candidates)))
+    results: list[tuple[str, float, float, float, float, str]] = []
+
+    for slot in range(beam_width):
+        if not remaining:
+            break
+
+        best_score = -1.0
+        best_quality = -1.0
+        best_rid = ""
+        best_idx = -1
+        best_min_dist = 0.0
+        best_reason = ""
+
+        for idx in remaining:
+            q = quality_scores[idx]
+            qn = q_norm[idx]
+
+            if not selected_indices:
+                combined = qn
+                min_dist = 0.0
+                reason = "highest_quality"
+            else:
+                # Compute min distance to any selected candidate.
+                min_dist = min(
+                    behavior_distance(
+                        BehaviorFeatures(units={}),
+                        BehaviorFeatures(units={}),
+                        vector_a=norm_vectors[idx],
+                        vector_b=norm_vectors[sel],
+                    )
+                    for sel in selected_indices
+                )
+                combined = quality_weight * qn + diversity_weight * min_dist
+                reason = "diversity_balanced"
+
+            # Tie-break: combined desc, quality desc, run_id asc.
+            rid = run_ids[idx]
+            if (
+                combined > best_score
+                or (combined == best_score
+                    and (q > best_quality
+                         or (q == best_quality and rid < best_rid)))
+            ):
+                best_score = combined
+                best_quality = q
+                best_rid = rid
+                best_idx = idx
+                best_min_dist = min_dist
+                best_reason = reason
+
+        if best_idx >= 0:
+            selected_indices.append(best_idx)
+            remaining.discard(best_idx)
+            results.append((
+                run_ids[best_idx],
+                quality_scores[best_idx],
+                best_min_dist,
+                best_score,
+                best_min_dist,
+                best_reason,
+            ))
+
+    return results
+
+
+@dataclass(frozen=True)
+class FrontierDiagnostics:
+    """Diagnostics for the behavioral diversity of a selected frontier.
+
+    All distances are over *normalized* behavioral feature vectors
+    (min-max per dimension across the frontier population).  Constant
+    dimensions contribute 0.0 distance.  ``n_unique_signatures`` counts
+    distinct behavioral feature vectors (after rounding to 12 decimal
+    places to avoid floating-point artifacts).
+    """
+
+    mean_pairwise_distance: float
+    min_pairwise_distance: float
+    max_pairwise_distance: float
+    n_candidates: int
+    n_unique_signatures: int
+    mean_quality: float
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "mean_pairwise_distance": self.mean_pairwise_distance,
+            "min_pairwise_distance": self.min_pairwise_distance,
+            "max_pairwise_distance": self.max_pairwise_distance,
+            "n_candidates": self.n_candidates,
+            "n_unique_signatures": self.n_unique_signatures,
+            "mean_quality": self.mean_quality,
+        }
+
+
+def compute_frontier_diagnostics(
+    quality_scores: Sequence[float],
+    behavior_vectors: Sequence[dict[str, float]],
+) -> FrontierDiagnostics:
+    """Compute behavioral diversity diagnostics for a set of candidates.
+
+    ``quality_scores`` and ``behavior_vectors`` must be aligned sequences
+    of the same length.  If ``n_candidates < 2``, pairwise distances are
+    reported as ``0.0`` (no pairs exist).
+    """
+    n = len(quality_scores)
+    if n == 0:
+        return FrontierDiagnostics(0.0, 0.0, 0.0, 0, 0, 0.0)
+    mean_q = sum(quality_scores) / n
+
+    if n < 2:
+        return FrontierDiagnostics(0.0, 0.0, 0.0, n, n, mean_q)
+
+    norm = _normalize_vectors(list(behavior_vectors))
+    distances: list[float] = []
+    for i in range(n):
+        for j in range(i + 1, n):
+            d = behavior_distance(
+                BehaviorFeatures(units={}),
+                BehaviorFeatures(units={}),
+                vector_a=norm[i],
+                vector_b=norm[j],
+            )
+            distances.append(d)
+
+    # Unique signatures: round each value to 12 decimals for float comparison.
+    sigs: set[tuple[tuple[str, float], ...]] = set()
+    for vec in behavior_vectors:
+        sig = tuple((k, round(float(v), 12)) for k, v in sorted(vec.items()))
+        sigs.add(sig)
+
+    return FrontierDiagnostics(
+        mean_pairwise_distance=sum(distances) / len(distances),
+        min_pairwise_distance=min(distances),
+        max_pairwise_distance=max(distances),
+        n_candidates=n,
+        n_unique_signatures=len(sigs),
+        mean_quality=mean_q,
+    )

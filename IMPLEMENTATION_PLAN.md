@@ -5,8 +5,9 @@ validated, Task 1.5 (Experiment C: Adaptive Network Morphogenesis) validated,
 **Task 1.6 (generic mutation + SQLite experiment lineage) COMPLETE**, **Task 1.7
 (deterministic variant sweeps + generic experiment ranking) COMPLETE**, **Task 1.8
 (behavioral characterization + generic interestingness engine) COMPLETE**,
-**Task 1.9 (guided simulation search — first discovery loop) COMPLETE.** Next is
-**Task 2.0** (not yet specified, not started). Do not start it until it is issued.
+**Task 1.9 (guided simulation search — first discovery loop) COMPLETE**,
+**Task 2.0 (diversity-preserving multi-objective discovery) COMPLETE.** Next is
+**Task 2.1** (not yet specified, not started). Do not start it until it is issued.
 **Date:** 2026-09-05 (updated 2026-09-07)
 
 ---
@@ -141,19 +142,66 @@ validated, Task 1.5 (Experiment C: Adaptive Network Morphogenesis) validated,
   loss[0.05,0.08,0.11,0.14] × force_fmax[0.4,0.8], gen 3, beam 2,
   children 3 → 5 unique worlds, root control scored best (0.6); figure
   `figures/search_beam_scores.png`. Determinism confirmed (bitwise identical
-  canonical output across runs). Guard re-baselined to post-1.9 core
-  (adds search.py); no prior test weakened. See `TASK_1.9_REPORT.md`.
+   canonical output across runs). Guard re-baselined to post-1.9 core
+   (adds search.py); no prior test weakened. See `TASK_1.9_REPORT.md`.
+- **Task 2.0** — DIVERSITY-PRESERVING MULTI-OBJECTIVE DISCOVERY: extends the
+  Task 1.9 beam search so the guide preserves multiple behaviorally distinct
+  simulations instead of selecting purely by quality, remaining deterministic,
+  explainable, sequential and experiment-free in the core — **no
+  GA/evolutionary, Bayesian, RL, ML, embeddings/clustering, or scikit-learn
+  (by task constraint; stdlib `math` and numpy only)**. Diversity is
+  **behavioral, not parameter-based**: distance is computed over Task 1.8
+  behavioral features. `src/sim_alchemist/core/behavior.py` gains the
+  distance primitive layer — `behavior_vector` (deterministic flat vector,
+  None/non-finite -> 0.0, divergence excluded by default, sorted keys),
+  `behavior_distance` (Euclidean, symmetric, key-aware, missing/constant/NaN
+  safe), `select_diverse_frontier` (greedy `quality_weight × normalized
+  quality + diversity_weight × min normalized Euclidean distance to the kept
+  frontier`; first slot = highest quality; deterministic tie-break quality
+  desc then run_id asc; validates weights finite, non-negative, positive sum)
+  and `compute_frontier_diagnostics` / `FrontierDiagnostics` (mean/min/max
+  pairwise distance, unique behavioral signatures, mean quality).
+  `src/sim_alchemist/core/search.py` gains `SelectionProfile
+  (quality_weight=1.0, diversity_weight=0.0)` (frozen, validated) and extends
+  `SearchSpec`/`SearchCandidate`/`SearchGeneration`/`SearchTiming`/
+  `SearchResult` with diversity metadata — `selection_quality_score`,
+  `selection_diversity_score` (min Euclidean dist to kept frontier),
+  `selection_combined_score`, `selection_reason` (only `selection_*` fields
+  and the spec `selection_profile` are persisted; the in-memory
+  `behavior_vector` is excluded from `as_dict`), per-generation
+  `FrontierDiagnostics`, final `frontier_diagnostics`, and a new
+  `SearchTiming.n_distance_calcs` (diversity-greedy distance evaluations
+  only; quality-only searches report 0). `SearchRunner.search` is
+  diversity-aware yet **`SelectionProfile(diversity_weight=0)` reproduces
+  Task 1.9 beam behaviour bitwise** (unit-proven). Also fixes a stale
+  `by_run_id` lookup in the final ranking and adds `explain_selection()`/
+  `explain_frontier()`. **Normalization**: explicit per-feature min-max over
+  the candidate pool; constant dimensions -> 0.0; missing keys -> 0.0;
+  non-finite (NaN/inf) -> 0.0. 21 tests (`tests/test_diversity.py`,
+  checks A–L / A–F profile / A–C [ia/ib/ic] Experiment C integration); CLI
+  `run_search.py` adds `--quality-weight`/`--diversity-weight` and
+  `--compare`/`--compare-figure` (2-panel figure). Real Experiment C
+  comparison at identical budget (loss[0.05,0.08,0.11,0.14] ×
+  force_fmax[0.4,0.8], gen 3, beam 4, children 3) with weights 0.2/0.8: 5
+  unique worlds each, 3/4 beam overlap; diversity-aware retained a
+  low-quality but behaviorally distant 4th signature (mean quality 0.416 vs
+  0.4204 quality-only) while raising frontier spread —
+  `figures/search_diversity_beam.png`, `figures/frontier_diversity_compare.png`,
+  `figures/frontier_diversity_compare_wide.png`. Guard re-baselined to
+  post-2.0 core (search.py, behavior.py, __init__.py); no prior test
+  weakened. See `TASK_2.0_REPORT.md`.
 
-Result: **Baseline v0.1 + Task 1.2–1.3–1.5–1.6–1.7–1.8–1.9** — a reproducible, uv-locked,
+Result: **Baseline v0.1 + Task 1.2–1.3–1.5–1.6–1.7–1.8–1.9–2.0** — a reproducible, uv-locked,
 pytest-wrapped, validated prototype with a generic composition core in
 `src/sim_alchemist/core/` that now drives three independent composed
 experiments (A chemo-morphogenesis, B field-guided movers, C adaptive network)
-and four generic layers over them: mutation/lineage/runner, deterministic
-sweeps + ranking, behavioral characterization + interestingness ranking, and
-guided beam search over world variants.
+and five generic layers over them: mutation/lineage/runner, deterministic
+sweeps + ranking, behavioral characterization + interestingness ranking,
+guided beam search over world variants, and diversity-preserving
+multi-objective discovery over that search.
 
 ### NEXT
-- **Task 2.0** (not yet specified; not started).
+- **Task 2.1** (not yet specified; not started).
 - Plugin/adapter registry (extensible `ComponentRegistry` with external
   adapters and capability discovery).
 - Generalized world composition beyond `compose()` (world graph, runtime

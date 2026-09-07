@@ -169,20 +169,26 @@ def test_deterministic_replay_bitwise() -> None:
 # Task 1.6 sanctioned extension: the guard is RE-PINNED again to cover the
 # new generic mutation/lineage/runner modules (mutation.py, lineage.py,
 # runner.py) and the updated __init__.py that re-exports them.
+#
+# Task 1.7 sanctioned extension: the guard is RE-PINNED for the generic
+# deterministic variant-sweep layer.  lineage.py now also persists compact
+# sweep metadata (idempotent sweeps table), sweep.py is the new core sweep /
+# ranking module, and __init__.py re-exports the added API.
 # ----------------------------------------------------------------------
 CORE_COMMIT_HASHES = {
-    "__init__.py": "2B737ECB71E5DC25C86B680A8F1C7DC92A12D2F6D68149532D21D38C91C99224",
+    "__init__.py": "C44A2916B2246A87BC472586B955A1A47178518521BF2C704143F54BD696EAFB",
     "capabilities.py": "F13D4430E3B34B2364C895F18422984DC6D4388C91BE49C00B653EBE2D3F9188",
     "clock.py": "D49F5202F9F2C9E0A18A30A9A5BC59B676DF5E967B9D5518D0CB590C01714394",
     "composer.py": "E1B9A242A5A7002C520F6B8D6F2D9F3E36B29484CB00D309B9105422DC8830B4",
     "engine.py": "6260F90E45DD1D6E54FE677F6BB9DDA42F06A99E7B8E406A821C8E95E6A475E3",
     "events.py": "EF1DDF2206E21DC05CE835CFBC1A9CD0B089EEF861E58C3D50D7D54723005903",
-    "lineage.py": "9CC2A17F36E6AD775402275EE79FDC05E00FC0721871ADED8C015B8A090A6045",
+    "lineage.py": "56ECB4D903B9F8B60088F9A96961DE1D6B0A8CBC9BF7726B5501988DD51B6DDC",
     "mutation.py": "7FCDCD4EFC6B575E203282955D8320222B5F37631A709F5A2637A82A9F94ED77",
     "registry.py": "CA14083FC66FDDCA1DCB59D30B643920299E86A65CBB84E746537D68CAF626D1",
     "runner.py": "7BE10256EDD565AB65B982614CB9BEC9728D46DE1D9E2376D356CC3079322803",
     "scheduler.py": "B9BD0E78E3874B80B492466E7D323661A7556C0E23139B6FDB8A0D56AF5BCA65",
     "state.py": "ADB33ADEDC4749288451D0648CE465476DA1C8877D5EDA798034F023B3CD8158",
+    "sweep.py": "1F2787D42A2EE56E0A79F872612E09882A5F105C188495BE3DAB22CCAB1E5AF7",
     "world.py": "253555421BF9D7737E465FDCFA85C7586F8E721BEA170D9834609558CE511175",
 }
 
@@ -193,7 +199,7 @@ def test_core_file_unchanged(filename) -> None:
     assert path.is_file(), f"core file {filename} missing"
     h = hashlib.sha256(path.read_bytes()).hexdigest().upper()
     assert h == CORE_COMMIT_HASHES[filename], (
-        f"src/sim_alchemist/core/{filename} was modified! Task 1.6 must not change the core."
+        f"src/sim_alchemist/core/{filename} was modified! Task 1.7 must not change the core."
     )
 
 

@@ -2,9 +2,10 @@
 
 **Status:** BASELINE v0.1 COMPLETE — Tasks 0.1–0.3 validated, Tasks 1.2–1.3
 validated, Task 1.5 (Experiment C: Adaptive Network Morphogenesis) validated,
-**Task 1.6 (generic mutation + SQLite experiment lineage) COMPLETE.** Next is
-**Task 1.7 — deterministic variant sweeps + generic experiment ranking** (not
-started). Do not start that until it is issued.
+**Task 1.6 (generic mutation + SQLite experiment lineage) COMPLETE**, **Task 1.7
+(deterministic variant sweeps + generic experiment ranking) COMPLETE.** Next is
+**Task 1.8** (sweep-driven automation / experiment-database queries — not yet
+specified, not started). Do not start it until it is issued.
 **Date:** 2026-09-05 (updated 2026-09-07)
 
 ---
@@ -67,18 +68,40 @@ started). Do not start that until it is issued.
   was missing though imported at runtime; added a build-system
   (`[tool.hatch.build.targets.wheel]`) so `uv sync` installs the project
   itself. `uv.lock` regenerated (57 packages).
+- **Task 1.7** — DETERMINISTIC VARIANT SWEEPS + GENERIC RANKING: turns Task 1.6's
+  singular mutations into the generic batch layer, fully experiment-free in the
+  core. `src/sim_alchemist/core/sweep.py` (`ParameterSweep`+`MutationSpace`
+  Cartesian products with **documented `itertools.product` ordering** — right-most
+  dimension fastest, unit-tested verbatim; deterministic `sweep_id_of` from
+  world hash + canonical space; `SweepRunner` with a two-phase `sweep()`
+  — (1) generate + validate the **entire** space against `parameter_specs`
+  before any simulation, dropping+counting no-ops identical to the baseline,
+  (2) run the **baseline control first** then every variant sequentially,
+  recording each into the lineage store; `SweepTiming` planned/skipped/executed
+  + total/mean seconds; `rank_results`/`RankingEntry` — pick a metric by name,
+  choose direction, deterministic tie-break by run id ascending, raw values
+  only). `lineage.py` extended with an idempotent `sweeps` table +
+  `SweepRecord` (metadata only, never trajectories; run metrics stay in the
+  existing `runs` table). 18 A–Q tests (`tests/test_sweep_ranking.py`); CLI
+  `run_sweep.py` (`--dim path:v1,v2,...` repeatable, `--rank-by`, `--ascending`,
+  `--db`). Real Experiment C sweep: loss[0.05,0.08,0.11,0.14] ×
+  force_fmax[0.4,0.8] → 8 planned, 7 executed, 1 no-op skipped; ranking by
+  field_entropy puts the loss=0.14 variants on top. Cross-layer determinism:
+  the 10-step base run id `08c74954f42c86066b118244` and loss=0.14 variant
+  `f3faa9c9d8d344b46271a393` reproduce Task 1.6's run ids exactly. Guard
+  re-baselined to the post-1.7 core (adds sweep.py); no prior test weakened.
 
-Result: **Baseline v0.1 + Task 1.2–1.3–1.5–1.6** — a reproducible, uv-locked,
+Result: **Baseline v0.1 + Task 1.2–1.3–1.5–1.6–1.7** — a reproducible, uv-locked,
 pytest-wrapped, validated prototype with a generic composition core in
 `src/sim_alchemist/core/` that now drives three independent composed
 experiments (A chemo-morphogenesis, B field-guided movers, C adaptive network)
-and one generic mutation/lineage layer over them.
+and two generic layers over them: mutation/lineage/runner and
+deterministic sweeps + ranking.
 
 ### NEXT
-- **Task 1.7 — deterministic variant sweeps + generic experiment ranking**
-  (mutation spaces, Cartesian variant generation with documented ordering,
-  batch `SweepRunner`, generic metric collection + ranking, base-as-control,
-  sweep metadata into the existing lineage store). Not started.
+- **Task 1.8 — sweep-driven automation + experiment-database queries**
+  (automated `run <world> --variants` over the Task 1.7 sweep layer,
+  queries over the `sweeps`/`runs` lineage). Not started.
 - Plugin/adapter registry (extensible `ComponentRegistry` with external
   adapters and capability discovery).
 - Generalized world composition beyond `compose()` (world graph, runtime

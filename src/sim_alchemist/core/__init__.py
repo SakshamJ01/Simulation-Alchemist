@@ -13,7 +13,7 @@ from .composer import (
 )
 from .engine import AlchemistEngine, CapabilityResolver, CompositionResult
 from .events import Event, EventBus, EventType
-from .lineage import LineageStore, RunRecord, run_id_of, world_hash
+from .lineage import LineageStore, RunRecord, SweepRecord, run_id_of, world_hash
 from .mutation import (
     InvalidMutationValueError,
     Mutation,
@@ -39,6 +39,16 @@ from .runner import (
 )
 from .scheduler import ExecutionTrace, StepOperation, StepSchedule, StepScheduler
 from .state import WorldState
+from .sweep import (
+    MutationSpace,
+    ParameterSweep,
+    RankingEntry,
+    SweepResult,
+    SweepRunner,
+    SweepTiming,
+    rank_results,
+    sweep_id_of,
+)
 from .world import ComponentSpec, WorldDefinition, load_world_yaml
 
 __all__ = [
@@ -63,7 +73,10 @@ __all__ = [
     "Mutation",
     "MutationError",
     "MutationRecord",
-    "ParameterSpec",
+    "MutationSpace",
+"ParameterSpec",
+    "ParameterSweep",
+    "RankingEntry",
     "RunRecord",
     "RunResult",
     "SimulationClock",
@@ -71,6 +84,10 @@ __all__ = [
     "StepOperation",
     "StepSchedule",
     "StepScheduler",
+    "SweepRecord",
+    "SweepResult",
+    "SweepRunner",
+    "SweepTiming",
     "UnknownComponentError",
     "UnknownMutationPathError",
     "UnresolvedCapabilityError",
@@ -89,7 +106,9 @@ __all__ = [
     "load_world_yaml",
     "one_of",
     "range_validator",
+    "rank_results",
     "resolve_capabilities",
     "run_id_of",
+    "sweep_id_of",
     "world_hash",
 ]

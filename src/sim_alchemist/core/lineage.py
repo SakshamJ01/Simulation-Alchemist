@@ -35,6 +35,7 @@ from sim_alchemist.core.world import WorldDefinition
 __all__ = [
     "LineageStore",
     "RunRecord",
+    "SearchRecord",
     "SweepRecord",
     "world_hash",
 ]
@@ -230,6 +231,144 @@ class SweepRecord:
         )
 
 
+class SearchRecord:
+    """Immutable metadata record of one executed guided search.
+
+    Persists only compact descriptions: the search spec (mutation space +
+    interestingness profile + beam parameters), the per-candidate identity and
+    rank records (uniquely keyed by their deterministic run ids, whose full
+    worlds/feature snapshots already live in the ``runs`` table), the per-
+    generation beam structure, and the timing summary.  It carries no
+    trajectories, no per-step data, and no feature vectors (same policy as run
+    and sweep records).
+    """
+
+    __slots__ = (
+        "analysis_seconds",
+        "base_run_id",
+        "candidates",
+        "created_at",
+        "execution_seconds",
+        "final_ranking",
+        "generation_order",
+        "mean_seconds",
+        "n_executed",
+        "n_generated",
+        "n_skipped",
+        "search_id",
+        "spec",
+        "total_seconds",
+        "world_hash",
+        "world_id",
+    )
+
+    def __init__(
+        self,
+        search_id: str,
+        *,
+        world_id: str,
+        world_hash: str,
+        base_run_id: str,
+        spec: dict[str, Any],
+        generation_order: list[Any],
+        candidates: list[dict[str, Any]],
+        final_ranking: dict[str, Any],
+        n_generated: int,
+        n_skipped: int,
+        n_executed: int,
+        total_seconds: float,
+        execution_seconds: float,
+        analysis_seconds: float,
+        mean_seconds: float,
+        created_at: str | None = None,
+    ) -> None:
+        self.search_id = search_id
+        self.world_id = world_id
+        self.world_hash = world_hash
+        self.base_run_id = base_run_id
+        self.spec = spec
+        self.generation_order = generation_order
+        self.candidates = candidates
+        self.final_ranking = final_ranking
+        self.n_generated = n_generated
+        self.n_skipped = n_skipped
+        self.n_executed = n_executed
+        self.total_seconds = total_seconds
+        self.execution_seconds = execution_seconds
+        self.analysis_seconds = analysis_seconds
+        self.mean_seconds = mean_seconds
+        self.created_at = created_at or _now_iso()
+
+    @classmethod
+    def from_result(cls, result: Any, *, created_at: str | None = None) -> SearchRecord:
+        """Build the compact record from an in-memory ``SearchResult``."""
+        payload = result.as_dict(canonical=True)
+        timing = result.timing.as_dict()
+        return cls(
+            search_id=payload["search_id"],
+            world_id=payload["world_id"],
+            world_hash=payload["world_hash"],
+            base_run_id=payload["root_run_id"],
+            spec=payload["spec"],
+            generation_order=[
+                list(g["selected_candidate_ids"]) for g in payload["generations"]
+            ],
+            candidates=payload["candidates"],
+            final_ranking=payload["final_ranking"],
+            n_generated=int(timing["n_generated"]),
+            n_skipped=int(timing["n_skipped"]),
+            n_executed=int(timing["n_executed"]),
+            total_seconds=float(timing["total_seconds"]),
+            execution_seconds=float(timing["execution_seconds"]),
+            analysis_seconds=float(timing["analysis_seconds"]),
+            mean_seconds=float(timing["mean_seconds"]),
+            created_at=created_at,
+        )
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "search_id": self.search_id,
+            "world_id": self.world_id,
+            "world_hash": self.world_hash,
+            "base_run_id": self.base_run_id,
+            "spec": self.spec,
+            "generation_order": self.generation_order,
+            "candidates": self.candidates,
+            "final_ranking": self.final_ranking,
+            "timing": {
+                "n_generated": self.n_generated,
+                "n_skipped": self.n_skipped,
+                "n_executed": self.n_executed,
+                "total_seconds": self.total_seconds,
+                "execution_seconds": self.execution_seconds,
+                "analysis_seconds": self.analysis_seconds,
+                "mean_seconds": self.mean_seconds,
+            },
+            "created_at": self.created_at,
+        }
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> SearchRecord:
+        return cls(
+            search_id=row["search_id"],
+            world_id=row["world_id"],
+            world_hash=row["world_hash"],
+            base_run_id=row["base_run_id"],
+            spec=json.loads(row["spec_json"]),
+            generation_order=json.loads(row["generation_order"]),
+            candidates=json.loads(row["candidates"]),
+            final_ranking=json.loads(row["final_ranking"]),
+            n_generated=int(row["n_generated"]),
+            n_skipped=int(row["n_skipped"]),
+            n_executed=int(row["n_executed"]),
+            total_seconds=float(row["total_seconds"]),
+            execution_seconds=float(row["execution_seconds"]),
+            analysis_seconds=float(row["analysis_seconds"]),
+            mean_seconds=float(row["mean_seconds"]),
+            created_at=row["created_at"],
+        )
+
+
 class LineageStore:
     """Small local SQLite-backed lineage store.
 
@@ -278,6 +417,25 @@ class LineageStore:
         created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_behavior_base ON behavior_analyses(base_run_id);
+    CREATE TABLE IF NOT EXISTS searches (
+        search_id TEXT PRIMARY KEY,
+        world_id TEXT NOT NULL,
+        world_hash TEXT NOT NULL,
+        base_run_id TEXT NOT NULL,
+        spec_json TEXT NOT NULL,
+        generation_order TEXT NOT NULL,
+        candidates TEXT NOT NULL,
+        final_ranking TEXT NOT NULL,
+        n_generated INTEGER NOT NULL,
+        n_skipped INTEGER NOT NULL,
+        n_executed INTEGER NOT NULL,
+        total_seconds REAL NOT NULL,
+        execution_seconds REAL NOT NULL,
+        analysis_seconds REAL NOT NULL,
+        mean_seconds REAL NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_searches_base ON searches(base_run_id);
     """
 
     def __init__(self, path: str | Path = ":memory:") -> None:
@@ -463,6 +621,79 @@ class LineageStore:
     @property
     def run_count(self) -> int:
         (count,) = self._conn.execute("SELECT COUNT(*) FROM runs").fetchone()
+        return int(count)
+
+    def record_search(self, record: SearchRecord) -> None:
+        """Insert or overwrite the record for ``record.search_id`` (idempotent)."""
+        payload = record.as_dict()
+        json_kwargs: dict[str, Any] = {"sort_keys": True, "separators": (",", ":")}
+        timing = payload["timing"]
+        self._conn.execute(
+            """
+            INSERT OR REPLACE INTO searches
+                (search_id, world_id, world_hash, base_run_id, spec_json,
+                 generation_order, candidates, final_ranking,
+                 n_generated, n_skipped, n_executed,
+                 total_seconds, execution_seconds, analysis_seconds,
+                 mean_seconds, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                payload["search_id"],
+                payload["world_id"],
+                payload["world_hash"],
+                payload["base_run_id"],
+                json.dumps(payload["spec"], **json_kwargs),
+                json.dumps(payload["generation_order"], **json_kwargs),
+                json.dumps(payload["candidates"], **json_kwargs),
+                json.dumps(payload["final_ranking"], **json_kwargs),
+                timing["n_generated"],
+                timing["n_skipped"],
+                timing["n_executed"],
+                timing["total_seconds"],
+                timing["execution_seconds"],
+                timing["analysis_seconds"],
+                timing["mean_seconds"],
+                payload["created_at"],
+            ),
+        )
+        self._conn.commit()
+
+    def get_search(self, search_id: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT * FROM searches WHERE search_id = ?", (search_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        return self._search_from_row(dict(row))
+
+    def iter_searches(self) -> Iterator[SearchRecord]:
+        rows = self._conn.execute(
+            "SELECT * FROM searches ORDER BY search_id"
+        ).fetchall()
+        for row in rows:
+            yield SearchRecord.from_row(dict(row))
+
+    @staticmethod
+    def _search_from_row(data: dict[str, Any]) -> dict[str, Any]:
+        data["spec"] = json.loads(data.pop("spec_json"))
+        data["generation_order"] = json.loads(data.pop("generation_order"))
+        data["candidates"] = json.loads(data.pop("candidates"))
+        data["final_ranking"] = json.loads(data.pop("final_ranking"))
+        data["timing"] = {
+            "n_generated": data.pop("n_generated"),
+            "n_skipped": data.pop("n_skipped"),
+            "n_executed": data.pop("n_executed"),
+            "total_seconds": data.pop("total_seconds"),
+            "execution_seconds": data.pop("execution_seconds"),
+            "analysis_seconds": data.pop("analysis_seconds"),
+            "mean_seconds": data.pop("mean_seconds"),
+        }
+        return data
+
+    @property
+    def search_count(self) -> int:
+        (count,) = self._conn.execute("SELECT COUNT(*) FROM searches").fetchone()
         return int(count)
 
     def close(self) -> None:

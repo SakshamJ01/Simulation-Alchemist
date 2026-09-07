@@ -13,13 +13,14 @@ scheduler, the **Task 1.3 declarative composition layer**, the **Task 1.5
 Adaptive Network Morphogenesis experiment (Experiment C)**, the **Task 1.6
 generic mutation / lineage / variant-runner layer**, the **Task 1.7
 generic sweep / ranking layer**, and the **Task 1.8
-behavioral-characterization / interestingness layer** — the verified starting
+behavioral-characterization / interestingness layer**, and the **Task 1.9
+guided simulation search / first discovery loop** — the verified starting
 point for the framework. Three experiments (A: chemo-morphogenesis,
 B: field-guided movers, C: adaptive network morphogenesis) execute through the
 generic `AlchemistEngine` + core `StepScheduler` against declaratively-described
 worlds; the science and scheduling live in experiment coupling modules, not in
-engine subclasses. **Next milestone: Task 1.9 (not specified, not started). Robot
-do NOT start Task 1.9 until it is issued.**
+engine subclasses. **Next milestone: Task 2.0 (not specified, not started). Robot
+do NOT start Task 2.0 until it is issued.**
 
 ## Current Repository State (validated prototype — do not paper over)
 
@@ -96,12 +97,25 @@ closed loop:
   `BehavioralAnalysisRunner` (Task 1.6/1.7 machinery reused),
   `behavior_analysis_id_of`. Only compact feature snapshots and analysis
   records are persisted (never trajectories).
-- **src/sim_alchemist/core/lineage.py** — Task 1.6/1.7/1.8 SQLite-backed
+- **src/sim_alchemist/core/search.py** — Task 1.9 generic, deterministic
+  **guided beam search over world variants**: `SearchSpec` (frozen, validated
+  config: name, generations, beam_width, children_per_parent, mutation_space,
+  profile, seed), `child_mutations` (dimension-major, value-minor, no-op skip,
+  single-param children, truncation), `SearchRunner` (sequential beam search:
+  gen 0 = root control, each generation mutates beam via `child_mutations`,
+  runs unique children, ranks pool via `rank_by_profile`, keeps `beam_width`
+  best), `SearchCandidate` / `SearchGeneration` / `SearchResult` (full
+  in-memory outcome with `best()`, `lineage_path()`, `mutation_path()`,
+  `explain_best()`), `SearchTiming`, `search_id_of` (deterministic 24-hex id).
+  Reuses existing Task 1.6/1.7/1.8 machinery; no new simulation concept.
+- **src/sim_alchemist/core/lineage.py** — Task 1.6/1.7/1.8/1.9 SQLite-backed
   lineage: `LineageStore` (metadata + compact metrics only, never
   trajectories), `RunRecord`, deterministic `run_id_of` (sha256 of world
   content + seed), plus the Task 1.7 `SweepRecord` and `sweeps` table, plus
   the Task 1.8 per-run `feature_snapshot` and `behavior_analyses` table
-  (idempotent metadata; pre-1.8 stores migrate on open).
+  (idempotent metadata; pre-1.8 stores migrate on open), plus the Task 1.9
+  `SearchRecord` and `searches` table (compact search metadata, no trajectories;
+  pre-1.9 stores migrate on open).
 - **experiments/network_morphogenesis/experiment.py** — Task 1.6
   experiment-facing side: `PARAMETER_SPECS` (the three meaningful mutable
   parameters), `build_network_metrics`, `run_network_world` executor; Task 1.8
@@ -152,6 +166,7 @@ Do not start building that until the extraction task is issued.
 | Mutation / lineage / variant runner | generic core | `src/sim_alchemist/core/{mutation,lineage,runner}.py` |
 | Sweep / ranking layer | generic core | `src/sim_alchemist/core/sweep.py`, `run_sweep.py` |
 | Behavior / interestingness | generic core | `src/sim_alchemist/core/behavior.py`, `run_behavior_demo.py` |
+| Guided search / discovery | generic core | `src/sim_alchemist/core/search.py`, `run_search.py` |
 | Experiment coupling + worlds | YAML + closures | `chemomech/coupling.py`, `experiments/field_guided_movers/coupling.py`, `experiments/network_morphogenesis/coupling.py`, `worlds/*.yaml` |
 | Validation A–G + figures | numpy / matplotlib | `chemomech/validate.py` |
 | Stability checks S1–S6 | numpy | `run_stability.py` |
@@ -182,6 +197,7 @@ The environment is managed by uv against Python 3.13:
 - `uv run python run_variant_demo.py` — Task 1.6 base/variant/lineage demo
 - `uv run python run_sweep.py --dim <path>:v1,v2,... [--dim ...] [--rank-by <metric>]` — Task 1.7 deterministic sweep + ranking demo
 - `uv run python run_behavior_demo.py --dim <path>:v1,v2,... --feature <obs>:<feature>:<weight>[:max|min] ...` — Task 1.8 behavioral characterization + interestingness demo
+- `uv run python run_search.py --dim <path>:v1,v2,... --feature <obs>:<feature>:<weight>[:max|min] ... [--generations N] [--beam-width N]` — Task 1.9 guided beam search + discovery loop
 - `uv run pytest` — test suite wrapping the same scientific checks
 
 ## Key Development Commands

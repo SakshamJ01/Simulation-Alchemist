@@ -4,8 +4,9 @@
 validated, Task 1.5 (Experiment C: Adaptive Network Morphogenesis) validated,
 **Task 1.6 (generic mutation + SQLite experiment lineage) COMPLETE**, **Task 1.7
 (deterministic variant sweeps + generic experiment ranking) COMPLETE**, **Task 1.8
-(behavioral characterization + generic interestingness engine) COMPLETE.** Next is
-**Task 1.9** (not yet specified, not started). Do not start it until it is issued.
+(behavioral characterization + generic interestingness engine) COMPLETE**,
+**Task 1.9 (guided simulation search — first discovery loop) COMPLETE.** Next is
+**Task 2.0** (not yet specified, not started). Do not start it until it is issued.
 **Date:** 2026-09-05 (updated 2026-09-07)
 
 ---
@@ -119,16 +120,40 @@ validated, Task 1.5 (Experiment C: Adaptive Network Morphogenesis) validated,
   explanation reproduced verbatim in the report. Guard re-baselined to the
   post-1.8 core (adds behavior.py); no prior test weakened. See
   `TASK_1.8_REPORT.md`.
+- **Task 1.9** — GUIDED SIMULATION SEARCH (FIRST DISCOVERY LOOP):
+  first *discovery loop* of the framework: a deterministic bounded beam
+  search over world variants, experiment-free in the core, reusing existing
+  Task 1.6/1.7/1.8 machinery. `src/sim_alchemist/core/search.py`
+  (`SearchSpec` — frozen, validated declarative config: name, generations,
+  beam_width, children_per_parent, mutation_space, profile, seed;
+  `child_mutations` — dimension-major, value-minor, no-op skip, single-param
+  children, truncation; `SearchRunner` — sequential beam search: gen 0 = root
+  control, each generation mutates beam, runs unique children via
+  `apply_mutations`, ranks via `rank_by_profile`, keeps `beam_width` best;
+  `SearchCandidate`, `SearchGeneration`, `SearchResult`, `SearchTiming` — full
+  in-memory outcome with `best()`, `lineage_path()`, `mutation_path()`,
+  `explain_best()`; `search_id_of` — deterministic 24-hex id from world hash
+  + spec JSON). `lineage.py` extended with `SearchRecord` + idempotent
+  `searches` table (compact metadata only, never trajectories) + `search_count`.
+  15 A–O tests (`tests/test_search.py`); CLI `run_search.py` (`--dim`,
+  `--feature`, `--generations`, `--beam-width`, `--children`, `--steps`,
+  `--db`, `--figure`). Real Experiment C search at 160 steps:
+  loss[0.05,0.08,0.11,0.14] × force_fmax[0.4,0.8], gen 3, beam 2,
+  children 3 → 5 unique worlds, root control scored best (0.6); figure
+  `figures/search_beam_scores.png`. Determinism confirmed (bitwise identical
+  canonical output across runs). Guard re-baselined to post-1.9 core
+  (adds search.py); no prior test weakened. See `TASK_1.9_REPORT.md`.
 
-Result: **Baseline v0.1 + Task 1.2–1.3–1.5–1.6–1.7–1.8** — a reproducible, uv-locked,
+Result: **Baseline v0.1 + Task 1.2–1.3–1.5–1.6–1.7–1.8–1.9** — a reproducible, uv-locked,
 pytest-wrapped, validated prototype with a generic composition core in
 `src/sim_alchemist/core/` that now drives three independent composed
 experiments (A chemo-morphogenesis, B field-guided movers, C adaptive network)
-and three generic layers over them: mutation/lineage/runner, deterministic
-sweeps + ranking, and behavioral characterization + interestingness ranking.
+and four generic layers over them: mutation/lineage/runner, deterministic
+sweeps + ranking, behavioral characterization + interestingness ranking, and
+guided beam search over world variants.
 
 ### NEXT
-- **Task 1.9** (not yet specified; not started).
+- **Task 2.0** (not yet specified; not started).
 - Plugin/adapter registry (extensible `ComponentRegistry` with external
   adapters and capability discovery).
 - Generalized world composition beyond `compose()` (world graph, runtime

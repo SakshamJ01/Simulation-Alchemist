@@ -29,7 +29,14 @@ from .composer import (
 )
 from .engine import AlchemistEngine, CapabilityResolver, CompositionResult
 from .events import Event, EventBus, EventType
-from .lineage import LineageStore, RunRecord, SweepRecord, run_id_of, world_hash
+from .lineage import (
+    LineageStore,
+    RunRecord,
+    SearchRecord,
+    SweepRecord,
+    run_id_of,
+    world_hash,
+)
 from .mutation import (
     InvalidMutationValueError,
     Mutation,
@@ -54,6 +61,16 @@ from .runner import (
     compare_runs,
 )
 from .scheduler import ExecutionTrace, StepOperation, StepSchedule, StepScheduler
+from .search import (
+    SearchCandidate,
+    SearchGeneration,
+    SearchResult,
+    SearchRunner,
+    SearchSpec,
+    SearchTiming,
+    child_mutations,
+    search_id_of,
+)
 from .state import WorldState
 from .sweep import (
     MutationSpace,
@@ -107,6 +124,13 @@ __all__ = [
     "RankingEntry",
     "RunRecord",
     "RunResult",
+    "SearchCandidate",
+    "SearchGeneration",
+    "SearchRecord",
+    "SearchResult",
+    "SearchRunner",
+    "SearchSpec",
+    "SearchTiming",
     "SimulationClock",
     "SimulationEngine",
     "StepOperation",
@@ -126,6 +150,7 @@ __all__ = [
     "apply_mutation",
     "apply_mutations",
     "build_components",
+    "child_mutations",
     "clone_world",
     "compare_metrics",
     "compare_runs",
@@ -139,6 +164,7 @@ __all__ = [
     "rank_results",
     "resolve_capabilities",
     "run_id_of",
+    "search_id_of",
     "sweep_id_of",
     "world_hash",
 ]

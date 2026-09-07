@@ -33,6 +33,7 @@ import numpy as np
 
 from experiments.network_morphogenesis.adapter import AdaptiveNetworkAdapter
 from experiments.network_morphogenesis.coupling import (
+    NETWORK_MORPHOGENESIS_CONTRACTS,
     NetworkMorphogenesisState,
     build_network_morphogenesis_operations,
     build_network_morphogenesis_registry,
@@ -45,6 +46,7 @@ from sim_alchemist.adapters.pde import PyPDEAdapter
 from sim_alchemist.adapters.pymunk import PymunkAdapter
 from sim_alchemist.core.behavior import ObservableSeries
 from sim_alchemist.core.composer import build_components, compose_into
+from sim_alchemist.core.contracts import adapter_by_id
 from sim_alchemist.core.engine import AlchemistEngine
 from sim_alchemist.core.mutation import ParameterSpec
 from sim_alchemist.core.runner import ExecOutcome
@@ -166,9 +168,10 @@ def run_network_world(world: WorldDefinition) -> ExecOutcome:
     """
     registry = build_network_morphogenesis_registry()
     adapters = build_components(registry, world)
-    pde = cast(PyPDEAdapter, adapters[0])
-    pymunk = cast(PymunkAdapter, adapters[1])
-    network = cast(AdaptiveNetworkAdapter, adapters[2])
+    # Harden adapter binding to id (+ variant) lookup, never position.
+    pde = cast(PyPDEAdapter, adapter_by_id(adapters, "py-pde"))
+    pymunk = cast(PymunkAdapter, adapter_by_id(adapters, "pymunk"))
+    network = cast(AdaptiveNetworkAdapter, adapter_by_id(adapters, "network"))
 
     config = NetworkMorphogenesisConfig.from_world(world)
     trajectory = NetworkMorphogenesisTrajectory(config=config)
@@ -187,7 +190,8 @@ def run_network_world(world: WorldDefinition) -> ExecOutcome:
             trajectory.start_u = field.u.copy()
 
     compose_into(
-        engine, world, adapters, operations, on_initialize=_initialize
+        engine, world, adapters, operations,
+        on_initialize=_initialize, contracts=NETWORK_MORPHOGENESIS_CONTRACTS,
     )
     engine.run()
     metrics = build_network_metrics(trajectory)

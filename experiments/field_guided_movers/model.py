@@ -21,12 +21,13 @@ from __future__ import annotations
 import itertools
 import math
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pymunk
 
 from experiments.field_guided_movers.coupling import (
+    FIELD_GUIDED_MOVERS_CONTRACTS,
     FIELD_GUIDED_MOVERS_SCHEDULE,
     MoversState,
     build_field_guided_movers_operations,
@@ -36,8 +37,10 @@ from experiments.field_guided_movers.coupling import (
     mover_source,
 )
 from sim_alchemist.adapters.base import BaseAdapter
+from sim_alchemist.adapters.pde import PyPDEAdapter
 from sim_alchemist.core.capabilities import Capability, CapabilitySet
 from sim_alchemist.core.composer import build_components, compose_into
+from sim_alchemist.core.contracts import adapter_by_id
 from sim_alchemist.core.engine import AlchemistEngine
 from sim_alchemist.core.events import Event, EventType
 
@@ -247,6 +250,9 @@ class MoversAdapter(BaseAdapter):
             requires=requires,
             native_timestep=config.phys_dt,
         )
+        self._variant = "movers"
+        self._state_keys = ("positions", "velocities", "count", "forces")
+        self._grid = config.n
 
         self._config = config
         self._space: MoverSpace | None = None
@@ -386,7 +392,9 @@ class FieldGuidedMoversEngine(AlchemistEngine):
 
         world = build_field_guided_movers_world(config)
         adapters = build_components(build_field_guided_movers_registry(), world)
-        self._pde_adapter, self._movers_adapter = adapters
+        # Harden adapter binding to id (+ variant) lookup, never position.
+        self._pde_adapter = cast(PyPDEAdapter, adapter_by_id(adapters, "py-pde"))
+        self._movers_adapter = cast(MoversAdapter, adapter_by_id(adapters, "pymunk"))
 
         state = MoversState()
         operations = build_field_guided_movers_operations(
@@ -416,6 +424,7 @@ class FieldGuidedMoversEngine(AlchemistEngine):
             operations,
             on_step=_on_step,
             on_initialize=_movers_initialize,
+            contracts=FIELD_GUIDED_MOVERS_CONTRACTS,
         )
 
     def run(self) -> MoversTrajectory:  # type: ignore[override]

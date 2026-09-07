@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from sim_alchemist.adapters.pde import PyPDEAdapter
+from sim_alchemist.core.contracts import CouplingContract
 from sim_alchemist.core.registry import ComponentRegistry, default_registry
 from sim_alchemist.core.world import ComponentSpec, WorldDefinition
 
@@ -44,6 +45,32 @@ FIELD_GUIDED_MOVERS_SCHEDULE: tuple[str, ...] = (
     "movers.step",
     "field.source",
     "observables.record",
+)
+
+
+FIELD_GUIDED_MOVERS_CONTRACTS: tuple[CouplingContract, ...] = (
+    CouplingContract(
+        name="gradient-force",
+        producer="py-pde",
+        producer_capability="field_gradient",
+        consumer="pymunk",
+        consumer_capability="force_integration",
+        payload=(("gradient", "vec2"),),
+        transform="gradient-force",
+        variant="movers",
+        coordinate_system="unit-square-2d",
+    ),
+    CouplingContract(
+        name="mover-source",
+        producer="pymunk",
+        producer_capability="geometry_provider",
+        consumer="py-pde",
+        consumer_capability="field_sources",
+        payload=(("positions", "vec2_list"),),
+        transform="mover-source",
+        variant="movers",
+        coordinate_system="unit-square-2d",
+    ),
 )
 
 

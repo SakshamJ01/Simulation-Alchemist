@@ -191,13 +191,21 @@ def test_deterministic_replay_bitwise() -> None:
 # diversity-preserving multi-objective discovery layer -- search.py and
 # behavior.py gain the behavioral-distance / frontier-selection machinery,
 # and __init__.py re-exports it.
+# Task 2.2 sanctioned extension: the guard is RE-PINNED for the
+# coupling-contract layer.  contracts.py is the new generic pre-execution
+# coupling-validation module, composer.py gains the optional `contracts=`
+# gate (capabilities -> contracts -> schedule), and __init__.py re-exports
+# the contract API.  Re-pinning is the documented extension path; modifying
+# and then silently re-pinning immutable core behavior is what this guard
+# prohibits.
 # ----------------------------------------------------------------------
 CORE_COMMIT_HASHES = {
-    "__init__.py": "5006EB4F19FEB4E175693F2F82FA8F6131B1BE2229F3BF145E852B0441B3EF0A",
+    "__init__.py": "6EBCF668E977548AED1D46946B4C3FDF641C1E59E2AEAAFABEDC28DF8EEFD517",
     "behavior.py": "F28F157583948937A7442E92C584BC86190005BFFE89F9D7C9FE9283E287521C",
     "capabilities.py": "F13D4430E3B34B2364C895F18422984DC6D4388C91BE49C00B653EBE2D3F9188",
     "clock.py": "D49F5202F9F2C9E0A18A30A9A5BC59B676DF5E967B9D5518D0CB590C01714394",
-    "composer.py": "E1B9A242A5A7002C520F6B8D6F2D9F3E36B29484CB00D309B9105422DC8830B4",
+    "composer.py": "4F82AC4DEEBC4282B220E322F3C20C898FD3AAFA3E0900A40D9E3839556E4D85",
+    "contracts.py": "1DEEC8B2042B6F67FEEBDED4B397833BF9D231880524AB638B2AD449EF6ADAC0",
     "engine.py": "6260F90E45DD1D6E54FE677F6BB9DDA42F06A99E7B8E406A821C8E95E6A475E3",
     "events.py": "EF1DDF2206E21DC05CE835CFBC1A9CD0B089EEF861E58C3D50D7D54723005903",
     "lineage.py": "84FA5140817B44B203E56D5D55994AE14772244E400144640FE32E2DE3687DBD",
@@ -218,7 +226,7 @@ def test_core_file_unchanged(filename) -> None:
     assert path.is_file(), f"core file {filename} missing"
     h = hashlib.sha256(path.read_bytes()).hexdigest().upper()
     assert h == CORE_COMMIT_HASHES[filename], (
-        f"src/sim_alchemist/core/{filename} was modified! Task 1.9 must not change the core."
+        f"src/sim_alchemist/core/{filename} was modified! Task 2.2 must not change the core."
     )
 
 

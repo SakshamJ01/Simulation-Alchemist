@@ -1,7 +1,7 @@
 # Simulation Alchemist — Current State
 
 ## Current milestone
-Task 2.0 complete (Diversity-preserving multi-objective discovery)
+Task 2.2 complete (Coupling-Contract Layer + Pre-Execution Composition Validation)
 
 ## Completed
 - Task 0.1 — chemo-mechanical feedback spike
@@ -17,6 +17,8 @@ Task 2.0 complete (Diversity-preserving multi-objective discovery)
 - Task 1.8 — behavioral characterization + generic interestingness engine
 - Task 1.9 — guided simulation search (beam search discovery loop)
 - Task 2.0 — diversity-preserving multi-objective discovery (behavioral-diversity-aware beam selection)
+- Task 2.1 — cross-composition compatibility and discovery design (PLAN-ONLY; TASK_2.1_DESIGN.md)
+- Task 2.2 — coupling-contract layer + pre-execution composition validation (contracts.py, optional contracts=, adapters metadata, id lookup, gap-proof test)
 
 ## Current experiments
 - A — Chemo-Mechanical Morphogenesis (Mesa + py-pde + Pymunk)
@@ -25,10 +27,11 @@ Task 2.0 complete (Diversity-preserving multi-objective discovery)
 
 ## Current architecture
 `src/sim_alchemist/core/`:
-- adapters (`adapters/base.py`, capability protocol in `core/capabilities.py`)
+- adapters (`adapters/base.py`, capability protocol in `core/capabilities.py`; metadata: variant / state_keys / grid / coordinate_system)
 - capabilities (`capability`/`CapabilitySet` + `SimulationEngine` protocol)
 - world definitions (`world.py`, `WorldDefinition`/`ComponentSpec`, YAML)
-- composer (`composer.py`: `compose`/`compose_into`/`build_components`/`resolve_capabilities`)
+- composer (`composer.py`: `compose`/`compose_into`/`build_components`/`resolve_capabilities`, optional `contracts=` -> `resolve_contracts` before `_install`)
+- contracts (`contracts.py`: `CouplingContract`, `PayloadItem`, `ContractIssue`, `UnresolvedContractError`, `resolve_contracts`, `adapter_by_id`, `contracts_key`) — declarative coupling-edge validation, never invents couplings
 - clock (`clock.py`), scheduler (`scheduler.py`), event bus (`events.py`)
 - mutation (`mutation.py`: `Mutation`, `MutationRecord`, `ParameterSpec`, validators, immutable clone)
 - lineage (`lineage.py`: `LineageStore`, `RunRecord`, `SweepRecord`, `BehaviorAnalysisRecord`, `SearchRecord`, deterministic `run_id_of`)
@@ -36,31 +39,32 @@ Task 2.0 complete (Diversity-preserving multi-objective discovery)
 - sweep (`sweep.py`: `ParameterSweep`, `MutationSpace`, `sweep_id_of`, `SweepRunner`, `rank_results`, `SweepResult`)
 - behavior (`behavior.py`: `ObservableSeries`, `BehaviorFeatures`, `BehaviorAnalyzer`, `InterestingnessProfile`, `rank_by_profile`, `BehavioralAnalysisRunner`, `behavior_vector`, `behavior_distance`, `select_diverse_frontier`, `compute_frontier_diagnostics`, `FrontierDiagnostics`)
 - search (`search.py`: `SearchSpec`, `SearchRunner`, `child_mutations`, `search_id_of`, `SearchCandidate`, `SearchGeneration`, `SearchResult`, `SearchTiming`, `SelectionProfile`)
+- contracts (`contracts.py`: `CouplingContract`, `PayloadItem`, `ContractIssue`, `UnresolvedContractError`, `resolve_contracts`, `adapter_by_id`, `contracts_key`)
 
 ## Current technology stack
 - Python 3.13 (uv-managed, uv.lock reproducible)
 - Mesa, py-pde, Pymunk, NDlib, networkx, numpy, matplotlib, pyyaml
 - pytest, ruff, pyright, hypothesis (dev)
 
-## Current validation (Task 2.0 closing gate)
-- pytest — full suite standing gate: **~202 tests** (199 fast incl. 21 new Task 2.0 tests + slow cannonicals)
+## Current validation (Task 2.2 closing gate)
+- pytest — full suite standing gate: **233 tests passed** (incl. ~24 new Task 2.2 contract tests + slow cannonicals)
 - run_validation.py — A–G: PASS
 - run_stability.py — S1–S6: PASS
 - ruff check . — clean
 - pyright — 0 errors
 
 ## Current task
-Task 2.1 — Cross-Composition Compatibility and Discovery Design — architecture research/design in progress (PLAN-ONLY, no source changes; deliverable: TASK_2.1_DESIGN.md).
+Task 2.2 complete. Next: Task 2.3 — (not started; do not start until issued).
 
-## Completed in current task
-- `behavior.py` gains the behavioral-distance primitive layer: `behavior_vector` (deterministic flat vector, None/non-finite -> 0.0, divergence excluded by default), `behavior_distance` (Euclidean, symmetric, key-aware, missing/constant/NaN-safe), `select_diverse_frontier` (greedy `qw*quality + dw*min_dist` selection, deterministic tie-break, seed = highest quality), `compute_frontier_diagnostics` / `FrontierDiagnostics` (mean/min/max pairwise distance, unique behavioral signatures, mean quality)
-- `search.py` gains `SelectionProfile(quality_weight, diversity_weight)` (validated >=0, sum>0), extends `SearchSpec`/`SearchCandidate`/`SearchGeneration`/`SearchTiming`/`SearchResult` with diversity metadata (selection_quality/diversity/combined scores, selection_reason, per-generation + final frontier diagnostics), and makes `SearchRunner.search` diversity-aware (quality-only `diversity_weight=0` reproduces Task 1.9 semantics exactly)
-- `SearchResult.explain_selection()` / `explain_frontier()` report selection reasons and collapse diagnostics from measured values
-- 21 tests (`tests/test_diversity.py`, checks A–L / A–F / A–C)
-- `run_search.py` CLI adds `--quality-weight`/`--diversity-weight` and `--compare`/`--compare-figure`
-- Real Experiment C comparison: identical budget, diversity-weight 0.8 retains a low-quality but behaviorally-distant 4th signature (3/4 beam overlap with quality-only; slightly lower mean quality for higher frontier spread)
-- core immutability guard re-baselined post-2.0 (search.py, behavior.py, __init__.py)
-- TASK_2.0_REPORT.md, this file
+## Completed in current task (Task 2.2)
+- `src/sim_alchemist/core/contracts.py` — the coupling-contract layer: `CouplingContract` (frozen; payload normalized to `PayloadItem`; variant/timing/mechanism/coordinate_system/grid defaults), `PayloadItem`, `ContractIssue`, `UnresolvedContractError` (deterministic, actionable), `resolve_contracts` (identity -> capability -> variant -> payload -> timing/mechanism -> coord -> grid -> self-edge; never invents couplings), `adapter_by_id` (id + variant based, never positional), `contracts_key`
+- optional `contracts=` threaded through `compose`/`compose_into`; stage order resolve_capabilities -> resolve_contracts -> _install
+- adapter metadata: `_variant`/`_state_keys`/`_grid`/`_coordinate_system` on `BaseAdapter`; pde/pymunk/mesa/movers/network set them (pymunk dual-variant walls/movers)
+- declared contracts colocated: `MORPHOGENESIS_CONTRACTS` (A, 4 edges), `FIELD_GUIDED_MOVERS_CONTRACTS` (B, 2), `NETWORK_MORPHOGENESIS_CONTRACTS` (C, 5)
+- facades pass `contracts=`; `run_network_world` now uses `adapter_by_id` (positional indexing removed)
+- tests (`tests/test_contracts.py`, A–R): incl. the gap proof — Exp C world with pymunk->MoversAdapter passes `resolve_capabilities` yet `compose(..., contracts=NETWORK_MORPHOGENESIS_CONTRACTS)` raises `UnresolvedContractError` before `_install`; `contracts=` vs `None` bitwise-identical science for A/B/C
+- core immutability guard re-baselined (sanctioned Task 2.2 extension): contracts.py, composer.py, __init__.py
+- TASK_2.2_REPORT.md, PROJECT_STATE.md, IMPLEMENTATION_PLAN.md updated
 
 ## Known limitations
 - `config.network_loss` mirror is stale/behaviorally neutral; effective value is `components.network.config.loss`.
@@ -70,13 +74,17 @@ Task 2.1 — Cross-Composition Compatibility and Discovery Design — architectu
 - `oscillation_persistence` is blind to periods ≲ 4 samples (lag-1 quadrature); documented.
 - Determinism is same-runtime/same-environment (not universal cross-platform bitwise).
 - Parameters hand-tuned for validated runs.
+- Contract payload keys are validated only against a producer that declares `state_keys` (all wired producers do); a producer exposing no state vocabulary skips the key check (documented).
+- The contract layer validates *declared* edges only; it cannot invent couplings, and an undeclared-but-capability-valid edge is rejected only when composed with a contract set that needs it (empty contract set = today's unchecked behavior).
 
 ## Next exact task
-Task 2.2 — (not specified; not started).
+Task 2.3 — (not specified; not started). Do not start until issued.
 
 ## Do-not-change constraints
 - Keep `src/sim_alchemist/core/*` mutation/lineage/runner/sweep/behavior/search experiment-free.
-- Guarded core files must not change after Task 2.0 (hashes pinned in tests) except via a sanctioned re-baseline.
-- Keep the three-composition-paths (A/B/C) bitwise-identical facade/plain-compose contract.
+- Guarded core files must not change after Task 2.2 (hashes pinned in tests) except via a sanctioned re-baseline.
+- Keep the three-composition-paths (A/B/C) bitwise-identical facade/plain-compose contract; `contracts=` is optional and strictly additive.
 - No GA/evolutionary/Bayesian/ML/RL optimization in the core.
+- Coupling contracts validate declared edges; they never synthesize or invent couplings.
+- Adapter binding is by id + variant, never positional.
 - Do not weaken prior tests.

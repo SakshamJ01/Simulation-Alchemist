@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
 from chemomech.coupling import (
+    MORPHOGENESIS_CONTRACTS,
     MORPHOGENESIS_SCHEDULE,
     MorphogenesisState,
     build_morphogenesis_operations,
@@ -32,6 +33,7 @@ from sim_alchemist.adapters.mesa import MesaAdapter
 from sim_alchemist.adapters.pde import PyPDEAdapter
 from sim_alchemist.adapters.pymunk import PymunkAdapter
 from sim_alchemist.core.composer import build_components, compose_into
+from sim_alchemist.core.contracts import adapter_by_id
 from sim_alchemist.core.engine import AlchemistEngine
 from sim_alchemist.core.registry import default_registry
 
@@ -65,14 +67,13 @@ class ChemomechanicalEngine(AlchemistEngine):
 
         world = build_morphogenesis_world(self.config)
         adapters = build_components(default_registry(), world)
-        pde_a, pym_a, mesa_a = cast(
-            tuple[PyPDEAdapter, PymunkAdapter, MesaAdapter], adapters
-        )
-        self._pde_adapter, self._pymunk_adapter, self._mesa_adapter = (
-            pde_a,
-            pym_a,
-            mesa_a,
-        )
+        # Harden adapter binding to id (+ variant) lookup, never position.
+        pde_a = adapter_by_id(adapters, "py-pde")
+        pym_a = adapter_by_id(adapters, "pymunk")
+        mesa_a = adapter_by_id(adapters, "mesa")
+        self._pde_adapter = cast(PyPDEAdapter, pde_a)
+        self._pymunk_adapter = cast(PymunkAdapter, pym_a)
+        self._mesa_adapter = cast(MesaAdapter, mesa_a)
 
         state = MorphogenesisState()
         operations = build_morphogenesis_operations(
@@ -97,6 +98,7 @@ class ChemomechanicalEngine(AlchemistEngine):
             adapters,
             operations,
             on_initialize=_morphogenesis_initialize,
+            contracts=MORPHOGENESIS_CONTRACTS,
         )
 
     def run(self) -> Any:  # type: ignore[override]  # returns the materialized Trajectory

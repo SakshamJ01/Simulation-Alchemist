@@ -43,6 +43,8 @@ class PyPDEAdapter(BaseAdapter):
             requires=requires,
             native_timestep=field_step,
         )
+        self._state_keys = ("u", "v", "blocked", "gradient", "sources")
+        self._grid = n
 
         self._config = {
             "n": n,

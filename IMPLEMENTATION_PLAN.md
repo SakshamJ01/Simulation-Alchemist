@@ -6,8 +6,10 @@ validated, Task 1.5 (Experiment C: Adaptive Network Morphogenesis) validated,
 (deterministic variant sweeps + generic experiment ranking) COMPLETE**, **Task 1.8
 (behavioral characterization + generic interestingness engine) COMPLETE**,
 **Task 1.9 (guided simulation search — first discovery loop) COMPLETE**,
-**Task 2.0 (diversity-preserving multi-objective discovery) COMPLETE.** Next is
-**Task 2.1** (not yet specified, not started). Do not start it until it is issued.
+**Task 2.0 (diversity-preserving multi-objective discovery) COMPLETE**, **Task 2.1
+(cross-composition compatibility & discovery design, PLAN-ONLY) COMPLETE**,
+**Task 2.2 (coupling-contract layer + pre-execution validation) COMPLETE.** Next is
+**Task 2.3** (not yet specified, not started). Do not start it until it is issued.
 **Date:** 2026-09-05 (updated 2026-09-07)
 
 ---
@@ -190,8 +192,34 @@ validated, Task 1.5 (Experiment C: Adaptive Network Morphogenesis) validated,
   `figures/frontier_diversity_compare_wide.png`. Guard re-baselined to
   post-2.0 core (search.py, behavior.py, __init__.py); no prior test
   weakened. See `TASK_2.0_REPORT.md`.
+- **Task 2.1** — CROSS-COMPOSITION COMPATIBILITY & DISCOVERY DESIGN (PLAN-ONLY):
+  audit of the capability/coupling/executable gap, the coupling graph, the
+  composition matrix, the `CouplingContract` model, `CompositionSpace`/
+  `CompositionSearcher` design, resolver stages (capability → contract →
+  schedule/clock), science-safety rules, and the exact minimal §14 Build task.
+  **No source modified.** See `TASK_2.1_DESIGN.md`.
+- **Task 2.2** — COUPLING-CONTRACT LAYER + PRE-EXECUTION COMPOSITION VALIDATION
+  (Build mode of Task 2.1 §14): new `src/sim_alchemist/core/contracts.py`
+  (`CouplingContract`, `PayloadItem`, `ContractIssue`, `UnresolvedContractError`,
+  `resolve_contracts`, `adapter_by_id`, `contracts_key`); optional `contracts=`
+  threaded through `compose`/`compose_into` (stage order resolve_capabilities →
+  resolve_contracts → _install); adapter `variant`/`state_keys`/`grid`/
+  `coordinate_system` metadata on `BaseAdapter` + the five concrete adapters;
+  real declared contracts colocated in each coupling module
+  (`MORPHOGENESIS_CONTRACTS`, `FIELD_GUIDED_MOVERS_CONTRACTS`,
+  `NETWORK_MORPHOGENESIS_CONTRACTS`); facades pass `contracts=`; `run_network_world`
+  switched from positional indexing to id+variant `adapter_by_id`. Resolver
+  validates presence → capabilities → variant binding → payload (keys/shapes) →
+  timing/mechanism → coordinate system → grid → self-edge, **never inventing
+  couplings**; gap-proof test: Exp C world with `pymunk`→`MoversAdapter` passes
+  `resolve_capabilities` yet `compose(..., contracts=NETWORK_MORPHOGENESIS_CONTRACTS)`
+  raises `UnresolvedContractError` before `_install`. `contracts=` vs `None`
+  bitwise-identical science for A/B/C. Guard re-baselined to post-2.2 core
+  (contracts.py, composer.py, __init__.py); no prior test weakened. Full suite
+  233 passed; validation A–G / stability S1–S6 / ruff / pyright all clean.
+  See `TASK_2.2_REPORT.md`.
 
-Result: **Baseline v0.1 + Task 1.2–1.3–1.5–1.6–1.7–1.8–1.9–2.0** — a reproducible, uv-locked,
+Result: **Baseline v0.1 + Task 1.2–1.3–1.5–1.6–1.7–1.8–1.9–2.0–2.1(design)–2.2(contracts)** — a reproducible, uv-locked,
 pytest-wrapped, validated prototype with a generic composition core in
 `src/sim_alchemist/core/` that now drives three independent composed
 experiments (A chemo-morphogenesis, B field-guided movers, C adaptive network)
@@ -201,7 +229,12 @@ guided beam search over world variants, and diversity-preserving
 multi-objective discovery over that search.
 
 ### NEXT
-- **Task 2.1** (not yet specified; not started).
+- **Task 2.3** (not yet specified; not started).
+- CompositionSpace / CompositionSearcher (Plugin/adapter registry phase) — see
+  Task 2.1 §13: `core/composition.py` (`ComponentOption`/`CompositionSpace`/
+  `enumerate_composition_shapes`), 3-stage resolver over the Task 2.2 contract
+  layer, shape-aware identity, a compact `compositions` lineage table, discovery
+  demo over the wired shapes — do not start until issued.
 - Plugin/adapter registry (extensible `ComponentRegistry` with external
   adapters and capability discovery).
 - Generalized world composition beyond `compose()` (world graph, runtime

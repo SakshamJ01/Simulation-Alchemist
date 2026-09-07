@@ -63,6 +63,7 @@ class AdaptiveNetworkAdapter(BaseAdapter):
             requires=requires,
             native_timestep=0.2,
         )
+        self._state_keys = ("load", "positions", "weights", "edge_throughput")
 
         self._grid_rows = grid_rows
         self._grid_cols = grid_cols

@@ -39,6 +39,17 @@ class PymunkAdapter(BaseAdapter):
             requires=requires,
             native_timestep=dt_phys,
         )
+        self._variant = "walls"
+        self._state_keys = (
+            "walls",
+            "geometry",
+            "blocked",
+            "wall_tracks",
+            "forces",
+            "wall_adds",
+            "wall_removes",
+        )
+        self._grid = n
 
         self._config = {
             "n": n,

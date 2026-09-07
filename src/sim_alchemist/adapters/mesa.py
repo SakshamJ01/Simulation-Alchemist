@@ -33,6 +33,7 @@ class MesaAdapter(BaseAdapter):
             requires=requires,
             native_timestep=macro_timestep,
         )
+        self._state_keys = ("agents", "intentions")
 
         self._config = {
             "agent_configs": agent_configs or [],

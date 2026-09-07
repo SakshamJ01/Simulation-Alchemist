@@ -32,6 +32,15 @@ from .composer import (
     compose_into,
     resolve_capabilities,
 )
+from .contracts import (
+    ContractIssue,
+    CouplingContract,
+    PayloadItem,
+    UnresolvedContractError,
+    adapter_by_id,
+    contracts_key,
+    resolve_contracts,
+)
 from .engine import AlchemistEngine, CapabilityResolver, CompositionResult
 from .events import Event, EventBus, EventType
 from .lineage import (
@@ -107,7 +116,9 @@ __all__ = [
     "ComponentSpec",
     "CompositionError",
     "CompositionResult",
+    "ContractIssue",
     "Contribution",
+    "CouplingContract",
     "Event",
     "EventBus",
     "EventType",
@@ -127,6 +138,7 @@ __all__ = [
     "ObservableSeries",
     "ParameterSpec",
     "ParameterSweep",
+    "PayloadItem",
     "RankedRow",
     "RankingEntry",
     "RunRecord",
@@ -152,9 +164,11 @@ __all__ = [
     "UnknownComponentError",
     "UnknownMutationPathError",
     "UnresolvedCapabilityError",
+    "UnresolvedContractError",
     "VariantRunner",
     "WorldDefinition",
     "WorldState",
+    "adapter_by_id",
     "apply_mutation",
     "apply_mutations",
     "behavior_distance",
@@ -167,6 +181,7 @@ __all__ = [
     "compose",
     "compose_into",
     "compute_frontier_diagnostics",
+    "contracts_key",
     "default_registry",
     "load_world_yaml",
     "one_of",
@@ -174,6 +189,7 @@ __all__ = [
     "rank_by_profile",
     "rank_results",
     "resolve_capabilities",
+    "resolve_contracts",
     "run_id_of",
     "search_id_of",
     "select_diverse_frontier",

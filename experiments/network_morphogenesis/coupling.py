@@ -32,6 +32,7 @@ import numpy as np
 
 from sim_alchemist.adapters.pde import PyPDEAdapter
 from sim_alchemist.adapters.pymunk import PymunkAdapter
+from sim_alchemist.core.contracts import CouplingContract
 from sim_alchemist.core.registry import ComponentRegistry, default_registry
 from sim_alchemist.core.world import ComponentSpec, WorldDefinition
 
@@ -45,6 +46,64 @@ NETWORK_MORPHOGENESIS_SCHEDULE: tuple[str, ...] = (
     "network.route",
     "field.source",
     "observables.record",
+)
+
+
+NETWORK_MORPHOGENESIS_CONTRACTS: tuple[CouplingContract, ...] = (
+    CouplingContract(
+        name="blocked-mask",
+        producer="pymunk",
+        producer_capability="geometry_provider",
+        consumer="py-pde",
+        consumer_capability="field_masking",
+        payload=(("blocked", "bool_2d"),),
+        transform="blocked-mask",
+        variant="walls",
+        coordinate_system="unit-square-2d",
+    ),
+    CouplingContract(
+        name="blocked-reweight",
+        producer="pymunk",
+        producer_capability="geometry_provider",
+        consumer="network",
+        consumer_capability="network_diffusion",
+        payload=(("blocked", "bool_2d"),),
+        transform="blocked-reweight",
+        variant="walls",
+        coordinate_system="unit-square-2d",
+    ),
+    CouplingContract(
+        name="gradient-force",
+        producer="py-pde",
+        producer_capability="field_gradient",
+        consumer="pymunk",
+        consumer_capability="force_integration",
+        payload=(("gradient", "vec2"),),
+        transform="gradient-force",
+        variant="walls",
+        coordinate_system="unit-square-2d",
+    ),
+    CouplingContract(
+        name="load-source",
+        producer="network",
+        producer_capability="network_diffusion",
+        consumer="py-pde",
+        consumer_capability="field_sources",
+        payload=(("load", "array_1d"), ("positions", "vec2_list")),
+        transform="load-source",
+        coordinate_system="unit-square-2d",
+    ),
+    CouplingContract(
+        name="throughput-grow",
+        producer="network",
+        producer_capability="network_diffusion",
+        consumer="pymunk",
+        consumer_capability="rigid_body",
+        payload=(("edge_throughput", "scalar"),),
+        transform="throughput-grow",
+        variant="walls",
+        coordinate_system="unit-square-2d",
+    ),
 )
 
 

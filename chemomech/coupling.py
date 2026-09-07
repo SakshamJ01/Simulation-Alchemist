@@ -28,6 +28,7 @@ from chemomech.reaction_diffusion import RDField
 from sim_alchemist.adapters.mesa import MesaAdapter
 from sim_alchemist.adapters.pde import PyPDEAdapter
 from sim_alchemist.adapters.pymunk import PymunkAdapter
+from sim_alchemist.core.contracts import CouplingContract
 from sim_alchemist.core.world import ComponentSpec, WorldDefinition
 
 if TYPE_CHECKING:
@@ -42,6 +43,53 @@ MORPHOGENESIS_SCHEDULE: tuple[str, ...] = (
     "agents.step",
     "agents.apply",
     "observables.record",
+)
+
+
+MORPHOGENESIS_CONTRACTS: tuple[CouplingContract, ...] = (
+    CouplingContract(
+        name="blocked-mask",
+        producer="pymunk",
+        producer_capability="geometry_provider",
+        consumer="py-pde",
+        consumer_capability="field_masking",
+        payload=(("blocked", "bool_2d"),),
+        transform="blocked-mask",
+        variant="walls",
+        coordinate_system="unit-square-2d",
+    ),
+    CouplingContract(
+        name="gradient-force",
+        producer="py-pde",
+        producer_capability="field_gradient",
+        consumer="pymunk",
+        consumer_capability="force_integration",
+        payload=(("gradient", "vec2"),),
+        transform="gradient-force",
+        variant="walls",
+        coordinate_system="unit-square-2d",
+    ),
+    CouplingContract(
+        name="wall-intentions",
+        producer="mesa",
+        producer_capability="agent_intentions",
+        consumer="pymunk",
+        consumer_capability="rigid_body",
+        payload=(("intentions", "array_1d"),),
+        transform="wall-intentions",
+        variant="walls",
+        coordinate_system="unit-square-2d",
+    ),
+    CouplingContract(
+        name="field-sensing",
+        producer="py-pde",
+        producer_capability="scalar_field",
+        consumer="mesa",
+        consumer_capability="field_sensing",
+        payload=(("u", "array_1d"), ("v", "array_1d")),
+        transform="field-sensing",
+        coordinate_system="unit-square-2d",
+    ),
 )
 
 

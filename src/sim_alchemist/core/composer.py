@@ -7,7 +7,12 @@ The composer is the single place where a ``WorldDefinition`` becomes a live
    the explicit ``ComponentRegistry`` (unknown component ids fail loudly).
 2. ``resolve_capabilities`` -- check that every adapter's ``requires`` and the
    world's declared ``requires`` are all provided by some adapter in the set.
-3. ``compose_into`` / ``compose`` -- install the adapters, validate the world's
+3. ``resolve_contracts`` -- when a ``contracts`` sequence of declared coupling
+   edges is supplied, validate each one against the built adapters *before*
+   anything is installed or stepped (Task 2.2).  Capability compatibility is
+   necessary but not sufficient: a declared coupling (e.g. the ``walls``
+   variant of ``pymunk``) must actually be realized in the adapter set.
+4. ``compose_into`` / ``compose`` -- install the adapters, validate the world's
    schedule against the supplied operations registry, and build the core
    ``StepScheduler`` that actually drives the run.
 
@@ -20,6 +25,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 
 from sim_alchemist.core.capabilities import CapabilitySet, SimulationEngine
+from sim_alchemist.core.contracts import CouplingContract, resolve_contracts
 from sim_alchemist.core.engine import AlchemistEngine
 from sim_alchemist.core.registry import ComponentRegistry, UnknownComponentError
 from sim_alchemist.core.world import WorldDefinition
@@ -84,14 +90,18 @@ def compose_into(
     *,
     on_step: Callable[[float, float, int], None] | None = None,
     on_initialize: Callable[[], None] | None = None,
+    contracts: Sequence[CouplingContract] | None = None,
 ) -> AlchemistEngine:
     """Fill a pre-created ``AlchemistEngine``/facade with a composed world.
 
-    Constructs the schedule (validating the world's declared order against
-    ``operations`` at compose time), installs the adapters, and wires the
-    scheduler and optional per-step/initialize hooks.
+    Validation order (Task 2.2): capabilities, then -- when supplied -- the
+    declared coupling contracts, then the schedule (``operations``) inside
+    ``_install``.  Any contract failure raises ``UnresolvedContractError``
+    before the engine is installed and before anything can step.
     """
     resolve_capabilities(adapters, list(world.requires))
+    if contracts is not None:
+        resolve_contracts(adapters, contracts)
     engine._install(  # the composer is the designated installer
         adapters,
         world,
@@ -109,6 +119,7 @@ def compose(
     *,
     on_step: Callable[[float, float, int], None] | None = None,
     on_initialize: Callable[[list[SimulationEngine]], None] | None = None,
+    contracts: Sequence[CouplingContract] | None = None,
 ) -> AlchemistEngine:
     """Create, install, and return a plain ``AlchemistEngine`` for ``world``.
 
@@ -117,6 +128,9 @@ def compose(
     instances the composer built.  ``on_initialize`` is adapter-aware: it
     receives the installed adapters (so e.g. a Mesa component can be wired to
     the field/wallspace produced by other components).
+
+    ``contracts`` is the optional set of declared coupling edges to validate
+    before the world is installed (see ``compose_into``).
     """
     adapters = build_components(registry, world)
     engine = AlchemistEngine()
@@ -137,4 +151,5 @@ def compose(
         ops,
         on_step=on_step,
         on_initialize=init,
+        contracts=contracts,
     )

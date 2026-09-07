@@ -432,7 +432,7 @@ def test_k_experiment_a_b_worlds_mutate_generically() -> None:
 # ----------------------------------------------------------------------
 def test_l_core_mutation_sources_are_experiment_free() -> None:
     core_dir = REPO_ROOT / "src" / "sim_alchemist" / "core"
-    for name in ("mutation.py", "lineage.py", "runner.py", "sweep.py"):
+    for name in ("mutation.py", "lineage.py", "runner.py", "sweep.py", "behavior.py"):
         source = (core_dir / name).read_text(encoding="utf-8").lower()
         hits = [tok for tok in FORBIDDEN_CORE_TOKENS if tok in source]
         assert not hits, f"{name} contains experiment identifiers: {hits}"

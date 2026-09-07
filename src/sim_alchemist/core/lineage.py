@@ -62,15 +62,22 @@ def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _loads(raw: str | None) -> Any:
+    return json.loads(raw) if raw else None
+
+
 class RunRecord:
     """Immutable metadata record of one executed world.
 
     ``world`` carries the snapshot in memory; persistence serializes it as
     JSON.  ``metrics`` is the compact summary dict supplied by the executor.
+    ``feature_snapshot`` (Task 1.8) optionally holds the compact behavioral
+    feature vector of the run as a dict of floats -- never raw trajectories.
     """
 
     __slots__ = (
         "created_at",
+        "feature_snapshot",
         "metrics",
         "mutations",
         "parent_run_id",
@@ -89,6 +96,7 @@ class RunRecord:
         parent_run_id: str | None = None,
         mutations: tuple[MutationRecord, ...] = (),
         metrics: dict[str, float] | None = None,
+        feature_snapshot: dict[str, Any] | None = None,
         created_at: str | None = None,
         world_id_override: str | None = None,
     ) -> None:
@@ -100,6 +108,7 @@ class RunRecord:
         self.seed = world.seed
         self.mutations = mutations
         self.metrics = dict(metrics or {})
+        self.feature_snapshot = feature_snapshot
         self.created_at = created_at or _now_iso()
 
     def as_dict(self) -> dict[str, Any]:
@@ -111,6 +120,7 @@ class RunRecord:
             "seed": self.seed,
             "mutations": [m.to_dict() for m in self.mutations],
             "metrics": self.metrics,
+            "feature_snapshot": self.feature_snapshot,
             "created_at": self.created_at,
         }
 
@@ -125,6 +135,9 @@ class RunRecord:
                 MutationRecord.from_dict(m) for m in json.loads(row["mutations"])
             ),
             metrics={k: float(v) for k, v in json.loads(row["metrics"]).items()},
+            feature_snapshot=(
+                json.loads(row["feature_snapshot"]) if row["feature_snapshot"] else None
+            ),
             created_at=row["created_at"],
             world_id_override=row["world_id"],
         )
@@ -234,6 +247,7 @@ class LineageStore:
         mutations TEXT NOT NULL,
         world_json TEXT NOT NULL,
         metrics TEXT NOT NULL,
+        feature_snapshot TEXT,
         created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_runs_parent ON runs(parent_run_id);
@@ -252,6 +266,18 @@ class LineageStore:
         created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_sweeps_base ON sweeps(base_run_id);
+    CREATE TABLE IF NOT EXISTS behavior_analyses (
+        analysis_id TEXT PRIMARY KEY,
+        world_id TEXT NOT NULL,
+        world_hash TEXT NOT NULL,
+        base_run_id TEXT NOT NULL,
+        profile_json TEXT NOT NULL,
+        run_order TEXT NOT NULL,
+        ranked TEXT NOT NULL,
+        timing TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_behavior_base ON behavior_analyses(base_run_id);
     """
 
     def __init__(self, path: str | Path = ":memory:") -> None:
@@ -261,7 +287,14 @@ class LineageStore:
         self._conn = sqlite3.connect(str(path))
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(self._SCHEMA)
+        self._migrate()
         self._conn.commit()
+
+    def _migrate(self) -> None:
+        """Migrate stores created before the Task 1.8 schema (feature column)."""
+        cols = [str(r["name"]) for r in self._conn.execute("PRAGMA table_info(runs)")]
+        if "feature_snapshot" not in cols:
+            self._conn.execute("ALTER TABLE runs ADD COLUMN feature_snapshot TEXT")
 
     def record_run(self, record: RunRecord) -> None:
         """Insert or overwrite the record for ``record.run_id`` (idempotent)."""
@@ -271,8 +304,8 @@ class LineageStore:
             """
             INSERT OR REPLACE INTO runs
                 (run_id, parent_run_id, world_id, world_hash, seed,
-                 mutations, world_json, metrics, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 mutations, world_json, metrics, feature_snapshot, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 payload["run_id"],
@@ -283,6 +316,11 @@ class LineageStore:
                 json.dumps(payload["mutations"], **json_kwargs),
                 json.dumps(self._world_json(record), **json_kwargs),
                 json.dumps(payload["metrics"], **json_kwargs),
+                (
+                    None
+                    if payload["feature_snapshot"] is None
+                    else json.dumps(payload["feature_snapshot"], **json_kwargs)
+                ),
                 payload["created_at"],
             ),
         )
@@ -356,6 +394,70 @@ class LineageStore:
     @property
     def sweep_count(self) -> int:
         (count,) = self._conn.execute("SELECT COUNT(*) FROM sweeps").fetchone()
+        return int(count)
+
+    def record_behavior_analysis(
+        self, record: Any, *, profile_json: str | None = None
+    ) -> None:
+        """Idempotently persist one compact behavioral-analysis record.
+
+        ``record`` is duck-typed (``as_dict()``); the profile is stored as its
+        own JSON column, the ranked rows + timing as JSON.  Only compact
+        summaries are stored -- never series or trajectories.
+        """
+        payload = record.as_dict()
+        json_kwargs: dict[str, Any] = {"sort_keys": True, "separators": (",", ":")}
+        self._conn.execute(
+            """
+            INSERT OR REPLACE INTO behavior_analyses
+                (analysis_id, world_id, world_hash, base_run_id, profile_json,
+                 run_order, ranked, timing, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                payload["analysis_id"],
+                payload["world_id"],
+                payload["world_hash"],
+                payload["base_run_id"],
+                json.dumps(payload["profile"], **json_kwargs),
+                json.dumps(list(payload["run_order"]), **json_kwargs),
+                json.dumps(payload["ranked"], **json_kwargs),
+                json.dumps(payload["timing"], **json_kwargs),
+                payload["created_at"],
+            ),
+        )
+        self._conn.commit()
+
+    def get_behavior_analysis(self, analysis_id: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT * FROM behavior_analyses WHERE analysis_id = ?", (analysis_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        data = dict(row)
+        data["profile"] = _loads(data.pop("profile_json"))
+        data["run_order"] = _loads(data.pop("run_order"))
+        data["ranked"] = _loads(data.pop("ranked"))
+        data["timing"] = _loads(data.pop("timing"))
+        return data
+
+    def iter_behavior_analyses(self) -> Iterator[dict[str, Any]]:
+        rows = self._conn.execute(
+            "SELECT * FROM behavior_analyses ORDER BY analysis_id"
+        ).fetchall()
+        for row in rows:
+            data = dict(row)
+            data["profile"] = _loads(data.pop("profile_json"))
+            data["run_order"] = _loads(data.pop("run_order"))
+            data["ranked"] = _loads(data.pop("ranked"))
+            data["timing"] = _loads(data.pop("timing"))
+            yield data
+
+    @property
+    def behavior_analysis_count(self) -> int:
+        (count,) = self._conn.execute(
+            "SELECT COUNT(*) FROM behavior_analyses"
+        ).fetchone()
         return int(count)
 
     @property

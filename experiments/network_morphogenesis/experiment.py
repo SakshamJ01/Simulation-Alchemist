@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import itertools
 import math
+from collections.abc import Sequence
 from typing import Any, cast
 
 import numpy as np
@@ -42,6 +43,7 @@ from experiments.network_morphogenesis.model import (
 )
 from sim_alchemist.adapters.pde import PyPDEAdapter
 from sim_alchemist.adapters.pymunk import PymunkAdapter
+from sim_alchemist.core.behavior import ObservableSeries
 from sim_alchemist.core.composer import build_components, compose_into
 from sim_alchemist.core.engine import AlchemistEngine
 from sim_alchemist.core.mutation import ParameterSpec
@@ -51,6 +53,7 @@ from sim_alchemist.core.world import WorldDefinition
 __all__ = [
     "PARAMETER_SPECS",
     "build_network_metrics",
+    "build_network_observables",
     "run_network_world",
     "specs_by_path",
 ]
@@ -114,6 +117,43 @@ def build_network_metrics(trajectory: NetworkMorphogenesisTrajectory) -> dict[st
         "network_load_max": float(trajectory.max_load[-1]) if trajectory.max_load else 0.0,
         "n_sources": float(trajectory.n_sources[-1]) if trajectory.n_sources else 0.0,
         "growth_edges": float(len(grown)),
+    }
+
+
+def build_network_observables(
+    trajectory: NetworkMorphogenesisTrajectory,
+) -> dict[str, ObservableSeries]:
+    """Task 1.8: expose the compact per-step observables of one run.
+
+    Returns one ``ObservableSeries`` per observable, on the macro-step time
+    axis ``t_field``.  Field mean/std are derived in-memory from the field
+    snapshots; only the scalar series are returned (never the raw grids).
+    These series feed the generic behavior analyzer; nothing here is a metric
+    name the core knows about.
+    """
+    times = tuple(float(t) for t in trajectory.t_field)
+    if not times:
+        return {}
+
+    def _series(name: str, values: Sequence[float]) -> ObservableSeries:
+        return ObservableSeries(name=name, times=times, values=tuple(float(v) for v in values))
+
+    field_means = [float(np.asarray(u).mean()) for u in trajectory.u_snaps]
+    field_stds = [float(np.asarray(u).std()) for u in trajectory.u_snaps]
+
+    return {
+        "wall_count": _series("wall_count", trajectory.walls_per_step),
+        "wall_activity": _series("wall_activity", trajectory.wall_speeds),
+        "wall_force": _series("wall_force", trajectory.force_mags),
+        "field_mean": _series("field_mean", field_means),
+        "field_std": _series("field_std", field_stds),
+        "network_load_mean": _series("network_load_mean", trajectory.mean_load),
+        "network_load_max": _series("network_load_max", trajectory.max_load),
+        "active_sources": _series("active_sources", trajectory.n_sources),
+        "growth_event": _series(
+            "growth_event",
+            [1.0 if e is not None else 0.0 for e in trajectory.edge_grown],
+        ),
     }
 
 

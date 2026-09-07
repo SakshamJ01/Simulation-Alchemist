@@ -3,9 +3,9 @@
 **Status:** BASELINE v0.1 COMPLETE — Tasks 0.1–0.3 validated, Tasks 1.2–1.3
 validated, Task 1.5 (Experiment C: Adaptive Network Morphogenesis) validated,
 **Task 1.6 (generic mutation + SQLite experiment lineage) COMPLETE**, **Task 1.7
-(deterministic variant sweeps + generic experiment ranking) COMPLETE.** Next is
-**Task 1.8** (sweep-driven automation / experiment-database queries — not yet
-specified, not started). Do not start it until it is issued.
+(deterministic variant sweeps + generic experiment ranking) COMPLETE**, **Task 1.8
+(behavioral characterization + generic interestingness engine) COMPLETE.** Next is
+**Task 1.9** (not yet specified, not started). Do not start it until it is issued.
 **Date:** 2026-09-05 (updated 2026-09-07)
 
 ---
@@ -90,18 +90,45 @@ specified, not started). Do not start it until it is issued.
   the 10-step base run id `08c74954f42c86066b118244` and loss=0.14 variant
   `f3faa9c9d8d344b46271a393` reproduce Task 1.6's run ids exactly. Guard
   re-baselined to the post-1.7 core (adds sweep.py); no prior test weakened.
+- **Task 1.8** — BEHAVIORAL CHARACTERIZATION + GENERIC INTERESTINGNESS ENGINE:
+  first generic trajectory-characterization layer, fully experiment-free in the
+  core, stdlib-only (`math`/`statistics` — **no ML/LLM/embeddings/clustering/
+  learned weights, by task constraint**). `src/sim_alchemist/core/behavior.py`
+  (`ObservableSeries` with eager validation + deterministic `resample_to`;
+  18 features in temporal / trend / oscillation / stability / divergence
+  families with documented formulas — oscillation is `sign_change_rate ×
+  |lag1 autocorr of detrended residual|`, so a single step scores 0 and no
+  false periodicity claim is possible; divergence compares each variant
+  resampled onto the baseline's time axis; baseline's own divergence is
+  `None`, never silently 0; `InterestingnessProfile` with explicit weights +
+  per-feature max/min directions — "interesting ≠ largest value", and `rank_by_profile`
+  normalizing min-max **across the analyzed population** with `run_id` tie-break
+  (Task 1.7 rule, reused); `Contribution`/`RankedRow.explanation()` giving a
+  per-feature "favors/penalizes interest" explanation; `BehavioralAnalysisRunner`
+  reusing `apply_mutations`/`run_id_of`/no-op skip-and-count; deterministic
+  `behavior_analysis_id_of`). `lineage.py` extended with a per-run compact
+  `feature_snapshot` (`runs` column + `_migrate()` ALTER for pre-1.8 stores)
+  and an idempotent `behavior_analyses` table — **trajectories are never
+  persisted**. Experiment C exposes `build_network_observables` (9 scalar
+  series on `t_field`; field mean/std derived in memory only). 18 A–Q tests
+  (`tests/test_behavior_analysis.py`); CLI `run_behavior_demo.py` (`--dim`,
+  `--feature name:weight[:max|min]`, `--steps`, `--db`). Real Experiment C
+  analysis at 160 steps: loss[0.05,0.08,0.11,0.14] → 4 planned, 3 executed,
+  1 no-op skipped, 58.96s total / 19.65s mean; baseline ranked #1 under the
+  demo profile (field oscillation + flat network-load max) with the "why"
+  explanation reproduced verbatim in the report. Guard re-baselined to the
+  post-1.8 core (adds behavior.py); no prior test weakened. See
+  `TASK_1.8_REPORT.md`.
 
-Result: **Baseline v0.1 + Task 1.2–1.3–1.5–1.6–1.7** — a reproducible, uv-locked,
+Result: **Baseline v0.1 + Task 1.2–1.3–1.5–1.6–1.7–1.8** — a reproducible, uv-locked,
 pytest-wrapped, validated prototype with a generic composition core in
 `src/sim_alchemist/core/` that now drives three independent composed
 experiments (A chemo-morphogenesis, B field-guided movers, C adaptive network)
-and two generic layers over them: mutation/lineage/runner and
-deterministic sweeps + ranking.
+and three generic layers over them: mutation/lineage/runner, deterministic
+sweeps + ranking, and behavioral characterization + interestingness ranking.
 
 ### NEXT
-- **Task 1.8 — sweep-driven automation + experiment-database queries**
-  (automated `run <world> --variants` over the Task 1.7 sweep layer,
-  queries over the `sweeps`/`runs` lineage). Not started.
+- **Task 1.9** (not yet specified; not started).
 - Plugin/adapter registry (extensible `ComponentRegistry` with external
   adapters and capability discovery).
 - Generalized world composition beyond `compose()` (world graph, runtime

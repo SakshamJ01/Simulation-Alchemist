@@ -405,7 +405,8 @@ def test_network_adapter_contract():
 # ----------------------------------------------------------------------
 # Core immutability guard: src/sim_alchemist/core/ must not have changed.
 # Reuses the fixed hashes from the Experiment B guard (re-baselined at
-# Task 1.6 to include the mutation/lineage/runner modules).
+# Task 1.6 to include the mutation/lineage/runner modules, at Task 1.7 for
+# the sweep/ranking layer, and at Task 1.8 for behavior/interestingness).
 # ----------------------------------------------------------------------
 def test_core_files_unchanged() -> None:
     import test_field_guided_movers as b
@@ -415,7 +416,7 @@ def test_core_files_unchanged() -> None:
         assert path.is_file(), f"core file {filename} missing"
         h = hashlib.sha256(path.read_bytes()).hexdigest().upper()
         assert h == expected, (
-            f"src/sim_alchemist/core/{filename} was modified! Task 1.6 must not change the core."
+            f"src/sim_alchemist/core/{filename} was modified! Task 1.8 must not change the core."
         )
 
 

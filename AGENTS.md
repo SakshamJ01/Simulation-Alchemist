@@ -11,14 +11,15 @@ unified simulated world. This repository currently holds **Baseline v0.1**:
 the validated chemo-mechanical prototype (Tasks 0.1–0.3) plus the Task 1.2
 scheduler, the **Task 1.3 declarative composition layer**, the **Task 1.5
 Adaptive Network Morphogenesis experiment (Experiment C)**, the **Task 1.6
-generic mutation / lineage / variant-runner layer**, and the **Task 1.7
-generic sweep / ranking layer** — the verified starting
+generic mutation / lineage / variant-runner layer**, the **Task 1.7
+generic sweep / ranking layer**, and the **Task 1.8
+behavioral-characterization / interestingness layer** — the verified starting
 point for the framework. Three experiments (A: chemo-morphogenesis,
 B: field-guided movers, C: adaptive network morphogenesis) execute through the
 generic `AlchemistEngine` + core `StepScheduler` against declaratively-described
 worlds; the science and scheduling live in experiment coupling modules, not in
-engine subclasses. **Next milestone: Task 1.8 — sweep-driven automation +
-experiment-database queries (not started).**
+engine subclasses. **Next milestone: Task 1.9 (not specified, not started). Robot
+do NOT start Task 1.9 until it is issued.**
 
 ## Current Repository State (validated prototype — do not paper over)
 
@@ -82,13 +83,29 @@ closed loop:
   runs the **baseline control first**, skips+counts no-ops, records everything
   into the lineage store, `SweepTiming` instrumentation), `rank_results`/
   `RankingEntry` (metric by name, direction, deterministic tie-break by run id).
-- **src/sim_alchemist/core/lineage.py** — Task 1.6/1.7 SQLite-backed lineage:
-  `LineageStore` (metadata + compact metrics only, never trajectories),
-  `RunRecord`, deterministic `run_id_of` (sha256 of world content + seed),
-  plus the Task 1.7 `SweepRecord` and `sweeps` table (idempotent metadata).
+- **src/sim_alchemist/core/behavior.py** — Task 1.8 generic, deterministic
+  **behavioral characterization + interestingness**: `ObservableSeries`
+  (validated, `resample_to`), 18 per-observable features (temporal / trend /
+  oscillation / stability / divergence) with documented stdlib formulas
+  (counts-only sign changes, `|lag1 autocorr of detrended residual|`, can't
+  claim oscillation for a single step; divergence compares variants resampled
+  onto the baseline's time axis; baseline divergence is `None` — never 0),
+  `InterestingnessProfile` (explicit weights + max/min directions — 
+  "interesting ≠ largest value"), `rank_by_profile` (min-max normalization
+  across the population, `run_id` tie-break), `RankedRow.explanation()`,
+  `BehavioralAnalysisRunner` (Task 1.6/1.7 machinery reused),
+  `behavior_analysis_id_of`. Only compact feature snapshots and analysis
+  records are persisted (never trajectories).
+- **src/sim_alchemist/core/lineage.py** — Task 1.6/1.7/1.8 SQLite-backed
+  lineage: `LineageStore` (metadata + compact metrics only, never
+  trajectories), `RunRecord`, deterministic `run_id_of` (sha256 of world
+  content + seed), plus the Task 1.7 `SweepRecord` and `sweeps` table, plus
+  the Task 1.8 per-run `feature_snapshot` and `behavior_analyses` table
+  (idempotent metadata; pre-1.8 stores migrate on open).
 - **experiments/network_morphogenesis/experiment.py** — Task 1.6
   experiment-facing side: `PARAMETER_SPECS` (the three meaningful mutable
-  parameters), `build_network_metrics`, `run_network_world` executor.
+  parameters), `build_network_metrics`, `run_network_world` executor; Task 1.8
+  adds `build_network_observables` (9 compact per-step series on `t_field`).
 - **worlds/** — declarative YAML worlds for Experiments A, B, and C
   (`chemo_morphogenesis.yaml`, `field_guided_movers.yaml`,
   `adaptive_network.yaml`).
@@ -134,6 +151,7 @@ Do not start building that until the extraction task is issued.
 | Task 1.3 composition core | generic core | `src/sim_alchemist/core/{world,registry,composer,engine}.py` |
 | Mutation / lineage / variant runner | generic core | `src/sim_alchemist/core/{mutation,lineage,runner}.py` |
 | Sweep / ranking layer | generic core | `src/sim_alchemist/core/sweep.py`, `run_sweep.py` |
+| Behavior / interestingness | generic core | `src/sim_alchemist/core/behavior.py`, `run_behavior_demo.py` |
 | Experiment coupling + worlds | YAML + closures | `chemomech/coupling.py`, `experiments/field_guided_movers/coupling.py`, `experiments/network_morphogenesis/coupling.py`, `worlds/*.yaml` |
 | Validation A–G + figures | numpy / matplotlib | `chemomech/validate.py` |
 | Stability checks S1–S6 | numpy | `run_stability.py` |
@@ -163,6 +181,7 @@ The environment is managed by uv against Python 3.13:
 - `uv run python run_stability.py` — stability/boundedness checks (S1–S6)
 - `uv run python run_variant_demo.py` — Task 1.6 base/variant/lineage demo
 - `uv run python run_sweep.py --dim <path>:v1,v2,... [--dim ...] [--rank-by <metric>]` — Task 1.7 deterministic sweep + ranking demo
+- `uv run python run_behavior_demo.py --dim <path>:v1,v2,... --feature <obs>:<feature>:<weight>[:max|min] ...` — Task 1.8 behavioral characterization + interestingness demo
 - `uv run pytest` — test suite wrapping the same scientific checks
 
 ## Key Development Commands

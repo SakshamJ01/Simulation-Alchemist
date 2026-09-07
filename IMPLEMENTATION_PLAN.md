@@ -8,9 +8,11 @@ validated, Task 1.5 (Experiment C: Adaptive Network Morphogenesis) validated,
 **Task 1.9 (guided simulation search — first discovery loop) COMPLETE**,
 **Task 2.0 (diversity-preserving multi-objective discovery) COMPLETE**, **Task 2.1
 (cross-composition compatibility & discovery design, PLAN-ONLY) COMPLETE**,
-**Task 2.2 (coupling-contract layer + pre-execution validation) COMPLETE.** Next is
-**Task 2.3** (not yet specified, not started). Do not start it until it is issued.
-**Date:** 2026-09-05 (updated 2026-09-07)
+**Task 2.2 (coupling-contract layer + pre-execution validation) COMPLETE**,
+**Task 2.3 Build Stage 1+2 (CompositionShape/CompositionSpace + static
+capability filter) COMPLETE.** Next is **Task 2.3 Build Stage 3 (CouplingTemplate
+Registry)**, not started; do not start it until it is issued.
+**Date:** 2026-09-05 (updated 2026-09-08)
 
 ---
 
@@ -229,10 +231,16 @@ guided beam search over world variants, and diversity-preserving
 multi-objective discovery over that search.
 
 ### NEXT
-- **Task 2.3** (not yet specified; not started).
-- CompositionSpace / CompositionSearcher (Plugin/adapter registry phase) — see
-  Task 2.1 §13: `core/composition.py` (`ComponentOption`/`CompositionSpace`/
-  `enumerate_composition_shapes`), 3-stage resolver over the Task 2.2 contract
+- **Task 2.3 Build Stage 3** (CouplingTemplate Registry) — per
+  `TASK_2.3_DESIGN.md` §22/§23: so far Stage 1+2 delivered
+  `src/sim_alchemist/core/composition.py` (`ComponentBinding`/
+  `CompositionShape`/`CompositionSpace` + static capability filter
+  CAPABILITY_VALID/CAPABILITY_INVALID, deterministic bounded enumeration with
+  variant exclusivity). Stage 3 adds the experiment-owned `CouplingTemplate`
+  registry and the COUPLING_UNAVAILABLE/COUPLING_INVALID classification; it is
+  not started. Do not start until issued.
+- CompositionSearcher etc. (Plugin/adapter registry phase) — see
+  Task 2.1 §13: 3-stage resolver over the Task 2.2 contract
   layer, shape-aware identity, a compact `compositions` lineage table, discovery
   demo over the wired shapes — do not start until issued.
 - Plugin/adapter registry (extensible `ComponentRegistry` with external

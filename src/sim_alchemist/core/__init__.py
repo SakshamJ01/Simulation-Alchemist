@@ -32,6 +32,19 @@ from .composer import (
     compose_into,
     resolve_capabilities,
 )
+from .composition import (
+    CAPABILITY_INVALID,
+    CAPABILITY_VALID,
+    CapabilitySurface,
+    ComponentBinding,
+    CompositionClassification,
+    CompositionShape,
+    CompositionSpace,
+    bindings_from_registry,
+    capability_surfaces_from_registry,
+    classify_shape,
+    classify_shapes,
+)
 from .contracts import (
     ContractIssue,
     CouplingContract,
@@ -100,6 +113,8 @@ from .sweep import (
 from .world import ComponentSpec, WorldDefinition, load_world_yaml
 
 __all__ = [
+    "CAPABILITY_INVALID",
+    "CAPABILITY_VALID",
     "AdapterFactory",
     "AlchemistEngine",
     "BehaviorAnalysisRecord",
@@ -112,10 +127,15 @@ __all__ = [
     "Capability",
     "CapabilityResolver",
     "CapabilitySet",
+    "CapabilitySurface",
+    "ComponentBinding",
     "ComponentRegistry",
     "ComponentSpec",
+    "CompositionClassification",
     "CompositionError",
     "CompositionResult",
+    "CompositionShape",
+    "CompositionSpace",
     "ContractIssue",
     "Contribution",
     "CouplingContract",
@@ -173,8 +193,12 @@ __all__ = [
     "apply_mutations",
     "behavior_distance",
     "behavior_vector",
+    "bindings_from_registry",
     "build_components",
+    "capability_surfaces_from_registry",
     "child_mutations",
+    "classify_shape",
+    "classify_shapes",
     "clone_world",
     "compare_metrics",
     "compare_runs",

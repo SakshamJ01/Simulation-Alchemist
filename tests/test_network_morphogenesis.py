@@ -409,7 +409,8 @@ def test_network_adapter_contract():
 # the sweep/ranking layer, at Task 1.8 for behavior/interestingness, and at
 # Task 2.2 for the coupling-contract layer: contracts.py is new, and the
 # composer/__init__ hashes moved because the contract validation gate was
-# added to compose).
+# added to compose).  Re-baselined at Task 2.3 Build Stage 1+2 for the
+# composition layer (composition.py is new; __init__.py re-exports it).
 # ----------------------------------------------------------------------
 def test_core_files_unchanged() -> None:
     import test_field_guided_movers as b
@@ -419,7 +420,7 @@ def test_core_files_unchanged() -> None:
         assert path.is_file(), f"core file {filename} missing"
         h = hashlib.sha256(path.read_bytes()).hexdigest().upper()
         assert h == expected, (
-            f"src/sim_alchemist/core/{filename} was modified! Task 2.2 must not change the core."
+            f"src/sim_alchemist/core/{filename} was modified! Task 2.3 must not change the core."
         )
 
 

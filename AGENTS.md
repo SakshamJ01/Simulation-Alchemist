@@ -16,16 +16,21 @@ generic sweep / ranking layer**, and the **Task 1.8
 behavioral-characterization / interestingness layer**, and the **Task 1.9
 guided simulation search / first discovery loop**, and the **Task 2.0
 diversity-preserving multi-objective discovery layer**, and the **Task 2.1
-cross-composition compatibility & discovery design (PLAN-ONLY)**, and the
+cross-composition compatibility & discovery design (PLAN-ONLY)**, the
 **Task 2.2 coupling-contract layer + pre-execution composition validation**
 (`core/contracts.py`, optional `contracts=` on compose, adapter variant/capability/
-grid/payload metadata) — the verified starting point for the framework. Three
+grid/payload metadata), and the **Task 2.3 Build Stage 1+2 composition
+shape/space layer** (`core/composition.py`: `ComponentBinding`/
+`CompositionShape`/`CompositionSpace` + static capability filter
+CAPABILITY_VALID/CAPABILITY_INVALID, deterministic bounded enumeration with
+variant exclusivity) — the verified starting point for the framework. Three
 experiments (A: chemo-morphogenesis, B: field-guided movers, C: adaptive network
 morphogenesis) execute through the generic `AlchemistEngine` + core `StepScheduler`
 against declaratively-described worlds; the science, scheduling, and declared
 coupling contracts live in experiment coupling modules, not in engine subclasses.
-**Next milestone: Task 2.3 (not specified, not started). Robot
-do NOT start Task 2.3 until it is issued.**
+**Next milestone: Task 2.3 Build Stage 3 (CouplingTemplate Registry), not
+started. Robot do NOT start Stage 3 (or any later Task 2.3 stage) until it is
+issued.**
 
 ## Current Repository State (validated prototype — do not paper over)
 

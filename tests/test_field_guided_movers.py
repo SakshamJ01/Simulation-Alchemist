@@ -195,16 +195,21 @@ def test_deterministic_replay_bitwise() -> None:
 # coupling-contract layer.  contracts.py is the new generic pre-execution
 # coupling-validation module, composer.py gains the optional `contracts=`
 # gate (capabilities -> contracts -> schedule), and __init__.py re-exports
-# the contract API.  Re-pinning is the documented extension path; modifying
-# and then silently re-pinning immutable core behavior is what this guard
-# prohibits.
+# the contract API.
+# Task 2.3 (Build Stage 1+2) sanctioned extension: the guard is RE-PINNED
+# for the composition layer.  composition.py is the new generic
+# ComponentBinding / CompositionShape / CompositionSpace + static capability
+# filter module, and __init__.py re-exports the composition API.
+# Re-pinning is the documented extension path; modifying and then silently
+# re-pinning immutable core behavior is what this guard prohibits.
 # ----------------------------------------------------------------------
 CORE_COMMIT_HASHES = {
-    "__init__.py": "6EBCF668E977548AED1D46946B4C3FDF641C1E59E2AEAAFABEDC28DF8EEFD517",
+    "__init__.py": "C75315B0A060DE3EA37FA5A73126E1B64751567111C949DD460C4E139C8DF6EF",
     "behavior.py": "F28F157583948937A7442E92C584BC86190005BFFE89F9D7C9FE9283E287521C",
     "capabilities.py": "F13D4430E3B34B2364C895F18422984DC6D4388C91BE49C00B653EBE2D3F9188",
     "clock.py": "D49F5202F9F2C9E0A18A30A9A5BC59B676DF5E967B9D5518D0CB590C01714394",
     "composer.py": "4F82AC4DEEBC4282B220E322F3C20C898FD3AAFA3E0900A40D9E3839556E4D85",
+    "composition.py": "A45FA584DE2C989DD4FC28C194E732271100A598E70785515D4860137A7E0DDE",
     "contracts.py": "1DEEC8B2042B6F67FEEBDED4B397833BF9D231880524AB638B2AD449EF6ADAC0",
     "engine.py": "6260F90E45DD1D6E54FE677F6BB9DDA42F06A99E7B8E406A821C8E95E6A475E3",
     "events.py": "EF1DDF2206E21DC05CE835CFBC1A9CD0B089EEF861E58C3D50D7D54723005903",
@@ -226,7 +231,7 @@ def test_core_file_unchanged(filename) -> None:
     assert path.is_file(), f"core file {filename} missing"
     h = hashlib.sha256(path.read_bytes()).hexdigest().upper()
     assert h == CORE_COMMIT_HASHES[filename], (
-        f"src/sim_alchemist/core/{filename} was modified! Task 2.2 must not change the core."
+        f"src/sim_alchemist/core/{filename} was modified! Task 2.3 must not change the core."
     )
 
 

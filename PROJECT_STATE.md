@@ -53,8 +53,16 @@ Task 2.2 complete (Coupling-Contract Layer + Pre-Execution Composition Validatio
 - ruff check . — clean
 - pyright — 0 errors
 
-## Current task
-Task 2.2 complete. Next: Task 2.3 — (not started; do not start until issued).
+## Current activity
+Task 2.3 — CompositionSpace architecture design (PLAN-ONLY).
+- Design deliverable produced: `TASK_2.3_DESIGN.md` (composition = variant-aware
+  binding set + experiment-owned coupling template when executable; ComponentShape
+  canonical unordered semantics; ComponentSpace bounded deterministic enumeration;
+  status taxonomy CAPABILITY_INVALID/COUPLING_UNAVAILABLE/COUPLING_INVALID/
+  SCHEDULE_INVALID/CLOCK_INVALID/EXECUTABLE; identity = (component, variant), content-
+  addressed shape_id/composition_id; composition is a sibling, not a dot-path mutation).
+- No source, test, dependency, or world file was modified; no commit made.
+- Task 2.3 is NOT implemented and NOT complete.
 
 ## Completed in current task (Task 2.2)
 - `src/sim_alchemist/core/contracts.py` — the coupling-contract layer: `CouplingContract` (frozen; payload normalized to `PayloadItem`; variant/timing/mechanism/coordinate_system/grid defaults), `PayloadItem`, `ContractIssue`, `UnresolvedContractError` (deterministic, actionable), `resolve_contracts` (identity -> capability -> variant -> payload -> timing/mechanism -> coord -> grid -> self-edge; never invents couplings), `adapter_by_id` (id + variant based, never positional), `contracts_key`
@@ -78,7 +86,8 @@ Task 2.2 complete. Next: Task 2.3 — (not started; do not start until issued).
 - The contract layer validates *declared* edges only; it cannot invent couplings, and an undeclared-but-capability-valid edge is rejected only when composed with a contract set that needs it (empty contract set = today's unchecked behavior).
 
 ## Next exact task
-Task 2.3 — (not specified; not started). Do not start until issued.
+Task 2.3 Build Stage 1 (CompositionShape + identity + CompositionSpace enumeration —
+per `TASK_2.3_DESIGN.md` §22/§23). Do not start until issued.
 
 ## Do-not-change constraints
 - Keep `src/sim_alchemist/core/*` mutation/lineage/runner/sweep/behavior/search experiment-free.

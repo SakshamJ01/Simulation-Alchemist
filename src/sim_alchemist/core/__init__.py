@@ -49,6 +49,11 @@ from .composition import (
 from .composition_search import (
     CompositionEvaluation,
     CompositionEvaluationError,
+    CompositionSearcher,
+    CompositionSearchError,
+    CompositionSearchResult,
+    CompositionSearchSpec,
+    CompositionSearchTiming,
     composition_discovery_id_of,
     evaluate_composition_baseline,
 )
@@ -83,6 +88,13 @@ from .mutation import (
     clone_world,
     one_of,
     range_validator,
+)
+from .observables import (
+    CommonObservable,
+    CommonObservableError,
+    CommonObservableSet,
+    common_observable_names,
+    extract_common_observables,
 )
 from .registry import AdapterFactory, ComponentRegistry, default_registry
 from .runner import (
@@ -156,6 +168,9 @@ __all__ = [
     "CapabilitySet",
     "CapabilitySurface",
     "CatalogCandidate",
+    "CommonObservable",
+    "CommonObservableError",
+    "CommonObservableSet",
     "ComponentBinding",
     "ComponentRegistry",
     "ComponentSpec",
@@ -165,6 +180,11 @@ __all__ = [
     "CompositionEvaluation",
     "CompositionEvaluationError",
     "CompositionResult",
+    "CompositionSearchError",
+    "CompositionSearchResult",
+    "CompositionSearchSpec",
+    "CompositionSearchTiming",
+    "CompositionSearcher",
     "CompositionShape",
     "CompositionSpace",
     "CompositionVerdict",
@@ -236,6 +256,7 @@ __all__ = [
     "classify_shape",
     "classify_shapes",
     "clone_world",
+    "common_observable_names",
     "compare_metrics",
     "compare_runs",
     "compose",
@@ -246,6 +267,7 @@ __all__ = [
     "contracts_key",
     "default_registry",
     "evaluate_composition_baseline",
+    "extract_common_observables",
     "generate_world",
     "load_world_yaml",
     "one_of",

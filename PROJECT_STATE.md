@@ -1,9 +1,8 @@
 # Simulation Alchemist — Current State
 
 ## Current milestone
-Task 2.4 Build Stage 1 — cross-composition discovery
-    result layer + composition lineage (COMPLETE)
-Next: Task 2.4 Build Stage 2 — `CompositionSearcher` orchestrator
+Task 2.4 Build Stage 3 — common cross-composition observables (COMPLETE)
+Next: Task 2.4 Build Stage 4 — cross-composition ranking / discovery frontier (NOT started)
 
 ## Completed
 - Task 0.1 — chemo-mechanical feedback spike
@@ -24,6 +23,8 @@ Next: Task 2.4 Build Stage 2 — `CompositionSearcher` orchestrator
 - Task 2.3 Build Stage 1+2 — composition shape/space layer
 - Task 2.3 Build Stage 3+4+5 — coupling-template registry + executable taxonomy + CompositionCatalog
 - Task 2.4 Build Stage 1 — composition evaluation result layer + composition lineage + experiment executors
+- Task 2.4 Build Stage 2 — the thin `CompositionSearcher` orchestrator (enumerate EXECUTABLE → evaluate one baseline each → compact unranked result)
+- Task 2.4 Build Stage 3 — common cross-composition observables (one deterministic `CommonObservableSet` per evaluated composition over the sorted union of executor metric names; missing = explicit `available=False`/`None`; horizon captured from generated worlds; pure extraction, no persistence; timing split evaluation vs extraction; integrated into `CompositionSearcher.search` with backward-compatible result/timing)
 
 ## Current experiments
 - A — Chemo-Mechanical Morphogenesis (Mesa + py-pde + Pymunk)
@@ -47,7 +48,8 @@ Next: Task 2.4 Build Stage 2 — `CompositionSearcher` orchestrator
 - sweep (`sweep.py`: `ParameterSweep`, `MutationSpace`, `sweep_id_of`, `SweepRunner`, `rank_results`, `SweepResult`)
 - behavior (`behavior.py`: `ObservableSeries`, `BehaviorFeatures`, `BehaviorAnalyzer`, `InterestingnessProfile`, `rank_by_profile`, `BehavioralAnalysisRunner`, `behavior_vector`, `behavior_distance`, `select_diverse_frontier`, `compute_frontier_diagnostics`, `FrontierDiagnostics`)
 - search (`search.py`: `SearchSpec`, `SearchRunner`, `child_mutations`, `search_id_of`, `SelectionProfile`)
-- composition_search (`composition_search.py`: `CompositionEvaluation`, `CompositionEvaluationError`, `composition_discovery_id_of`, `evaluate_composition_baseline`) — Task 2.4 Stage 1: deterministic discovery-pass identity + one EXECUTABLE composition baseline evaluation recorded as a root lineage run with its composition stamp; core never dispatches on composition
+- composition_search (`composition_search.py`: `CompositionEvaluation`, `CompositionEvaluationError`, `composition_discovery_id_of`, `evaluate_composition_baseline`, `CompositionSearcher`, `CompositionSearchSpec`, `CompositionSearchResult`, `CompositionSearchTiming`, `CompositionSearchError`) — Task 2.4 Stages 1+2+3: deterministic discovery-pass identity + one EXECUTABLE composition baseline evaluation recorded as a root lineage run with its composition stamp, the thin orchestrator (enumerate `catalog.executable()` in canonical order → resolve experiment-owned executors via an opaque id→executor map → evaluate each once → compact unranked in-memory result; deterministic replay; never ranks/analyzes/selects), and the Stage 3 common-observable layer (`search` attaches one `CommonObservableSet` per evaluation in catalog order, splitting wall time into evaluation vs extraction); core never dispatches on composition
+- observables (`observables.py`: `CommonObservable`, `CommonObservableSet`, `CommonObservableError`, `common_observable_names`, `extract_common_observables`) — Task 2.4 Stage 3: deterministic common cross-composition observable envelope — sorted union of executor metric names across an evaluated pool; per-composition availability (`available=False`/`value=None` for composition-specific names elsewhere; never imputed); horizon (`max_steps`/`macro_timestep`) captured from the generated world with id/hash-match validation; pure projection of recorded evaluations (no re-runs, no persistence, world-immutable)
 - contracts (`contracts.py`: `CouplingContract`, `PayloadItem`, `ContractIssue`, `UnresolvedContractError`, `resolve_contracts`, `adapter_by_id`, `contracts_key`)
 - templates (`templates.py`: `CouplingTemplate`, `CouplingTemplateRegistry`, `classify_composition`, `CompositionVerdict`, `composition_id`, `template_composition_id`, `generate_world`)
 
@@ -55,15 +57,24 @@ Next: Task 2.4 Build Stage 2 — `CompositionSearcher` orchestrator
 - Python 3.13 (uv-managed, uv.lock reproducible)
 - Mesa, py-pde, Pymunk, NDlib, networkx, numpy, matplotlib, pyyaml
 
-## Current validation (Task 2.4 Build Stage 1 closing gate)
-- pytest — full suite standing gate: **386 tests passed** (378 fast + 8 slow; incl. 26 Task 2.4 Stage 1 composition-search/lineage/executor tests — 24 fast + 2 slow canonical A/B executor-vs-facade metric-parity — plus the re-pinned core-guard tests)
+## Current validation (Task 2.4 Build Stage 3 closing gate)
+- pytest — full suite standing gate: **444 tests passed** (434 fast + 10 slow; incl. the Stage 1 suite, the 25-fast/1-slow Stage 2 orchestrator suite, the new 30-fast/1-slow `tests/test_common_observables_stage3.py` Stage 3 common-observables suite, and the re-pinned core-guard tests)
 - run_validation.py — A–G: PASS
 - run_stability.py — S1–S6: PASS
 - ruff check . — clean
 - pyright — 0 errors
+- Canonical repository search regression: EXECUTABLE=3, invalid=20, evaluated=3, `run_count` stays 3 across replay; observable extraction is O(n) (~0.0002 s vs ~41.5 s of evaluation on this machine)
 
 ## Next exact task
-Task 2.4 Build Stage 2
+Task 2.4 Build Stage 4 — cross-composition ranking / discovery frontier over the common observable layer. NOT started.
+
+## Known limitations (Task 2.4, per design §16–§17)
+- The Stage 3 common-observable envelope is the sorted union of the scalar executor metric names; the genuinely-common subspace is the 3 names every composition produces (`final_field_mean`, `final_field_std`, `field_entropy`). It does not claim physical equivalence of A/B/C quantities absent an explicit semantic alias (not yet built — later stages).
+- Native-substep/engine differences mean A/B/C runs are not bitwise-comparable peers.
+- Diversity is behavioral (Task 1.8 features); a heuristic, not a calibrated metric.
+- Small discovery budget: 3 EXECUTABLE compositions / 23-shape universe; results are a demonstration, not exhaustive optimization.
+- Executor resolution relies on the experiments-owned `repository_executors()` map and could hide dependence on the 3 experiments; core never dispatches on composition (purity scan enforced in tests).
+- Only EXECUTABLE candidates enter discovery; the other 20 shapes are entirely out of scope of the pool.
 
 ## Do-not-change constraints
 - Keep `src/sim_alchemist/core/*` mutation/lineage/runner/sweep/behavior/search/composition/templates/catalog experiment-free.

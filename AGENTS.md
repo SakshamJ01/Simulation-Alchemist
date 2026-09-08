@@ -28,21 +28,28 @@ layer** (`core/templates.py`: `CouplingTemplate`/`CouplingTemplateRegistry` +
 the COUPLING_UNAVAILABLE/COUPLING_INVALID/SCHEDULE_INVALID/CLOCK_INVALID/
 EXECUTABLE taxonomy, `generate_world`, `composition_id`; `core/catalog.py`:
 `CompositionCatalog`/`CatalogCandidate`; `world.py` `ComponentSpec.variant`
-stamping), and the **Task 2.4 Build Stage 1 cross-composition discovery
+stamping), the **Task 2.4 Build Stage 1 cross-composition discovery
 result layer** (`core/composition_search.py`: `CompositionEvaluation`/
 `composition_discovery_id_of`/`evaluate_composition_baseline`, additive
 `RunRecord.composition_id` lineage stamp with pre-2.4 `_migrate()`, plus the
 conforming A/B executors in `chemomech/experiment.py` and
 `experiments/field_guided_movers/experiment.py` and the experiments-owned
-`repository_executors()` composition→executor map) — the verified starting
+`repository_executors()` composition→executor map), and the **Task 2.4 Build
+Stage 2 thin `CompositionSearcher` orchestrator** (`core/composition_search.py`:
+`CompositionSearcher`/`CompositionSearchSpec`/`CompositionSearchResult`/
+`CompositionSearchTiming`/`CompositionSearchError`; enumerate `catalog.executable()`
+in canonical order, evaluate one baseline per EXECUTABLE composition through the
+Stage 1 result layer via the opaque id→executor map, compact *unranked* result
+with deterministic replay; no ranking/behavior/frontier/visualization) — the
+verified starting
 point for the framework. Three
 experiments (A: chemo-morphogenesis, B: field-guided movers, C: adaptive network
 morphogenesis) execute through the generic `AlchemistEngine` + core `StepScheduler`
 against declaratively-described worlds; the science, scheduling, and declared
 coupling contracts live in experiment coupling modules, not in engine subclasses.
-**Next milestone: Task 2.4 Build Stage 2 (the thin `CompositionSearcher`
-orchestrator over the Stage 1 result layer), not
-started. Robot do NOT start Task 2.4 Build Stage 2 until it is issued.**
+**Next milestone: Task 2.4 Build Stage 4 (cross-composition ranking / discovery
+frontier over the common-observable layer), not
+started. Robot do NOT start Task 2.4 Build Stage 4 until it is issued.**
 
 ## Current Repository State (validated prototype — do not paper over)
 
@@ -147,9 +154,31 @@ closed loop:
   universe + profile + seed + evaluation config, no transient data),
   `evaluate_composition_baseline` (EXECUTABLE-only, `generated_world`-required;
   records a root run `parent_run_id=None` with its `composition_id`; idempotent on
-  the deterministic run id), and the additive `RunRecord.composition_id` stamp on
-  the lineage store with pre-2.4 `_migrate()`. No orchestrator, ranking, frontier,
-  or search loop.
+  the deterministic run id), plus the **Task 2.4 Build Stage 2 thin
+  `CompositionSearcher` orchestrator** (`CompositionSearcher`/`CompositionSearchSpec`/
+  `CompositionSearchResult`/`CompositionSearchTiming`/`CompositionSearchError`;
+  enumerate `catalog.executable()` in canonical order, evaluate one baseline per
+  EXECUTABLE composition through the Stage 1 result layer via the opaque id→executor
+map, compact *unranked* result with deterministic replay — no ranking/behavior/
+   frontier/visualization), plus the **Task 2.4 Build Stage 3 common-observable
+   chapter** (`search` attaches one deterministic `CommonObservableSet` per evaluated
+   composition in catalog order — sorted union of executor metric names, missing =
+   explicit `available=False`/`None`; pure O(n) extraction reusing the in-memory
+   evaluations, no re-run, no persistence, world immutable; evaluation/extraction
+   timing split; no ranking/behavior/frontier/visualization), and the additive
+   `RunRecord.composition_id` stamp on
+   the lineage store with pre-2.4 `_migrate()`.
+- **src/sim_alchemist/core/observables.py** — Task 2.4 Build Stage 3 common
+   cross-composition observables: `CommonObservable` (frozen name/`value`/`available`
+   triple; `available⇔non-None`, verbatim floats), `CommonObservableSet` (per
+   evaluated composition — composition_id/shape_id/world_hash/run_id/world_id/
+   status/seed/horizon + observables sorted by name; `names`/`available_names`/
+   `missing_names`, `observable(name)`, `as_dict`), `CommonObservableError`,
+   `common_observable_names` (deterministic sorted union of executor metric names
+   across the evaluated pool), `extract_common_observables` (pure projection of one
+   evaluated baseline onto the common vocabulary; composition-specific names
+   elsewhere become explicit missing rows; horizon from the generated world with
+   id/hash validation; structural/type-checked errors; nothing simulated/persisted).
 - **src/sim_alchemist/core/search.py** — Task 1.9 **guided beam search over `SearchSpec` (frozen, validated config: name,
   generations, beam_width, children_per_parent, mutation_space, profile,
   seed, optional selection_profile), `child_mutations` (dimension-major,
@@ -241,6 +270,8 @@ Do not start building that until the extraction task is issued.
 | Guided search / discovery | generic core | `src/sim_alchemist/core/search.py`, `run_search.py` |
 | Task 2.3 composition (templates/catalog) | generic core | `src/sim_alchemist/core/{templates,catalog}.py`, `experiments/catalog.py`, `run_catalog_demo.py` |
 | Task 2.4 Stage 1 composition evaluation | generic core + experiment executors | `src/sim_alchemist/core/composition_search.py`, `chemomech/experiment.py`, `experiments/field_guided_movers/experiment.py`, `experiments/catalog.py` |
+| Task 2.4 Stage 2 composition search | generic core | `src/sim_alchemist/core/composition_search.py`, `tests/test_composition_search_stage2.py` |
+| Task 2.4 Stage 3 common observables | generic core | `src/sim_alchemist/core/observables.py`, `src/sim_alchemist/core/composition_search.py`, `tests/test_common_observables_stage3.py` |
 | Experiment coupling + worlds | YAML + closures | `chemomech/coupling.py`, `experiments/field_guided_movers/coupling.py`, `experiments/network_morphogenesis/coupling.py`, `worlds/*.yaml` |
 | Validation A–G + figures | numpy / matplotlib | `chemomech/validate.py` |
 | Stability checks S1–S6 | numpy | `run_stability.py` |

@@ -16,10 +16,23 @@ CompositionCatalog) COMPLETE**, **Task 2.4 Build Stage 1 (cross-composition
 discovery result layer: `composition_search.py` evaluation record + deterministic
 `composition_discovery_id_of` + `evaluate_composition_baseline`, additive
 `composition_id` lineage stamp with migration, A/B experiment executors +
-`repository_executors()` map) COMPLETE.** Next is **Task 2.4 Build Stage 2 (the
-thinner-facing `CompositionSearcher` orchestrator)**, not started; do not start it
-until it is issued.
-**Date:** 2026-09-05 (updated 2026-09-08)
+`repository_executors()` map) COMPLETE**, **Task 2.4 Build Stage 2 (the thin
+`CompositionSearcher` orchestrator: enumerate `catalog.executable()` in canonical
+order → resolve experiment-owned executors via an opaque id→executor map →
+evaluate one baseline per EXECUTABLE composition through the Stage 1 result layer
+→ compact unranked `CompositionSearchResult` with deterministic replay; no
+ranking, no behavior analysis, no frontier, no visualization) COMPLETE**,
+**Task 2.4 Build Stage 3 (common cross-composition observables: deterministic
+`CommonObservableSet` per evaluated composition over the sorted union of the
+executors' metric names, missing = explicit `available=False`/`value=None`,
+horizon captured from the generated worlds, pure O(n) extraction reusing the
+in-memory evaluations with evaluation/extraction timing split, integrated
+into `CompositionSearcher.search` with backward-compatible
+`CompositionSearchResult` / `CompositionSearchTiming`) COMPLETE.** Next is
+**Task 2.4 Build Stage 4 (cross-composition ranking / discovery frontier over
+the common observable layer)**, not started; do not start it until it is
+issued.
+**Date:** 2026-09-05 (updated 2026-09-09)
 
 ---
 
@@ -261,15 +274,20 @@ multi-objective discovery over that search, and the declarative coupling-
 template/catalog composition layer.
 
 ### NEXT
-- **Task 2.4 Build Stage 2** (thin `CompositionSearcher` orchestrator: enumerate
-  `catalog.executable()` → `generate_world(template)` → evaluate baselines via the
-  Stage 1 result layer → build the cross-composition pool → delegate to
-  `rank_by_profile` / `select_diverse_frontier`) — see `TASK_2.4_DESIGN.md` §19.
-  **Stage 1 (result/identity/lineage + `composition_search.py` + A/B executors)
-  complete; Stage 2 not started. Do not start until issued.** (Stage 1 delivered
-  `CompositionEvaluation` / `composition_discovery_id_of` /
-  `evaluate_composition_baseline`, the `composition_id` lineage stamp with
-  pre-2.4 `_migrate()`, and `repository_executors()` keyed by composition id.)
+- **Task 2.4 Build Stage 4** (cross-composition ranking / discovery frontier
+  over the Stage 3 common-observable envelope) — see `TASK_2.4_DESIGN.md` §18.
+  **Stage 3 (common cross-composition observables) complete; Stage 4 not
+  started. Do not start until issued.** (Stage 3 delivered
+  `CommonObservable`/`CommonObservableSet`/`common_observable_names`/
+  `extract_common_observables` in the new `core/observables.py`, re-exports in
+  `__init__.py`, and the 30-fast/1-slow Stage 3 suite — one deterministic
+  observable set per evaluated composition over the sorted union of the
+  executors' metric names (missing = explicit `available=False`/`value=None`),
+  horizon captured from the generated worlds, pure O(n) extraction that
+  reuses the in-memory evaluations (no re-run, no persistence, world
+  immutable), evaluation/extraction timing split in `CompositionSearchTiming`,
+  canonical embedding in `CompositionSearchResult` with Stage 2 contracts
+  intact; see `TASK_2.4_STAGE3_REPORT.md`.)
 - Plugin/adapter registry (extensible `ComponentRegistry` with external
   adapters and capability discovery).
 - Generalized world composition beyond `compose()` (world graph, runtime

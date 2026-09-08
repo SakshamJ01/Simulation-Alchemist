@@ -46,6 +46,12 @@ from .composition import (
     classify_shape,
     classify_shapes,
 )
+from .composition_search import (
+    CompositionEvaluation,
+    CompositionEvaluationError,
+    composition_discovery_id_of,
+    evaluate_composition_baseline,
+)
 from .contracts import (
     ContractIssue,
     CouplingContract,
@@ -156,6 +162,8 @@ __all__ = [
     "CompositionCatalog",
     "CompositionClassification",
     "CompositionError",
+    "CompositionEvaluation",
+    "CompositionEvaluationError",
     "CompositionResult",
     "CompositionShape",
     "CompositionSpace",
@@ -232,10 +240,12 @@ __all__ = [
     "compare_runs",
     "compose",
     "compose_into",
+    "composition_discovery_id_of",
     "composition_id",
     "compute_frontier_diagnostics",
     "contracts_key",
     "default_registry",
+    "evaluate_composition_baseline",
     "generate_world",
     "load_world_yaml",
     "one_of",

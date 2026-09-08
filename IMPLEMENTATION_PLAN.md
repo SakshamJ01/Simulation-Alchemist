@@ -12,9 +12,13 @@ validated, Task 1.5 (Experiment C: Adaptive Network Morphogenesis) validated,
 **Task 2.3 Build Stage 1+2 (CompositionShape/CompositionSpace + static
 capability filter) COMPLETE**, **Task 2.3 Build Stage 3+4+5 (CouplingTemplate
 registry + executable taxonomy, world generation with variant stamping,
-CompositionCatalog) COMPLETE.** Next is **Task 2.4 (cross-composition discovery
-loop: `CompositionSearcher` + composition lineage + discovery demo)**, not
-started; do not start it until it is issued.
+CompositionCatalog) COMPLETE**, **Task 2.4 Build Stage 1 (cross-composition
+discovery result layer: `composition_search.py` evaluation record + deterministic
+`composition_discovery_id_of` + `evaluate_composition_baseline`, additive
+`composition_id` lineage stamp with migration, A/B experiment executors +
+`repository_executors()` map) COMPLETE.** Next is **Task 2.4 Build Stage 2 (the
+thinner-facing `CompositionSearcher` orchestrator)**, not started; do not start it
+until it is issued.
 **Date:** 2026-09-05 (updated 2026-09-08)
 
 ---
@@ -257,13 +261,15 @@ multi-objective discovery over that search, and the declarative coupling-
 template/catalog composition layer.
 
 ### NEXT
-- **Task 2.4** (cross-composition discovery loop: `CompositionSearcher` +
-  composition lineage + discovery demo) — see `TASK_2.3_DESIGN.md` §22 item 5's
-  sibling and Task 2.1 §13: literally search over the catalog's EXECUTABLE
-  shapes, shape-aware identity, a compact `compositions` lineage table,
-  discovery demo over the wired shapes. **Not started. Do not start until
-  issued.** (Task 2.3 Build Stage 3+4+5 delivered the template registry,
-  taxonomy, world generation, and catalog foundation it builds on.)
+- **Task 2.4 Build Stage 2** (thin `CompositionSearcher` orchestrator: enumerate
+  `catalog.executable()` → `generate_world(template)` → evaluate baselines via the
+  Stage 1 result layer → build the cross-composition pool → delegate to
+  `rank_by_profile` / `select_diverse_frontier`) — see `TASK_2.4_DESIGN.md` §19.
+  **Stage 1 (result/identity/lineage + `composition_search.py` + A/B executors)
+  complete; Stage 2 not started. Do not start until issued.** (Stage 1 delivered
+  `CompositionEvaluation` / `composition_discovery_id_of` /
+  `evaluate_composition_baseline`, the `composition_id` lineage stamp with
+  pre-2.4 `_migrate()`, and `repository_executors()` keyed by composition id.)
 - Plugin/adapter registry (extensible `ComponentRegistry` with external
   adapters and capability discovery).
 - Generalized world composition beyond `compose()` (world graph, runtime

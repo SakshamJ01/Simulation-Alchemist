@@ -28,14 +28,21 @@ layer** (`core/templates.py`: `CouplingTemplate`/`CouplingTemplateRegistry` +
 the COUPLING_UNAVAILABLE/COUPLING_INVALID/SCHEDULE_INVALID/CLOCK_INVALID/
 EXECUTABLE taxonomy, `generate_world`, `composition_id`; `core/catalog.py`:
 `CompositionCatalog`/`CatalogCandidate`; `world.py` `ComponentSpec.variant`
-stamping) — the verified starting point for the framework. Three
+stamping), and the **Task 2.4 Build Stage 1 cross-composition discovery
+result layer** (`core/composition_search.py`: `CompositionEvaluation`/
+`composition_discovery_id_of`/`evaluate_composition_baseline`, additive
+`RunRecord.composition_id` lineage stamp with pre-2.4 `_migrate()`, plus the
+conforming A/B executors in `chemomech/experiment.py` and
+`experiments/field_guided_movers/experiment.py` and the experiments-owned
+`repository_executors()` composition→executor map) — the verified starting
+point for the framework. Three
 experiments (A: chemo-morphogenesis, B: field-guided movers, C: adaptive network
 morphogenesis) execute through the generic `AlchemistEngine` + core `StepScheduler`
 against declaratively-described worlds; the science, scheduling, and declared
 coupling contracts live in experiment coupling modules, not in engine subclasses.
-**Next milestone: Task 2.4 (cross-composition discovery loop:
-`CompositionSearcher` + composition lineage + discovery demo), not
-started. Robot do NOT start Task 2.4 until it is issued.**
+**Next milestone: Task 2.4 Build Stage 2 (the thin `CompositionSearcher`
+orchestrator over the Stage 1 result layer), not
+started. Robot do NOT start Task 2.4 Build Stage 2 until it is issued.**
 
 ## Current Repository State (validated prototype — do not paper over)
 
@@ -132,9 +139,18 @@ closed loop:
   searched), `CatalogCandidate` (shape/status/reason/composition_id/generated_
   world) with `generated_world_available` for EXECUTABLE rows; query APIs
   `all/executable/invalid/by_status/by_shape_id/status_counts/explain`.
-- **src/sim_alchemist/core/search.py** — Task 1.9 **guided beam search over
-  world variants** plus the Task 2.0 **diversity-preserving multi-objective
-  discovery layer**: `SearchSpec` (frozen, validated config: name,
+- **src/sim_alchemist/core/composition_search.py** — Task 2.4 Build Stage 1
+  cross-composition evaluation result layer: `CompositionEvaluation` (one immutable
+  evaluated-composition-baseline snapshot reusing `run_id_of`/`world_hash`),
+  `CompositionEvaluationError`, `composition_discovery_id_of` (deterministic
+  content-addressed 24-hex discovery-pass identity over the catalog's composition
+  universe + profile + seed + evaluation config, no transient data),
+  `evaluate_composition_baseline` (EXECUTABLE-only, `generated_world`-required;
+  records a root run `parent_run_id=None` with its `composition_id`; idempotent on
+  the deterministic run id), and the additive `RunRecord.composition_id` stamp on
+  the lineage store with pre-2.4 `_migrate()`. No orchestrator, ranking, frontier,
+  or search loop.
+- **src/sim_alchemist/core/search.py** — Task 1.9 **guided beam search over `SearchSpec` (frozen, validated config: name,
   generations, beam_width, children_per_parent, mutation_space, profile,
   seed, optional selection_profile), `child_mutations` (dimension-major,
   value-minor, no-op skip, single-param children, truncation), `SearchRunner`
@@ -224,6 +240,7 @@ Do not start building that until the extraction task is issued.
 | Behavior / interestingness | generic core | `src/sim_alchemist/core/behavior.py`, `run_behavior_demo.py` |
 | Guided search / discovery | generic core | `src/sim_alchemist/core/search.py`, `run_search.py` |
 | Task 2.3 composition (templates/catalog) | generic core | `src/sim_alchemist/core/{templates,catalog}.py`, `experiments/catalog.py`, `run_catalog_demo.py` |
+| Task 2.4 Stage 1 composition evaluation | generic core + experiment executors | `src/sim_alchemist/core/composition_search.py`, `chemomech/experiment.py`, `experiments/field_guided_movers/experiment.py`, `experiments/catalog.py` |
 | Experiment coupling + worlds | YAML + closures | `chemomech/coupling.py`, `experiments/field_guided_movers/coupling.py`, `experiments/network_morphogenesis/coupling.py`, `worlds/*.yaml` |
 | Validation A–G + figures | numpy / matplotlib | `chemomech/validate.py` |
 | Stability checks S1–S6 | numpy | `run_stability.py` |

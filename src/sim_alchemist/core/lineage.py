@@ -74,9 +74,12 @@ class RunRecord:
     JSON.  ``metrics`` is the compact summary dict supplied by the executor.
     ``feature_snapshot`` (Task 1.8) optionally holds the compact behavioral
     feature vector of the run as a dict of floats -- never raw trajectories.
+    ``composition_id`` (Task 2.4) optionally stamps the run with the
+    content-addressed identity of the composition that produced this world.
     """
 
     __slots__ = (
+        "composition_id",
         "created_at",
         "feature_snapshot",
         "metrics",
@@ -98,6 +101,7 @@ class RunRecord:
         mutations: tuple[MutationRecord, ...] = (),
         metrics: dict[str, float] | None = None,
         feature_snapshot: dict[str, Any] | None = None,
+        composition_id: str | None = None,
         created_at: str | None = None,
         world_id_override: str | None = None,
     ) -> None:
@@ -110,6 +114,7 @@ class RunRecord:
         self.mutations = mutations
         self.metrics = dict(metrics or {})
         self.feature_snapshot = feature_snapshot
+        self.composition_id = composition_id
         self.created_at = created_at or _now_iso()
 
     def as_dict(self) -> dict[str, Any]:
@@ -122,6 +127,7 @@ class RunRecord:
             "mutations": [m.to_dict() for m in self.mutations],
             "metrics": self.metrics,
             "feature_snapshot": self.feature_snapshot,
+            "composition_id": self.composition_id,
             "created_at": self.created_at,
         }
 
@@ -139,6 +145,7 @@ class RunRecord:
             feature_snapshot=(
                 json.loads(row["feature_snapshot"]) if row["feature_snapshot"] else None
             ),
+            composition_id=row.get("composition_id"),
             created_at=row["created_at"],
             world_id_override=row["world_id"],
         )
@@ -387,6 +394,7 @@ class LineageStore:
         world_json TEXT NOT NULL,
         metrics TEXT NOT NULL,
         feature_snapshot TEXT,
+        composition_id TEXT,
         created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_runs_parent ON runs(parent_run_id);
@@ -449,10 +457,17 @@ class LineageStore:
         self._conn.commit()
 
     def _migrate(self) -> None:
-        """Migrate stores created before the Task 1.8 schema (feature column)."""
+        """Migrate stores created before the Task 1.8/2.4 runs schema.
+
+        Pre-1.8 stores lack the per-run ``feature_snapshot`` column;
+        pre-2.4 stores lack the per-run ``composition_id`` column.  Both are
+        added additively so every existing store keeps loading untouched.
+        """
         cols = [str(r["name"]) for r in self._conn.execute("PRAGMA table_info(runs)")]
         if "feature_snapshot" not in cols:
             self._conn.execute("ALTER TABLE runs ADD COLUMN feature_snapshot TEXT")
+        if "composition_id" not in cols:
+            self._conn.execute("ALTER TABLE runs ADD COLUMN composition_id TEXT")
 
     def record_run(self, record: RunRecord) -> None:
         """Insert or overwrite the record for ``record.run_id`` (idempotent)."""
@@ -462,8 +477,9 @@ class LineageStore:
             """
             INSERT OR REPLACE INTO runs
                 (run_id, parent_run_id, world_id, world_hash, seed,
-                 mutations, world_json, metrics, feature_snapshot, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 mutations, world_json, metrics, feature_snapshot,
+                 composition_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 payload["run_id"],
@@ -479,6 +495,7 @@ class LineageStore:
                     if payload["feature_snapshot"] is None
                     else json.dumps(payload["feature_snapshot"], **json_kwargs)
                 ),
+                payload["composition_id"],
                 payload["created_at"],
             ),
         )

@@ -13,6 +13,17 @@ The five bindings come from the union of the experiment registries:
     * ``pymunk/walls``    -- core (rigid-body wall physics),
     * ``pymunk/movers``   -- Experiment B point-mover variant,
     * ``network``         -- Experiment C network-diffusion variant.
+
+Task 2.4 (Build Stage 1) adds ``repository_executors()``: the ``executor_ref``
+mechanism points at the experiments' config-based runners (``WorldConfig ->
+Trajectory`` for A, ``MoversConfig -> MoversTrajectory`` for B), which are
+*not* conforming ``WorldDefinition -> ExecOutcome`` executors.  The smallest
+missing abstraction is therefore a repository-owned map from the
+content-addressed composition id to the experiment's conforming executor
+(A and B expose their wrappers in ``chemomech/experiment.py`` and
+``experiments/field_guided_movers/experiment.py``; C's ``run_network_world``
+already conforms).  The generic core never sees a composition name -- it is
+given the executor for the candidate it evaluates.
 """
 
 from __future__ import annotations
@@ -20,14 +31,17 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from chemomech.coupling import build_morphogenesis_template
+from chemomech.experiment import run_morphogenesis_world
 from experiments.field_guided_movers.coupling import (
     build_field_guided_movers_registry,
     build_field_guided_movers_template,
 )
+from experiments.field_guided_movers.experiment import run_field_guided_movers_world
 from experiments.network_morphogenesis.coupling import (
     build_network_morphogenesis_registry,
     build_network_morphogenesis_template,
 )
+from experiments.network_morphogenesis.experiment import run_network_world
 from sim_alchemist.core.capabilities import SimulationEngine
 from sim_alchemist.core.catalog import CompositionCatalog
 from sim_alchemist.core.composition import (
@@ -38,7 +52,12 @@ from sim_alchemist.core.composition import (
     capability_surfaces_from_registry,
 )
 from sim_alchemist.core.registry import default_registry
-from sim_alchemist.core.templates import CouplingTemplate, CouplingTemplateRegistry
+from sim_alchemist.core.runner import Executor
+from sim_alchemist.core.templates import (
+    CouplingTemplate,
+    CouplingTemplateRegistry,
+    template_composition_id,
+)
 
 
 def _binding_key(binding: ComponentBinding) -> tuple[str, str]:
@@ -126,3 +145,18 @@ def build_repository_catalog(*, generate_worlds: bool = False) -> CompositionCat
         build_adapters=build_repository_adapters,
         generate_worlds=generate_worlds,
     )
+
+
+def repository_executors() -> dict[str, Executor]:
+    """Conforming executors keyed by the executable composition ids.
+
+    Keys are ``template_composition_id`` of the three experiment templates
+    (content-addressed, immutable).  A and B wrappers are supplied here
+    because their staged ``executor_ref`` points at config-based runners; C's
+    ``run_network_world`` already conforms to the ``Executor`` contract.
+    """
+    return {
+        template_composition_id(build_morphogenesis_template()): run_morphogenesis_world,
+        template_composition_id(build_field_guided_movers_template()): run_field_guided_movers_world,
+        template_composition_id(build_network_morphogenesis_template()): run_network_world,
+    }

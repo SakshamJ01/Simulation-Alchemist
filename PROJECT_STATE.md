@@ -1,8 +1,9 @@
 # Simulation Alchemist — Current State
 
 ## Current milestone
-Task 2.4 — cross-composition discovery architecture design
-    (PLAN-ONLY)
+Task 2.4 Build Stage 1 — cross-composition discovery
+    result layer + composition lineage (COMPLETE)
+Next: Task 2.4 Build Stage 2 — `CompositionSearcher` orchestrator
 
 ## Completed
 - Task 0.1 — chemo-mechanical feedback spike
@@ -22,6 +23,7 @@ Task 2.4 — cross-composition discovery architecture design
 - Task 2.2 — coupling-contract layer + pre-execution composition validation
 - Task 2.3 Build Stage 1+2 — composition shape/space layer
 - Task 2.3 Build Stage 3+4+5 — coupling-template registry + executable taxonomy + CompositionCatalog
+- Task 2.4 Build Stage 1 — composition evaluation result layer + composition lineage + experiment executors
 
 ## Current experiments
 - A — Chemo-Mechanical Morphogenesis (Mesa + py-pde + Pymunk)
@@ -40,11 +42,12 @@ Task 2.4 — cross-composition discovery architecture design
 - contracts (`contracts.py`: `CouplingContract`, `PayloadItem`, `ContractIssue`, `UnresolvedContractError`, `resolve_contracts`, `adapter_by_id`, `contracts_key`) — declarative coupling-edge validation, never invents couplings
 - clock (`clock.py`), scheduler (`scheduler.py`), event bus (`events.py`)
 - mutation (`mutation.py`: `Mutation`, `MutationRecord`, `ParameterSpec`, validators, immutable clone)
-- lineage (`lineage.py`: `LineageStore` + `RunRecord`, `SweepRecord`, `BehaviorAnalysisRecord`, `SearchRecord`, deterministic `run_id_of`)
+- lineage (`lineage.py`: `LineageStore` + `RunRecord` (composition_id stamp), `SweepRecord`, `BehaviorAnalysisRecord`, `SearchRecord`, deterministic `run_id_of`)
 - runner (`runner.py`: `VariantRunner`, `compare_metrics`, `compare_runs`)
 - sweep (`sweep.py`: `ParameterSweep`, `MutationSpace`, `sweep_id_of`, `SweepRunner`, `rank_results`, `SweepResult`)
 - behavior (`behavior.py`: `ObservableSeries`, `BehaviorFeatures`, `BehaviorAnalyzer`, `InterestingnessProfile`, `rank_by_profile`, `BehavioralAnalysisRunner`, `behavior_vector`, `behavior_distance`, `select_diverse_frontier`, `compute_frontier_diagnostics`, `FrontierDiagnostics`)
 - search (`search.py`: `SearchSpec`, `SearchRunner`, `child_mutations`, `search_id_of`, `SelectionProfile`)
+- composition_search (`composition_search.py`: `CompositionEvaluation`, `CompositionEvaluationError`, `composition_discovery_id_of`, `evaluate_composition_baseline`) — Task 2.4 Stage 1: deterministic discovery-pass identity + one EXECUTABLE composition baseline evaluation recorded as a root lineage run with its composition stamp; core never dispatches on composition
 - contracts (`contracts.py`: `CouplingContract`, `PayloadItem`, `ContractIssue`, `UnresolvedContractError`, `resolve_contracts`, `adapter_by_id`, `contracts_key`)
 - templates (`templates.py`: `CouplingTemplate`, `CouplingTemplateRegistry`, `classify_composition`, `CompositionVerdict`, `composition_id`, `template_composition_id`, `generate_world`)
 
@@ -52,15 +55,15 @@ Task 2.4 — cross-composition discovery architecture design
 - Python 3.13 (uv-managed, uv.lock reproducible)
 - Mesa, py-pde, Pymunk, NDlib, networkx, numpy, matplotlib, pyyaml
 
-## Current validation (Task 2.3 Build Stage 3+4+5 closing gate)
-- pytest — full suite standing gate: **359 tests passed** (353 fast + 6 slow; incl. 123 Task 2.3 composition/template/generation/catalog tests — 40 Stage 1+2 + 37 test_templates + 22 test_world_generation + 24 test_catalog — plus slow canonicals)
+## Current validation (Task 2.4 Build Stage 1 closing gate)
+- pytest — full suite standing gate: **386 tests passed** (378 fast + 8 slow; incl. 26 Task 2.4 Stage 1 composition-search/lineage/executor tests — 24 fast + 2 slow canonical A/B executor-vs-facade metric-parity — plus the re-pinned core-guard tests)
 - run_validation.py — A–G: PASS
 - run_stability.py — S1–S6: PASS
 - ruff check . — clean
 - pyright — 0 errors
 
 ## Next exact task
-Task 2.4 Build Stage 1
+Task 2.4 Build Stage 2
 
 ## Do-not-change constraints
 - Keep `src/sim_alchemist/core/*` mutation/lineage/runner/sweep/behavior/search/composition/templates/catalog experiment-free.

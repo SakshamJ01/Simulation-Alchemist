@@ -210,19 +210,28 @@ def test_deterministic_replay_bitwise() -> None:
 # and __init__.py re-exports the added API.  Re-pinning is the documented
 # extension path; modifying and then silently re-pinning immutable core
 # behavior is what this guard prohibits.
+# Task 2.4 (Build Stage 1) sanctioned extension: the guard is RE-PINNED for
+# the cross-composition evaluation layer.  composition_search.py is the new
+# generic CompositionEvaluation / composition_discovery_id_of /
+# evaluate_composition_baseline module; lineage.py runs carry the additive
+# nullable `composition_id` column (migrated for pre-2.4 stores); and
+# __init__.py re-exports the added API.  Re-pinning is the documented
+# extension path; modifying and then silently re-pinning immutable core
+# behavior is what this guard prohibits.
 # ----------------------------------------------------------------------
 CORE_COMMIT_HASHES = {
-    "__init__.py": "7E4FF294D4C0031A0D8944A06F595EA944D991EB416998E0C89639647FE6520B",
+    "__init__.py": "A0748F4AD992DB37C629E6DDD2FCA68B0EE5DF5183C9042F31E61AC5534E5225",
     "behavior.py": "F28F157583948937A7442E92C584BC86190005BFFE89F9D7C9FE9283E287521C",
     "capabilities.py": "F13D4430E3B34B2364C895F18422984DC6D4388C91BE49C00B653EBE2D3F9188",
     "catalog.py": "E1BE5D90B300356B66AFCAD3B4FFBC2991C471D06D5B25D168FCAD51C39E9A0F",
     "clock.py": "D49F5202F9F2C9E0A18A30A9A5BC59B676DF5E967B9D5518D0CB590C01714394",
     "composer.py": "4F82AC4DEEBC4282B220E322F3C20C898FD3AAFA3E0900A40D9E3839556E4D85",
     "composition.py": "A45FA584DE2C989DD4FC28C194E732271100A598E70785515D4860137A7E0DDE",
+    "composition_search.py": "DE9817D945368CC4EC90CD87B7DB2EEC3004B161AF9337423F49738010A9FFA3",
     "contracts.py": "1DEEC8B2042B6F67FEEBDED4B397833BF9D231880524AB638B2AD449EF6ADAC0",
     "engine.py": "6260F90E45DD1D6E54FE677F6BB9DDA42F06A99E7B8E406A821C8E95E6A475E3",
     "events.py": "EF1DDF2206E21DC05CE835CFBC1A9CD0B089EEF861E58C3D50D7D54723005903",
-    "lineage.py": "84FA5140817B44B203E56D5D55994AE14772244E400144640FE32E2DE3687DBD",
+    "lineage.py": "A6DD757F1572D213BF0C5ED8FED0120E8E781B032096850C6B8C2B9033D40F0D",
     "mutation.py": "7FCDCD4EFC6B575E203282955D8320222B5F37631A709F5A2637A82A9F94ED77",
     "registry.py": "CA14083FC66FDDCA1DCB59D30B643920299E86A65CBB84E746537D68CAF626D1",
     "runner.py": "7BE10256EDD565AB65B982614CB9BEC9728D46DE1D9E2376D356CC3079322803",

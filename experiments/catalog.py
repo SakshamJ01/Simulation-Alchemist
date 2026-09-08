@@ -1,0 +1,128 @@
+"""Repository-facing composition catalog for the three experiments (Task 2.3).
+
+This is the experiment-owned side of the Stage 3-5 composition layer.  It
+binds the three experiment coupling templates (A: morphogenesis, B:
+field-guided movers, C: adaptive network morphogenesis) to the five-binding
+composition space and supplies the adapter-construction hook the generic
+classification gate needs (constructor-only; nothing is ever initialized or
+stepped here).
+
+The five bindings come from the union of the experiment registries:
+    * ``mesa``            -- core (agent sensing/decisions),
+    * ``py-pde``          -- core (reaction-diffusion field),
+    * ``pymunk/walls``    -- core (rigid-body wall physics),
+    * ``pymunk/movers``   -- Experiment B point-mover variant,
+    * ``network``         -- Experiment C network-diffusion variant.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+
+from chemomech.coupling import build_morphogenesis_template
+from experiments.field_guided_movers.coupling import (
+    build_field_guided_movers_registry,
+    build_field_guided_movers_template,
+)
+from experiments.network_morphogenesis.coupling import (
+    build_network_morphogenesis_registry,
+    build_network_morphogenesis_template,
+)
+from sim_alchemist.core.capabilities import SimulationEngine
+from sim_alchemist.core.catalog import CompositionCatalog
+from sim_alchemist.core.composition import (
+    CapabilitySurface,
+    ComponentBinding,
+    CompositionShape,
+    CompositionSpace,
+    capability_surfaces_from_registry,
+)
+from sim_alchemist.core.registry import default_registry
+from sim_alchemist.core.templates import CouplingTemplate, CouplingTemplateRegistry
+
+
+def _binding_key(binding: ComponentBinding) -> tuple[str, str]:
+    return (binding.component, binding.variant or "")
+
+
+def repository_bindings() -> tuple[ComponentBinding, ...]:
+    """The five distinct bindings of the repository composition universe."""
+    return tuple(sorted(repository_surfaces(), key=_binding_key))
+
+
+def repository_surfaces() -> dict[ComponentBinding, CapabilitySurface]:
+    """Static capability surfaces for all five bindings (constructor-only).
+
+    Capability surfaces are keyed by binding identity (component + variant),
+    so the walls and movers variants of the ``pymunk`` component id coexist
+    here even though a single registry can only register one ``pymunk``
+    builder.  The three registries are merged by ``dict.update``.
+    """
+    surfaces: dict[ComponentBinding, CapabilitySurface] = {}
+    surfaces.update(capability_surfaces_from_registry(default_registry()))
+    surfaces.update(
+        capability_surfaces_from_registry(build_network_morphogenesis_registry())
+    )
+    surfaces.update(
+        capability_surfaces_from_registry(build_field_guided_movers_registry())
+    )
+    return surfaces
+
+
+def repository_templates() -> CouplingTemplateRegistry:
+    """The three experiment coupling templates, registered deterministically."""
+    registry = CouplingTemplateRegistry()
+    for template in (
+        build_morphogenesis_template(),
+        build_field_guided_movers_template(),
+        build_network_morphogenesis_template(),
+    ):
+        registry.register(template)
+    return registry
+
+
+def build_repository_adapters(
+    shape: CompositionShape,
+    template: CouplingTemplate,
+) -> Sequence[SimulationEngine]:
+    """Construct (only) the adapters a template-matched shape needs.
+
+    Dispatch by binding identity: the ``network`` component id comes from
+    Experiment C, the ``pymunk/movers`` variant from Experiment B, everything
+    else from the core default registry.  Constructors run with the template's
+    component configs; no adapter is initialized or stepped.
+    """
+    configs = dict(template.component_configs)
+    adapters: list[SimulationEngine] = []
+    for binding in shape:
+        if binding.component == "network":
+            registry = build_network_morphogenesis_registry()
+        elif binding.variant == "movers":
+            registry = build_field_guided_movers_registry()
+        else:
+            registry = default_registry()
+        adapters.append(
+            registry.build(binding.component, dict(configs.get(binding.component, {})))
+        )
+    return adapters
+
+
+def build_repository_catalog(*, generate_worlds: bool = False) -> CompositionCatalog:
+    """The full 23-shape repository catalog (k = 1..4 over five bindings).
+
+    ``generate_worlds=True`` materializes the ``WorldDefinition`` of every
+    ``EXECUTABLE`` candidate (exactly three).
+    """
+    space = CompositionSpace(
+        name="repository",
+        universe=repository_bindings(),
+        min_size=1,
+        max_size=4,
+    )
+    return CompositionCatalog(
+        space,
+        repository_surfaces(),
+        repository_templates(),
+        build_adapters=build_repository_adapters,
+        generate_worlds=generate_worlds,
+    )

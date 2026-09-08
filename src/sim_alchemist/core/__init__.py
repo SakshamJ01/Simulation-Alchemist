@@ -22,6 +22,7 @@ from .behavior import (
     select_diverse_frontier,
 )
 from .capabilities import Capability, CapabilitySet, SimulationEngine
+from .catalog import CatalogCandidate, CompositionCatalog
 from .clock import SimulationClock
 from .composer import (
     CompositionError,
@@ -110,11 +111,31 @@ from .sweep import (
     rank_results,
     sweep_id_of,
 )
+from .templates import (
+    CLOCK_INVALID,
+    COUPLING_INVALID,
+    COUPLING_UNAVAILABLE,
+    EXECUTABLE,
+    SCHEDULE_INVALID,
+    CompositionVerdict,
+    CouplingTemplate,
+    CouplingTemplateRegistry,
+    DuplicateTemplateError,
+    classify_composition,
+    composition_id,
+    generate_world,
+    template_composition_id,
+)
 from .world import ComponentSpec, WorldDefinition, load_world_yaml
 
 __all__ = [
     "CAPABILITY_INVALID",
     "CAPABILITY_VALID",
+    "CLOCK_INVALID",
+    "COUPLING_INVALID",
+    "COUPLING_UNAVAILABLE",
+    "EXECUTABLE",
+    "SCHEDULE_INVALID",
     "AdapterFactory",
     "AlchemistEngine",
     "BehaviorAnalysisRecord",
@@ -128,17 +149,23 @@ __all__ = [
     "CapabilityResolver",
     "CapabilitySet",
     "CapabilitySurface",
+    "CatalogCandidate",
     "ComponentBinding",
     "ComponentRegistry",
     "ComponentSpec",
+    "CompositionCatalog",
     "CompositionClassification",
     "CompositionError",
     "CompositionResult",
     "CompositionShape",
     "CompositionSpace",
+    "CompositionVerdict",
     "ContractIssue",
     "Contribution",
     "CouplingContract",
+    "CouplingTemplate",
+    "CouplingTemplateRegistry",
+    "DuplicateTemplateError",
     "Event",
     "EventBus",
     "EventType",
@@ -197,6 +224,7 @@ __all__ = [
     "build_components",
     "capability_surfaces_from_registry",
     "child_mutations",
+    "classify_composition",
     "classify_shape",
     "classify_shapes",
     "clone_world",
@@ -204,9 +232,11 @@ __all__ = [
     "compare_runs",
     "compose",
     "compose_into",
+    "composition_id",
     "compute_frontier_diagnostics",
     "contracts_key",
     "default_registry",
+    "generate_world",
     "load_world_yaml",
     "one_of",
     "range_validator",
@@ -218,5 +248,6 @@ __all__ = [
     "search_id_of",
     "select_diverse_frontier",
     "sweep_id_of",
+    "template_composition_id",
     "world_hash",
 ]

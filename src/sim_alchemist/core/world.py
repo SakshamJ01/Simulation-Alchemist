@@ -10,6 +10,14 @@ A world may be expressed programmatically as a ``WorldDefinition`` dataclass
 or loaded from a YAML file (``load_world_yaml``).  Both routes produce the
 exact same typed object, so a YAML world is guaranteed to behave identically
 to its programmatic twin.
+
+Task 2.3 (Build Stage 4) adds an optional ``variant`` stamp to each component:
+the concrete binding identity of a dual-variant component id.  It is part of
+the component's world identity (it flows into ``world_hash`` / the deterministic
+run identity) and makes the composition a template described by the taxonomy
+explicit in the world itself.  A world built by an experiment facade and the
+world *generated* from that experiment's coupling template are identical except
+for this explicit variant stamp.
 """
 
 from __future__ import annotations
@@ -27,18 +35,39 @@ class ComponentSpec:
 
     ``id`` names a registered adapter factory (see ``registry.py``); ``config``
     is an opaque per-component configuration dict handed to the factory when
-    it constructs the adapter.
+    it constructs the adapter.  ``variant`` is the optional concrete binding
+    identity of a dual-variant component id (``None`` when the id is
+    unambiguous); it is declared metadata that participates in the world's
+    identity, not an argument to the factory.
     """
 
     id: str
     config: dict[str, Any] = field(default_factory=dict)
+    variant: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.id, str) or not self.id.strip():
+            raise ValueError("component id must be a non-empty string")
+        object.__setattr__(self, "variant", _normalize_variant(self.variant))
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ComponentSpec:
         cfg = data.get("config", {})
         if not isinstance(cfg, dict):
             raise TypeError(f"Component '{data.get('id')}' config must be a mapping")
-        return cls(id=data["id"], config=dict(cfg))
+        return cls(id=data["id"], config=dict(cfg), variant=data.get("variant"))
+
+
+def _normalize_variant(variant: str | None) -> str | None:
+    if variant is None:
+        return None
+    if not isinstance(variant, str):
+        raise TypeError(
+            f"Component variant must be a str or None, got {type(variant).__name__}"
+        )
+    if not variant.strip():
+        return None
+    return variant
 
 
 @dataclass(frozen=True)
@@ -62,7 +91,10 @@ class WorldDefinition:
     def as_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
-            "components": [{"id": c.id, "config": c.config} for c in self.components],
+            "components": [
+                {"id": c.id, "variant": c.variant, "config": c.config}
+                for c in self.components
+            ],
             "requires": list(self.requires),
             "schedule": list(self.schedule),
             "macro_timestep": self.macro_timestep,

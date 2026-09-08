@@ -200,13 +200,22 @@ def test_deterministic_replay_bitwise() -> None:
 # for the composition layer.  composition.py is the new generic
 # ComponentBinding / CompositionShape / CompositionSpace + static capability
 # filter module, and __init__.py re-exports the composition API.
-# Re-pinning is the documented extension path; modifying and then silently
-# re-pinning immutable core behavior is what this guard prohibits.
+# Task 2.3 (Build Stage 3+4+5) sanctioned extension: the guard is RE-PINNED
+# for the coupling-template / world-generation / composition-catalog layer.
+# templates.py is the new generic CouplingTemplate / registry / executable
+# taxonomy (CapabilitySurface -> templates -> contracts -> schedule -> clock)
+# with generate_world and composition_id; catalog.py is the new generic
+# CompositionCatalog / CatalogCandidate classifier; world.py moved because
+# ComponentSpec gains the optional `variant` binding stamp (world identity);
+# and __init__.py re-exports the added API.  Re-pinning is the documented
+# extension path; modifying and then silently re-pinning immutable core
+# behavior is what this guard prohibits.
 # ----------------------------------------------------------------------
 CORE_COMMIT_HASHES = {
-    "__init__.py": "C75315B0A060DE3EA37FA5A73126E1B64751567111C949DD460C4E139C8DF6EF",
+    "__init__.py": "7E4FF294D4C0031A0D8944A06F595EA944D991EB416998E0C89639647FE6520B",
     "behavior.py": "F28F157583948937A7442E92C584BC86190005BFFE89F9D7C9FE9283E287521C",
     "capabilities.py": "F13D4430E3B34B2364C895F18422984DC6D4388C91BE49C00B653EBE2D3F9188",
+    "catalog.py": "E1BE5D90B300356B66AFCAD3B4FFBC2991C471D06D5B25D168FCAD51C39E9A0F",
     "clock.py": "D49F5202F9F2C9E0A18A30A9A5BC59B676DF5E967B9D5518D0CB590C01714394",
     "composer.py": "4F82AC4DEEBC4282B220E322F3C20C898FD3AAFA3E0900A40D9E3839556E4D85",
     "composition.py": "A45FA584DE2C989DD4FC28C194E732271100A598E70785515D4860137A7E0DDE",
@@ -221,7 +230,8 @@ CORE_COMMIT_HASHES = {
     "search.py": "1B1A637D3FF186922C14433C86B613AE0C67849D0735D7ABDC4E01F183D04280",
     "state.py": "ADB33ADEDC4749288451D0648CE465476DA1C8877D5EDA798034F023B3CD8158",
     "sweep.py": "1F2787D42A2EE56E0A79F872612E09882A5F105C188495BE3DAB22CCAB1E5AF7",
-    "world.py": "253555421BF9D7737E465FDCFA85C7586F8E721BEA170D9834609558CE511175",
+    "templates.py": "BB1D0CBF9BF51B37CB52BF430E942AA10B1698D87E6CB783C8670BD59045C439",
+    "world.py": "D3D7E96CCF36C260B91870611BE0AE7E0053A82CCEAFF3F316705BA1153D9236",
 }
 
 

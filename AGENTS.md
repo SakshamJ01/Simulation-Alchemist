@@ -19,18 +19,23 @@ diversity-preserving multi-objective discovery layer**, and the **Task 2.1
 cross-composition compatibility & discovery design (PLAN-ONLY)**, the
 **Task 2.2 coupling-contract layer + pre-execution composition validation**
 (`core/contracts.py`, optional `contracts=` on compose, adapter variant/capability/
-grid/payload metadata), and the **Task 2.3 Build Stage 1+2 composition
+grid/payload metadata), the **Task 2.3 Build Stage 1+2 composition
 shape/space layer** (`core/composition.py`: `ComponentBinding`/
 `CompositionShape`/`CompositionSpace` + static capability filter
 CAPABILITY_VALID/CAPABILITY_INVALID, deterministic bounded enumeration with
-variant exclusivity) — the verified starting point for the framework. Three
+variant exclusivity), and the **Task 2.3 Build Stage 3+4+5 composition
+layer** (`core/templates.py`: `CouplingTemplate`/`CouplingTemplateRegistry` +
+the COUPLING_UNAVAILABLE/COUPLING_INVALID/SCHEDULE_INVALID/CLOCK_INVALID/
+EXECUTABLE taxonomy, `generate_world`, `composition_id`; `core/catalog.py`:
+`CompositionCatalog`/`CatalogCandidate`; `world.py` `ComponentSpec.variant`
+stamping) — the verified starting point for the framework. Three
 experiments (A: chemo-morphogenesis, B: field-guided movers, C: adaptive network
 morphogenesis) execute through the generic `AlchemistEngine` + core `StepScheduler`
 against declaratively-described worlds; the science, scheduling, and declared
 coupling contracts live in experiment coupling modules, not in engine subclasses.
-**Next milestone: Task 2.3 Build Stage 3 (CouplingTemplate Registry), not
-started. Robot do NOT start Stage 3 (or any later Task 2.3 stage) until it is
-issued.**
+**Next milestone: Task 2.4 (cross-composition discovery loop:
+`CompositionSearcher` + composition lineage + discovery demo), not
+started. Robot do NOT start Task 2.4 until it is issued.**
 
 ## Current Repository State (validated prototype — do not paper over)
 
@@ -111,6 +116,22 @@ closed loop:
   `behavior_distance` (Euclidean, missing/non-finite -> 0.0),
   `select_diverse_frontier`, `compute_frontier_diagnostics`,
   `FrontierDiagnostics`.
+- **src/sim_alchemist/core/templates.py** — Task 2.3 (Stage 3+4) coupling
+  templates + world generation: `CouplingTemplate` (frozen authoring surface:
+  bindings/world_id/contracts/schedule/operations/requires/executor_ref/
+  component_configs/clock), `CouplingTemplateRegistry` (register-only,
+  `DuplicateTemplateError`, lookup by canonical shape), `classify_composition`
+  (the ordered 6-status funnel: capability → template → contracts → schedule →
+  clock → EXECUTABLE; contracts never inferred; adapters only *constructed* for
+  template-matched shapes), `composition_id` (content-addressed 24-hex),
+  `generate_world(template)` (deterministic, immutable, adapter-free
+  `WorldDefinition` with `ComponentSpec.variant` stamped per binding).
+- **src/sim_alchemist/core/catalog.py** — Task 2.3 (Stage 5) composition
+  catalog: `CompositionCatalog` pre-classifies the whole enumerated space
+  (constructor-only builds for matched shapes; nothing simulated/persisted/
+  searched), `CatalogCandidate` (shape/status/reason/composition_id/generated_
+  world) with `generated_world_available` for EXECUTABLE rows; query APIs
+  `all/executable/invalid/by_status/by_shape_id/status_counts/explain`.
 - **src/sim_alchemist/core/search.py** — Task 1.9 **guided beam search over
   world variants** plus the Task 2.0 **diversity-preserving multi-objective
   discovery layer**: `SearchSpec` (frozen, validated config: name,
@@ -149,7 +170,15 @@ closed loop:
   adds `build_network_observables` (9 compact per-step series on `t_field`).
 - **worlds/** — declarative YAML worlds for Experiments A, B, and C
   (`chemo_morphogenesis.yaml`, `field_guided_movers.yaml`,
-  `adaptive_network.yaml`).
+  `adaptive_network.yaml`). `component_configs` for the templates are copied
+  from these worlds, so generated worlds stay config-identical.
+- **experiments/catalog.py** — Task 2.3 (Stage 3+4+5) repository-side
+  composition layer: `repository_surfaces()` (five-binding unified universe:
+  mesa / py-pde / network / pymunk/walls / pymunk/movers, keyed by
+  `(component, variant)` across default + C + B registries),
+  `repository_templates()` (the three experiment coupling templates),
+  `build_repository_adapters` (constructor-only dispatch), and
+  `build_repository_catalog()`. Demo: `run_catalog_demo.py`.
 
 All three experiments are ALSO runnable without their facades: a plain
 `AlchemistEngine` composed via `compose(world, registry, operations)` —
@@ -194,6 +223,7 @@ Do not start building that until the extraction task is issued.
 | Sweep / ranking layer | generic core | `src/sim_alchemist/core/sweep.py`, `run_sweep.py` |
 | Behavior / interestingness | generic core | `src/sim_alchemist/core/behavior.py`, `run_behavior_demo.py` |
 | Guided search / discovery | generic core | `src/sim_alchemist/core/search.py`, `run_search.py` |
+| Task 2.3 composition (templates/catalog) | generic core | `src/sim_alchemist/core/{templates,catalog}.py`, `experiments/catalog.py`, `run_catalog_demo.py` |
 | Experiment coupling + worlds | YAML + closures | `chemomech/coupling.py`, `experiments/field_guided_movers/coupling.py`, `experiments/network_morphogenesis/coupling.py`, `worlds/*.yaml` |
 | Validation A–G + figures | numpy / matplotlib | `chemomech/validate.py` |
 | Stability checks S1–S6 | numpy | `run_stability.py` |
@@ -225,6 +255,7 @@ The environment is managed by uv against Python 3.13:
 - `uv run python run_sweep.py --dim <path>:v1,v2,... [--dim ...] [--rank-by <metric>]` — Task 1.7 deterministic sweep + ranking demo
 - `uv run python run_behavior_demo.py --dim <path>:v1,v2,... --feature <obs>:<feature>:<weight>[:max|min] ...` — Task 1.8 behavioral characterization + interestingness demo
 - `uv run python run_search.py --dim <path>:v1,v2,... --feature <obs>:<feature>:<weight>[:max|min] ... [--generations N] [--beam-width N]` — Task 1.9 guided beam search + discovery loop
+- `uv run python run_catalog_demo.py [--generate-worlds [--worlds-dir DIR]]` — Task 2.3 composition catalog demo (23 shapes, 16/4/3) + writes the 3 EXECUTABLE worlds
 - `uv run pytest` — test suite wrapping the same scientific checks
 
 ## Key Development Commands

@@ -10,8 +10,11 @@ validated, Task 1.5 (Experiment C: Adaptive Network Morphogenesis) validated,
 (cross-composition compatibility & discovery design, PLAN-ONLY) COMPLETE**,
 **Task 2.2 (coupling-contract layer + pre-execution validation) COMPLETE**,
 **Task 2.3 Build Stage 1+2 (CompositionShape/CompositionSpace + static
-capability filter) COMPLETE.** Next is **Task 2.3 Build Stage 3 (CouplingTemplate
-Registry)**, not started; do not start it until it is issued.
+capability filter) COMPLETE**, **Task 2.3 Build Stage 3+4+5 (CouplingTemplate
+registry + executable taxonomy, world generation with variant stamping,
+CompositionCatalog) COMPLETE.** Next is **Task 2.4 (cross-composition discovery
+loop: `CompositionSearcher` + composition lineage + discovery demo)**, not
+started; do not start it until it is issued.
 **Date:** 2026-09-05 (updated 2026-09-08)
 
 ---
@@ -216,33 +219,51 @@ Registry)**, not started; do not start it until it is issued.
   couplings**; gap-proof test: Exp C world with `pymunk`→`MoversAdapter` passes
   `resolve_capabilities` yet `compose(..., contracts=NETWORK_MORPHOGENESIS_CONTRACTS)`
   raises `UnresolvedContractError` before `_install`. `contracts=` vs `None`
-  bitwise-identical science for A/B/C. Guard re-baselined to post-2.2 core
-  (contracts.py, composer.py, __init__.py); no prior test weakened. Full suite
-  233 passed; validation A–G / stability S1–S6 / ruff / pyright all clean.
-  See `TASK_2.2_REPORT.md`.
+bitwise-identical science for A/B/C. Guard re-baselined to post-2.2 core
+   (contracts.py, composer.py, __init__.py); no prior test weakened. Full suite
+   233 passed; validation A–G / stability S1–S6 / ruff / pyright all clean.
+   See `TASK_2.2_REPORT.md`.
+- **Task 2.3 Build Stage 3+4+5** — COUPLING TEMPLATES + WORLD GENERATION +
+  COMPOSITION CATALOG: new `src/sim_alchemist/core/templates.py`
+  (`CouplingTemplate`, `CouplingTemplateRegistry`, `classify_composition`,
+  `CompositionVerdict`, `composition_id`/`template_composition_id`,
+  `generate_world`) and `catalog.py` (`CompositionCatalog`, `CatalogCandidate`);
+  `world.py` gains the optional `ComponentSpec.variant` stamp (world/run
+  identity is now variant-aware). Experiment-owned templates co-located in the
+  three coupling modules (`build_*_template`), surfaced by
+  `experiments/catalog.py` (`repository_surfaces`/`bindings`/`templates`,
+  `build_repository_adapters`, `build_repository_catalog`) and demoed by
+  `run_catalog_demo.py`. The ordered 6-status funnel
+  (CAPABILITY_INVALID → COUPLING_UNAVAILABLE → COUPLING_INVALID →
+  SCHEDULE_INVALID → CLOCK_INVALID → EXECUTABLE) is deterministic, static
+  (adapters only constructed for template-matched shapes, never
+  initialized/stepped), and never infers contracts. Exact classification of
+  the 23-shape universe: **16 CAPABILITY_INVALID / 4 COUPLING_UNAVAILABLE /
+  3 EXECUTABLE**. Slow bitwise proof: generated worlds reproduce the A/B/C
+  facade trajectories exactly. Guard re-baselined (sanctioned extension):
+  `__init__.py`, `world.py` re-pinned; `templates.py`, `catalog.py` added;
+  no prior test weakened. Full suite **359 passed** (353 fast + 6 slow);
+  validation A–G / stability S1–S6 / ruff / pyright all clean.
+  See `TASK_2.3_REPORT.md` + `TASK_2.3_CHECKPOINT.md`.
 
-Result: **Baseline v0.1 + Task 1.2–1.3–1.5–1.6–1.7–1.8–1.9–2.0–2.1(design)–2.2(contracts)** — a reproducible, uv-locked,
+Result: **Baseline v0.1 + Task 1.2–1.3–1.5–1.6–1.7–1.8–1.9–2.0–2.1(design)–2.2(contracts)–2.3(Stage 1+2+3+4+5)** — a reproducible, uv-locked,
 pytest-wrapped, validated prototype with a generic composition core in
 `src/sim_alchemist/core/` that now drives three independent composed
 experiments (A chemo-morphogenesis, B field-guided movers, C adaptive network)
-and five generic layers over them: mutation/lineage/runner, deterministic
+over six generic layers: mutation/lineage/runner, deterministic
 sweeps + ranking, behavioral characterization + interestingness ranking,
-guided beam search over world variants, and diversity-preserving
-multi-objective discovery over that search.
+guided beam search over world variants, diversity-preserving
+multi-objective discovery over that search, and the declarative coupling-
+template/catalog composition layer.
 
 ### NEXT
-- **Task 2.3 Build Stage 3** (CouplingTemplate Registry) — per
-  `TASK_2.3_DESIGN.md` §22/§23: so far Stage 1+2 delivered
-  `src/sim_alchemist/core/composition.py` (`ComponentBinding`/
-  `CompositionShape`/`CompositionSpace` + static capability filter
-  CAPABILITY_VALID/CAPABILITY_INVALID, deterministic bounded enumeration with
-  variant exclusivity). Stage 3 adds the experiment-owned `CouplingTemplate`
-  registry and the COUPLING_UNAVAILABLE/COUPLING_INVALID classification; it is
-  not started. Do not start until issued.
-- CompositionSearcher etc. (Plugin/adapter registry phase) — see
-  Task 2.1 §13: 3-stage resolver over the Task 2.2 contract
-  layer, shape-aware identity, a compact `compositions` lineage table, discovery
-  demo over the wired shapes — do not start until issued.
+- **Task 2.4** (cross-composition discovery loop: `CompositionSearcher` +
+  composition lineage + discovery demo) — see `TASK_2.3_DESIGN.md` §22 item 5's
+  sibling and Task 2.1 §13: literally search over the catalog's EXECUTABLE
+  shapes, shape-aware identity, a compact `compositions` lineage table,
+  discovery demo over the wired shapes. **Not started. Do not start until
+  issued.** (Task 2.3 Build Stage 3+4+5 delivered the template registry,
+  taxonomy, world generation, and catalog foundation it builds on.)
 - Plugin/adapter registry (extensible `ComponentRegistry` with external
   adapters and capability discovery).
 - Generalized world composition beyond `compose()` (world graph, runtime

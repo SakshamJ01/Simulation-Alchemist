@@ -1,0 +1,71 @@
+id: adaptive_network
+components:
+- id: network
+  variant: null
+  config:
+    grid_rows: 4
+    grid_cols: 6
+    beta: 0.3
+    loss: 0.05
+    seed: 0
+- id: py-pde
+  variant: null
+  config:
+    n: 32
+    du: 0.005
+    dv: 0.2
+    a: 0.1
+    b: 0.9
+    dt: 0.0005
+    seed: 0
+    field_step: 0.2
+- id: pymunk
+  variant: walls
+  config:
+    n: 32
+    mass: 1.0
+    damping: 0.05
+    dt_phys: 0.05
+    phys_substeps: 4
+requires:
+- reaction_diffusion
+- rigid_body
+- network_diffusion
+- field_gradient
+schedule:
+- geometry.sync
+- field.step
+- physics.force
+- physics.step
+- physics.grow
+- network.step
+- network.route
+- field.source
+- observables.record
+macro_timestep: 0.2
+max_steps: 160
+seed: 0
+config:
+  n: 32
+  du: 0.005
+  dv: 0.2
+  a: 0.1
+  b: 0.9
+  pde_dt: 0.0005
+  field_step: 0.2
+  mass: 1.0
+  wall_damping: 0.05
+  phys_dt: 0.05
+  phys_substeps: 4
+  grid_rows: 4
+  grid_cols: 6
+  network_beta: 0.3
+  network_loss: 0.05
+  force_fmax: 0.8
+  force_gsat: 2.0
+  source_amplitude: 0.01
+  source_radius: 0.08
+  wall_radius: 0.02
+  wall_mass: 1.0
+  seed: 0
+  n_steps: 160

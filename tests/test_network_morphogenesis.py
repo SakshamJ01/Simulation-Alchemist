@@ -411,6 +411,9 @@ def test_network_adapter_contract():
 # composer/__init__ hashes moved because the contract validation gate was
 # added to compose).  Re-baselined at Task 2.3 Build Stage 1+2 for the
 # composition layer (composition.py is new; __init__.py re-exports it).
+# Re-baselined at Task 2.3 Build Stage 3+4+5 for the coupling-template /
+# world-generation / composition-catalog layer (templates.py + catalog.py
+# are new; world.py and __init__.py moved for the variant stamp + new API).
 # ----------------------------------------------------------------------
 def test_core_files_unchanged() -> None:
     import test_field_guided_movers as b

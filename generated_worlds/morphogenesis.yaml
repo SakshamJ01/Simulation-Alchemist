@@ -1,0 +1,82 @@
+id: chemo_morphogenesis
+components:
+- id: mesa
+  variant: null
+  config:
+    agent_configs:
+    - x: 0.3
+      y: 0.5
+      build_threshold: 0.15
+      wall_length: 0.35
+      wall_radius: 0.02
+      wall_offset: 0.2
+      min_separation: 0.15
+      cooldown: 4
+      dissolve_threshold: 0.05
+      dissolve_min_age: 2.5
+    - x: 0.7
+      y: 0.5
+      build_threshold: 0.15
+      wall_length: 0.35
+      wall_radius: 0.02
+      wall_offset: 0.2
+      min_separation: 0.15
+      cooldown: 4
+      dissolve_threshold: 0.05
+      dissolve_min_age: 2.5
+    seed: 0
+    macro_timestep: 0.2
+- id: py-pde
+  variant: null
+  config:
+    n: 32
+    du: 0.005
+    dv: 0.2
+    a: 0.1
+    b: 0.9
+    dt: 0.0005
+    seed: 0
+    field_step: 0.2
+- id: pymunk
+  variant: walls
+  config:
+    n: 32
+    mass: 1.0
+    damping: 0.05
+    dt_phys: 0.05
+    phys_substeps: 4
+requires:
+- agent_population
+- reaction_diffusion
+- rigid_body
+- field_gradient
+schedule:
+- geometry.sync
+- field.step
+- physics.force
+- physics.step
+- agents.step
+- agents.apply
+- observables.record
+macro_timestep: 0.2
+max_steps: 160
+seed: 0
+config:
+  n: 32
+  seed: 0
+  pde_dt: 0.0005
+  du: 0.005
+  dv: 0.2
+  a: 0.1
+  b: 0.9
+  field_step: 0.2
+  n_steps: 160
+  feedback: true
+  build_walls: true
+  apply_forces: true
+  force_fmax: 0.8
+  force_gsat: 2.0
+  wall_mass: 1.0
+  wall_damping: 0.05
+  phys_dt: 0.05
+  phys_substeps: 4

@@ -28,7 +28,9 @@ from chemomech.reaction_diffusion import RDField
 from sim_alchemist.adapters.mesa import MesaAdapter
 from sim_alchemist.adapters.pde import PyPDEAdapter
 from sim_alchemist.adapters.pymunk import PymunkAdapter
+from sim_alchemist.core.composition import ComponentBinding
 from sim_alchemist.core.contracts import CouplingContract
+from sim_alchemist.core.templates import CouplingTemplate
 from sim_alchemist.core.world import ComponentSpec, WorldDefinition
 
 if TYPE_CHECKING:
@@ -44,6 +46,11 @@ MORPHOGENESIS_SCHEDULE: tuple[str, ...] = (
     "agents.apply",
     "observables.record",
 )
+
+#: The operation names ``build_morphogenesis_operations`` registers.  The
+#: schedule is a subset (here it is exactly the full set); the coupling
+#: template declares both so the classification gate can verify the schedule.
+MORPHOGENESIS_OPERATIONS: tuple[str, ...] = MORPHOGENESIS_SCHEDULE
 
 
 MORPHOGENESIS_CONTRACTS: tuple[CouplingContract, ...] = (
@@ -177,6 +184,38 @@ def build_morphogenesis_world(config: WorldConfig) -> WorldDefinition:
             "phys_dt": config.phys_dt,
             "phys_substeps": config.phys_substeps,
         },
+    )
+
+
+def build_morphogenesis_template() -> CouplingTemplate:
+    """The declared coupling template reproducing Experiment A exactly.
+
+    The template is *derived* from the experiment's world builder (its world
+    id, requires, per-component configs, clock parameters, and seed) so the
+    template and the world it generates cannot drift.  The config class is
+    imported lazily to keep the module import graph acyclic.
+    """
+    from chemomech.simulation import WorldConfig
+
+    world = build_morphogenesis_world(WorldConfig())
+    return CouplingTemplate(
+        name="morphogenesis",
+        bindings=(
+            ComponentBinding("mesa"),
+            ComponentBinding("py-pde"),
+            ComponentBinding("pymunk", "walls"),
+        ),
+        world_id=world.id,
+        contracts=MORPHOGENESIS_CONTRACTS,
+        schedule=MORPHOGENESIS_SCHEDULE,
+        operations=MORPHOGENESIS_OPERATIONS,
+        requires=world.requires,
+        executor_ref="chemomech.simulation.run_world",
+        component_configs={spec.id: dict(spec.config) for spec in world.components},
+        macro_timestep=world.macro_timestep,
+        max_steps=world.max_steps,
+        seed=world.seed,
+        config=dict(world.config),
     )
 
 

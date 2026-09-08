@@ -32,8 +32,10 @@ import numpy as np
 
 from sim_alchemist.adapters.pde import PyPDEAdapter
 from sim_alchemist.adapters.pymunk import PymunkAdapter
+from sim_alchemist.core.composition import ComponentBinding
 from sim_alchemist.core.contracts import CouplingContract
 from sim_alchemist.core.registry import ComponentRegistry, default_registry
+from sim_alchemist.core.templates import CouplingTemplate
 from sim_alchemist.core.world import ComponentSpec, WorldDefinition
 
 NETWORK_MORPHOGENESIS_SCHEDULE: tuple[str, ...] = (
@@ -47,6 +49,10 @@ NETWORK_MORPHOGENESIS_SCHEDULE: tuple[str, ...] = (
     "field.source",
     "observables.record",
 )
+
+#: The operation names ``build_network_morphogenesis_operations`` registers
+#: (co-located with the schedule so the template can verify it).
+NETWORK_MORPHOGENESIS_OPERATIONS: tuple[str, ...] = NETWORK_MORPHOGENESIS_SCHEDULE
 
 
 NETWORK_MORPHOGENESIS_CONTRACTS: tuple[CouplingContract, ...] = (
@@ -203,6 +209,34 @@ def build_network_morphogenesis_world(
             "wall_radius": wall_radius, "wall_mass": wall_mass,
             "seed": seed, "n_steps": n_steps,
         },
+    )
+
+
+def build_network_morphogenesis_template() -> CouplingTemplate:
+    """The declared coupling template reproducing Experiment C exactly.
+
+    Derived from the experiment's world builder (all-default parameters) so
+    the template and the world it generates cannot drift.
+    """
+    world = build_network_morphogenesis_world()
+    return CouplingTemplate(
+        name="adaptive_network",
+        bindings=(
+            ComponentBinding("py-pde"),
+            ComponentBinding("pymunk", "walls"),
+            ComponentBinding("network"),
+        ),
+        world_id=world.id,
+        contracts=NETWORK_MORPHOGENESIS_CONTRACTS,
+        schedule=NETWORK_MORPHOGENESIS_SCHEDULE,
+        operations=NETWORK_MORPHOGENESIS_OPERATIONS,
+        requires=world.requires,
+        executor_ref="experiments.network_morphogenesis.experiment.run_network_world",
+        component_configs={spec.id: dict(spec.config) for spec in world.components},
+        macro_timestep=world.macro_timestep,
+        max_steps=world.max_steps,
+        seed=world.seed,
+        config=dict(world.config),
     )
 
 

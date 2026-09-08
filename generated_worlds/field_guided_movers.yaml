@@ -1,0 +1,74 @@
+id: field_guided_movers
+components:
+- id: py-pde
+  variant: null
+  config:
+    n: 32
+    du: 0.005
+    dv: 0.2
+    a: 0.1
+    b: 0.9
+    dt: 0.0005
+    seed: 0
+    field_step: 0.2
+- id: pymunk
+  variant: movers
+  config:
+    n: 32
+    seed: 0
+    pde_dt: 0.0005
+    du: 0.005
+    dv: 0.2
+    a: 0.1
+    b: 0.9
+    macro_timestep: 0.2
+    n_steps: 160
+    n_movers: 6
+    mover_mass: 1.0
+    mover_damping: 0.2
+    mover_radius: 0.05
+    phys_dt: 0.05
+    phys_substeps: 4
+    apply_forces: true
+    apply_sources: true
+    force_fmax: 0.8
+    force_gsat: 2.0
+    source_u: 0.03
+    source_v: -0.04
+    source_radius: 0.04
+requires:
+- reaction_diffusion
+- rigid_body
+- field_gradient
+schedule:
+- field.step
+- movers.force
+- movers.step
+- field.source
+- observables.record
+macro_timestep: 0.2
+max_steps: 160
+seed: 0
+config:
+  n: 32
+  seed: 0
+  pde_dt: 0.0005
+  du: 0.005
+  dv: 0.2
+  a: 0.1
+  b: 0.9
+  macro_timestep: 0.2
+  n_steps: 160
+  n_movers: 6
+  mover_mass: 1.0
+  mover_damping: 0.2
+  mover_radius: 0.05
+  phys_dt: 0.05
+  phys_substeps: 4
+  apply_forces: true
+  apply_sources: true
+  force_fmax: 0.8
+  force_gsat: 2.0
+  source_u: 0.03
+  source_v: -0.04
+  source_radius: 0.04

@@ -26,8 +26,10 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from sim_alchemist.adapters.pde import PyPDEAdapter
+from sim_alchemist.core.composition import ComponentBinding
 from sim_alchemist.core.contracts import CouplingContract
 from sim_alchemist.core.registry import ComponentRegistry, default_registry
+from sim_alchemist.core.templates import CouplingTemplate
 from sim_alchemist.core.world import ComponentSpec, WorldDefinition
 
 if TYPE_CHECKING:
@@ -46,6 +48,10 @@ FIELD_GUIDED_MOVERS_SCHEDULE: tuple[str, ...] = (
     "field.source",
     "observables.record",
 )
+
+#: The operation names ``build_field_guided_movers_operations`` registers
+#: (co-located with the schedule so the template can verify it).
+FIELD_GUIDED_MOVERS_OPERATIONS: tuple[str, ...] = FIELD_GUIDED_MOVERS_SCHEDULE
 
 
 FIELD_GUIDED_MOVERS_CONTRACTS: tuple[CouplingContract, ...] = (
@@ -142,6 +148,36 @@ def build_field_guided_movers_world(config: MoversConfig) -> WorldDefinition:
         max_steps=config.n_steps,
         seed=config.seed,
         config=config.as_dict(),
+    )
+
+
+def build_field_guided_movers_template() -> CouplingTemplate:
+    """The declared coupling template reproducing Experiment B exactly.
+
+    Derived from the experiment's world builder (default ``MoversConfig``) so
+    the template and the world it generates cannot drift.  The config class is
+    imported lazily to keep the module import graph acyclic.
+    """
+    from experiments.field_guided_movers.model import MoversConfig
+
+    world = build_field_guided_movers_world(MoversConfig())
+    return CouplingTemplate(
+        name="field_guided_movers",
+        bindings=(
+            ComponentBinding("py-pde"),
+            ComponentBinding("pymunk", "movers"),
+        ),
+        world_id=world.id,
+        contracts=FIELD_GUIDED_MOVERS_CONTRACTS,
+        schedule=FIELD_GUIDED_MOVERS_SCHEDULE,
+        operations=FIELD_GUIDED_MOVERS_OPERATIONS,
+        requires=world.requires,
+        executor_ref="experiments.field_guided_movers.model.run_field_guided_movers",
+        component_configs={spec.id: dict(spec.config) for spec in world.components},
+        macro_timestep=world.macro_timestep,
+        max_steps=world.max_steps,
+        seed=world.seed,
+        config=dict(world.config),
     )
 
 

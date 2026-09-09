@@ -234,15 +234,24 @@ def test_deterministic_replay_bitwise() -> None:
 # the added API.  Re-pinning is the documented extension path; modifying and
 # then silently re-pinning immutable core behavior is what this guard
 # prohibits.
+# Task 2.4 (Build Stages 4+5) sanctioned extension: the guard is RE-PINNED
+# for the cross-composition ranking + diversity-frontier analysis layer.
+# composition_analysis.py is the new generic module that REUSES the existing
+# rank_by_profile / select_diverse_frontier / behavior_distance /
+# compute_frontier_diagnostics machinery unchanged (it never re-implements a
+# ranking or a diversity algorithm); and __init__.py re-exports the added
+# API.  Re-pinning is the documented extension path; modifying and then
+# silently re-pinning immutable core behavior is what this guard prohibits.
 # ----------------------------------------------------------------------
 CORE_COMMIT_HASHES = {
-    "__init__.py": "184FFD8B27FB258D5553AFBFE80685105E0541CEB29FEBB69EFBF302FFAAF23A",
+    "__init__.py": "6A924E7EE03870DF0069EF0B83DA9F00FA7D183D422D30DD6A74800A12826571",
     "behavior.py": "F28F157583948937A7442E92C584BC86190005BFFE89F9D7C9FE9283E287521C",
     "capabilities.py": "F13D4430E3B34B2364C895F18422984DC6D4388C91BE49C00B653EBE2D3F9188",
     "catalog.py": "E1BE5D90B300356B66AFCAD3B4FFBC2991C471D06D5B25D168FCAD51C39E9A0F",
     "clock.py": "D49F5202F9F2C9E0A18A30A9A5BC59B676DF5E967B9D5518D0CB590C01714394",
     "composer.py": "4F82AC4DEEBC4282B220E322F3C20C898FD3AAFA3E0900A40D9E3839556E4D85",
     "composition.py": "A45FA584DE2C989DD4FC28C194E732271100A598E70785515D4860137A7E0DDE",
+    "composition_analysis.py": "ACE159AFDF95748B458CA7362CA0DE8B7375C60BF283FB617B08D77EAA93A0D5",
     "composition_search.py": "71C92D911A8BDFDF73DDFAA319C6387EFBF791A46887B4DC7E34A88E93C068FD",
     "contracts.py": "1DEEC8B2042B6F67FEEBDED4B397833BF9D231880524AB638B2AD449EF6ADAC0",
     "engine.py": "6260F90E45DD1D6E54FE677F6BB9DDA42F06A99E7B8E406A821C8E95E6A475E3",

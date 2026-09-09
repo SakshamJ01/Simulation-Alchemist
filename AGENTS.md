@@ -34,22 +34,33 @@ result layer** (`core/composition_search.py`: `CompositionEvaluation`/
 `RunRecord.composition_id` lineage stamp with pre-2.4 `_migrate()`, plus the
 conforming A/B executors in `chemomech/experiment.py` and
 `experiments/field_guided_movers/experiment.py` and the experiments-owned
-`repository_executors()` composition→executor map), and the **Task 2.4 Build
+`repository_executors()` composition→executor map), the **Task 2.4 Build
 Stage 2 thin `CompositionSearcher` orchestrator** (`core/composition_search.py`:
 `CompositionSearcher`/`CompositionSearchSpec`/`CompositionSearchResult`/
 `CompositionSearchTiming`/`CompositionSearchError`; enumerate `catalog.executable()`
 in canonical order, evaluate one baseline per EXECUTABLE composition through the
 Stage 1 result layer via the opaque id→executor map, compact *unranked* result
-with deterministic replay; no ranking/behavior/frontier/visualization) — the
+with deterministic replay; no ranking/behavior/frontier/visualization), the
+**Task 2.4 Build Stage 3 common-observable chapter** (`search` attaches one
+deterministic `CommonObservableSet` per evaluated composition in catalog order —
+sorted union of executor metric names, missing = explicit `available=False`/
+`None`; pure O(n) extraction reusing the in-memory evaluations, no re-run, no
+persistence, world immutable; evaluation/extraction timing split; no ranking/
+behavior/frontier/visualization), and the additive `RunRecord.composition_id`
+stamp on the lineage store with pre-2.4 `_migrate()`, and the **Task 2.4 Build
+Stage 4 cross-composition ranking + diversity frontier** (`core/
+composition_analysis.py`: `rank_compositions` reusing `rank_by_profile` with
+pool min-max normalization, `select_frontier` reusing `select_diverse_frontier`
+over common-observable feature vectors under local min-max isolation,
+`CompositionAnalysisResult` with canonical `as_dict`, `CompositionAnalyst`
+analysis-only facade; no execution, no persistence, no experiment imports) — the
 verified starting
 point for the framework. Three
 experiments (A: chemo-morphogenesis, B: field-guided movers, C: adaptive network
 morphogenesis) execute through the generic `AlchemistEngine` + core `StepScheduler`
 against declaratively-described worlds; the science, scheduling, and declared
 coupling contracts live in experiment coupling modules, not in engine subclasses.
-**Next milestone: Task 2.4 Build Stage 4 (cross-composition ranking / discovery
-frontier over the common-observable layer), not
-started. Robot do NOT start Task 2.4 Build Stage 4 until it is issued.**
+**Next milestone: Task 2.5 (NOT started). Do NOT start Task 2.5 until it is issued.**
 
 ## Current Repository State (validated prototype — do not paper over)
 
@@ -168,6 +179,15 @@ map, compact *unranked* result with deterministic replay — no ranking/behavior
    timing split; no ranking/behavior/frontier/visualization), and the additive
    `RunRecord.composition_id` stamp on
    the lineage store with pre-2.4 `_migrate()`.
+- **src/sim_alchemist/core/composition_analysis.py** — Task 2.4 Build Stage 4
+  cross-composition ranking + diversity frontier (analysis-only): `rank_compositions`
+  reusing `rank_by_profile` with pool min-max normalization, `select_frontier`
+  reusing `select_diverse_frontier` over common-observable feature vectors under
+  local min-max isolation; `CompositionFeaturedRun`/`CommonBehaviorFeatures`,
+  `common_observable_vocabulary` (sorted genuinely-common names), `composition_
+  analysis_id_of` (deterministic 24-hex), `CompositionAnalysisResult` (canonical
+  `as_dict`), `CompositionAnalyst` facade; no execution, no persistence, no
+  experiment imports.
 - **src/sim_alchemist/core/observables.py** — Task 2.4 Build Stage 3 common
    cross-composition observables: `CommonObservable` (frozen name/`value`/`available`
    triple; `available⇔non-None`, verbatim floats), `CommonObservableSet` (per
@@ -272,6 +292,8 @@ Do not start building that until the extraction task is issued.
 | Task 2.4 Stage 1 composition evaluation | generic core + experiment executors | `src/sim_alchemist/core/composition_search.py`, `chemomech/experiment.py`, `experiments/field_guided_movers/experiment.py`, `experiments/catalog.py` |
 | Task 2.4 Stage 2 composition search | generic core | `src/sim_alchemist/core/composition_search.py`, `tests/test_composition_search_stage2.py` |
 | Task 2.4 Stage 3 common observables | generic core | `src/sim_alchemist/core/observables.py`, `src/sim_alchemist/core/composition_search.py`, `tests/test_common_observables_stage3.py` |
+| Task 2.4 Stage 4 analysis | generic core (analysis-only) | `src/sim_alchemist/core/composition_analysis.py`, `tests/test_composition_analysis_stage4.py` |
+| Task 2.4 Stage 5 discovery CLI + figure | experiments + CLI | `run_composition_discovery.py`, `experiments/composition_discovery.py`, `tests/test_composition_discovery_cli_stage5.py`, `figures/discovery_quality_diversity.png` |
 | Experiment coupling + worlds | YAML + closures | `chemomech/coupling.py`, `experiments/field_guided_movers/coupling.py`, `experiments/network_morphogenesis/coupling.py`, `worlds/*.yaml` |
 | Validation A–G + figures | numpy / matplotlib | `chemomech/validate.py` |
 | Stability checks S1–S6 | numpy | `run_stability.py` |
@@ -304,6 +326,7 @@ The environment is managed by uv against Python 3.13:
 - `uv run python run_behavior_demo.py --dim <path>:v1,v2,... --feature <obs>:<feature>:<weight>[:max|min] ...` — Task 1.8 behavioral characterization + interestingness demo
 - `uv run python run_search.py --dim <path>:v1,v2,... --feature <obs>:<feature>:<weight>[:max|min] ... [--generations N] [--beam-width N]` — Task 1.9 guided beam search + discovery loop
 - `uv run python run_catalog_demo.py [--generate-worlds [--worlds-dir DIR]]` — Task 2.3 composition catalog demo (23 shapes, 16/4/3) + writes the 3 EXECUTABLE worlds
+- `uv run python run_composition_discovery.py [--steps N] [--seed N] [--profile {all,a,b}] [--no-figure]` — Task 2.4 canonical cross-composition discovery CLI (160-step default; writes `figures/discovery_quality_diversity.png`)
 - `uv run pytest` — test suite wrapping the same scientific checks
 
 ## Key Development Commands

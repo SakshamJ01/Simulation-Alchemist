@@ -12,26 +12,16 @@ validated, Task 1.5 (Experiment C: Adaptive Network Morphogenesis) validated,
 **Task 2.3 Build Stage 1+2 (CompositionShape/CompositionSpace + static
 capability filter) COMPLETE**, **Task 2.3 Build Stage 3+4+5 (CouplingTemplate
 registry + executable taxonomy, world generation with variant stamping,
-CompositionCatalog) COMPLETE**, **Task 2.4 Build Stage 1 (cross-composition
-discovery result layer: `composition_search.py` evaluation record + deterministic
-`composition_discovery_id_of` + `evaluate_composition_baseline`, additive
-`composition_id` lineage stamp with migration, A/B experiment executors +
-`repository_executors()` map) COMPLETE**, **Task 2.4 Build Stage 2 (the thin
-`CompositionSearcher` orchestrator: enumerate `catalog.executable()` in canonical
-order → resolve experiment-owned executors via an opaque id→executor map →
-evaluate one baseline per EXECUTABLE composition through the Stage 1 result layer
-→ compact unranked `CompositionSearchResult` with deterministic replay; no
-ranking, no behavior analysis, no frontier, no visualization) COMPLETE**,
-**Task 2.4 Build Stage 3 (common cross-composition observables: deterministic
-`CommonObservableSet` per evaluated composition over the sorted union of the
-executors' metric names, missing = explicit `available=False`/`value=None`,
-horizon captured from the generated worlds, pure O(n) extraction reusing the
-in-memory evaluations with evaluation/extraction timing split, integrated
-into `CompositionSearcher.search` with backward-compatible
-`CompositionSearchResult` / `CompositionSearchTiming`) COMPLETE.** Next is
-**Task 2.4 Build Stage 4 (cross-composition ranking / discovery frontier over
-the common observable layer)**, not started; do not start it until it is
-issued.
+CompositionCatalog) COMPLETE**, **Task 2.4 Build Stages 1+2+3 (cross-composition
+discovery: evaluation layer → thin orchestrator → common-observable extraction)
+COMPLETE**, **Task 2.4 Build Stage 4 (cross-composition ranking + diversity-aware
+discovery frontier — `composition_analysis.py`: `rank_compositions` /
+`select_frontier` reusing the existing rank_by_profile / select_diverse_frontier /
+behavior_distance machinery unchanged; analysis-only) COMPLETE**, **Task 2.4 Build
+Stage 5 (developer CLI `run_composition_discovery.py` + matplotlib
+quality-vs-diversity figure artifact; canonical demo 3 EXECUTABLE evaluated in
+59.69 s, analysis ~0.0004 s) COMPLETE.** Next is **Task 2.5** (NOT started);
+do not start it until it is issued.
 **Date:** 2026-09-05 (updated 2026-09-09)
 
 ---
@@ -261,9 +251,35 @@ bitwise-identical science for A/B/C. Guard re-baselined to post-2.2 core
   `__init__.py`, `world.py` re-pinned; `templates.py`, `catalog.py` added;
   no prior test weakened. Full suite **359 passed** (353 fast + 6 slow);
   validation A–G / stability S1–S6 / ruff / pyright all clean.
-  See `TASK_2.3_REPORT.md` + `TASK_2.3_CHECKPOINT.md`.
+   See `TASK_2.3_REPORT.md` + `TASK_2.3_CHECKPOINT.md`.
+- **Task 2.4 Build Stage 4+5** — CROSS-COMPOSITION RANKING + DISCOVERY FRONTIER
+  + DEVELOPER CLI + FIGURE: `src/sim_alchemist/core/composition_analysis.py`
+  (generic, experiment-free, analysis-only): `common_observable_vocabulary`
+  (sorted genuinely-common names from `CompositionSearchResult`), `rank_compositions`
+  (pool min-max normalization, constant → 0.0, ties by run_id asc, reuses
+  `rank_by_profile`), `select_frontier` (greedy diversity-aware via
+  `select_diverse_frontier` over normalized vectors under local min-max isolation;
+  `CompositionFrontier` with `FrontierDiagnostics` + isolation map),
+  `CompositionFeaturedRun`, `CommonBehaviorFeatures`, `composition_analysis_id_of`
+  (deterministic 24-hex), `CompositionAnalysisResult` (canonical `as_dict`),
+  `CompositionAnalyst` facade. `run_composition_discovery.py` CLI (argparse;
+  `--steps/--seed/--db/--quality-weight/--diversity-weight/--beam-width/--profile/
+  --figure/--no-figure`; canonical 160-step default). `experiments/
+  composition_discovery.py` (`composition_labels()` + `make_diversity_scatter()`:
+  one Agg panel per profile, x=quality score, y=isolation, frontier starred).
+  Canonical demo (seed 0, 160 steps): discovery id `91a72c708d07d66b5926edec`,
+  3 EXECUTABLE; common triple = `final_field_mean`, `final_field_std`,
+  `field_entropy`; evaluation 59.69 s, analysis ~0.0004 s;
+  Profile A ranking: C 1.75 > A 0.413 > B 0.268; Profile B: C 1.25 > B 0.855 >
+  A 0.707; frontiers keep all 3 compositions, C highest by combined score in
+  both profiles; isolation/diagnostics identical across profiles. Deterministic
+  replay canonical-identical; `run_count` untouched. 490 total tests (478 fast
+  + 12 slow); `run_validation.py` A–G / `run_stability.py` S1–S6 / ruff / pyright
+  all clean. Guard re-pinned (`composition_analysis.py` added, `__init__.py`
+  refreshed); no prior test weakened. Figure: `figures/
+  discovery_quality_diversity.png`. See `TASK_2.4_STAGE4_5_REPORT.md`.
 
-Result: **Baseline v0.1 + Task 1.2–1.3–1.5–1.6–1.7–1.8–1.9–2.0–2.1(design)–2.2(contracts)–2.3(Stage 1+2+3+4+5)** — a reproducible, uv-locked,
+Result: **Baseline v0.1 + Task 1.2–1.3–1.5–1.6–1.7–1.8–1.9–2.0–2.1(design)–2.2(contracts)–2.3(Stage 1+2+3+4+5)–2.4(Stage 1+2+3+4+5)** — a reproducible, uv-locked,
 pytest-wrapped, validated prototype with a generic composition core in
 `src/sim_alchemist/core/` that now drives three independent composed
 experiments (A chemo-morphogenesis, B field-guided movers, C adaptive network)
@@ -271,23 +287,12 @@ over six generic layers: mutation/lineage/runner, deterministic
 sweeps + ranking, behavioral characterization + interestingness ranking,
 guided beam search over world variants, diversity-preserving
 multi-objective discovery over that search, and the declarative coupling-
-template/catalog composition layer.
+template/catalog composition layer, plus the cross-composition discovery
+and ranking pipeline (evaluate → extract common observables → rank →
+diversity frontier → developer CLI + figure).
 
 ### NEXT
-- **Task 2.4 Build Stage 4** (cross-composition ranking / discovery frontier
-  over the Stage 3 common-observable envelope) — see `TASK_2.4_DESIGN.md` §18.
-  **Stage 3 (common cross-composition observables) complete; Stage 4 not
-  started. Do not start until issued.** (Stage 3 delivered
-  `CommonObservable`/`CommonObservableSet`/`common_observable_names`/
-  `extract_common_observables` in the new `core/observables.py`, re-exports in
-  `__init__.py`, and the 30-fast/1-slow Stage 3 suite — one deterministic
-  observable set per evaluated composition over the sorted union of the
-  executors' metric names (missing = explicit `available=False`/`value=None`),
-  horizon captured from the generated worlds, pure O(n) extraction that
-  reuses the in-memory evaluations (no re-run, no persistence, world
-  immutable), evaluation/extraction timing split in `CompositionSearchTiming`,
-  canonical embedding in `CompositionSearchResult` with Stage 2 contracts
-  intact; see `TASK_2.4_STAGE3_REPORT.md`.)
+- **Task 2.5** (NOT started) — exact scope TBD. Do not start until issued.
 - Plugin/adapter registry (extensible `ComponentRegistry` with external
   adapters and capability discovery).
 - Generalized world composition beyond `compose()` (world graph, runtime

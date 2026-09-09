@@ -2,7 +2,7 @@
 
 ## Current milestone
 Task 2.4 Build Stages 4+5 — cross-composition ranking + diversity frontier + discovery CLI + figure (COMPLETE)
-Next: Task 2.5 (NOT started)
+Next: Task 2.5 — cross-composition parameter sweep / joint structural + parametric discovery architecture (PLAN-ONLY, in progress; design doc authored, NOT implemented)
 
 ## Completed
 - Task 0.1 — chemo-mechanical feedback spike
@@ -69,7 +69,7 @@ Next: Task 2.5 (NOT started)
 - Canonical discovery regression (seed 0, 160 steps): discovery id `91a72c708d07d66b5926edec`, 3 EXECUTABLE, 3 genuinely common observables (`final_field_mean`, `final_field_std`, `field_entropy`), evaluation 59.69 s; Profile A ranking: C 1.75 > A 0.413 > B 0.268; Profile B ranking: C 1.25 > B 0.855 > A 0.707; Stage 4 analysis ~0.0004 s (essentially free); deterministic replay canonical-identical; `run_count` unchanged across replay
 
 ## Next exact task
-Task 2.5 — NOT started. Next design-level task TBD.
+Task 2.5 — cross-composition parameter sweep. PLAN-ONLY design authored in `TASK_2.5_DESIGN.md` (model D-hybrid: per-composition local sweeps orchestrated over the existing `SweepRunner`, with an experiment-owned `repository_parameter_spaces()` map). Next build step: **Task 2.5 Build Stage 1** — composition-specific mutation-space binding + result model (no execution). NOT marked complete; DO NOT start Task 2.6.
 
 ## Known limitations (Task 2.4, per design §16–§17)
 - The Stage 3 common-observable envelope is the sorted union of the scalar executor metric names; the genuinely-common subspace is the 3 names every composition produces (`final_field_mean`, `final_field_std`, `field_entropy`). It does not claim physical equivalence of A/B/C quantities absent an explicit semantic alias (not yet built — later stages).

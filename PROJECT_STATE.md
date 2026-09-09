@@ -1,7 +1,7 @@
 # Simulation Alchemist — Current State
 
 ## Current milestone
-Task 2.5 Build Stage 3 — cross-composition common-observable aggregation (COMPLETE: pure projection of completed Stage 2 sweep onto CommonObservable surface; 30 observations; vocabulary derived from actual metric pool; baseline/variant preserved; no ranking/frontier/CLI)
+Task 2.6 Build Stage 2 complete (adaptive execution loop — bounded, deterministic, reuse-existing, no Stage 3)
 
 ## Completed
 - Task 0.1 — chemo-mechanical feedback spike
@@ -72,10 +72,13 @@ Task 2.5 Build Stage 3 — cross-composition common-observable aggregation (COMP
 - Canonical discovery regression (seed 0, 160 steps): discovery id `91a72c708d07d66b5926edec`, 3 EXECUTABLE, 3 genuinely common observables (`final_field_mean`, `final_field_std`, `field_entropy`), evaluation 59.69 s; Profile A ranking: C 1.75 > A 0.413 > B 0.268; Profile B ranking: C 1.25 > B 0.855 > A 0.707; Stage 4 analysis ~0.0004 s (essentially free); deterministic replay canonical-identical; `run_count` unchanged across replay
 
 ## Next exact task
-Task 2.5 Build Stage 4 — cross-composition sweep ranking + diversity frontier (`core/composition_analysis.py`: `rank_compositions` / `select_frontier` over common-observable feature vectors; pool min-max normalization; analysis-only; no execution/persistence; Stage 3 NOT restarted)
+Task 2.6 Build Stage 2 — adaptive sweep selection (adaptive proposal of next CrossCompositionSweepSpec from behavior result + profile; deferred; NOT started)
 
-## Current capability (Task 2.5 Stage 3)
-- Executable composition-specific parameter-space declarations (`experiments/catalog.py::repository_parameter_spaces()`; C real 27-variant space, A/B `None`)
+## Current capability (Task 2.6 Stage 1)
+- Deterministic adaptive signal / state / decision evaluation (core/adaptive_sweep.py)
+- Canonical serialization, pure assessment, explicit missing-data contract
+- Integration hook for BehaviorFeatures / InterestingnessProfile (no execution required)
+- Prior capabilities preserved: executable composition-specific parameter-space declarations (`experiments/catalog.py::repository_parameter_spaces()`; C real 27-variant space, A/B `None`)
 - CrossCompositionSweep orchestrator (`core/cross_composition_sweep.py`)
 - Durable cross-composition sweep lineage (`lineage.py` `cross_composition_sweeps` + `CrossCompositionSweepRow`; INSERT OR REPLACE; idempotent)
 - `composition_id` stamped on `RunRecord` (`runner.py`/`sweep.py` optional threading)
@@ -102,3 +105,10 @@ Task 2.5 Build Stage 4 — cross-composition sweep ranking + diversity frontier 
 - Coupling contracts validate declared edges; they never synthesize or invent couplings.
 - Adapter binding is by id + variant, never positional.
 - Do not weaken prior tests.\n## Stage 4+5 Update (2026-09-09)\n- Milestone updated: Task 2.5 Stages 4+5 complete.\n- Completed: Stage 4 adapter (ranking/frontier), Stage 5 CLI + visualization.\n- Next: Task 2.6 design (plan-only) per AGENTS.md / IMPLEMENTATION_PLAN.md.\n
+
+## Stage 1+2 Update (2026-09-10)
+- Milestone: Task 2.6 Build Stage 2 complete (bounded adaptive execution loop).
+- Completed: core/adaptive_sweep.py (Stage 1 + Stage 2 APIs), 24 Stage-1 tests + 19 Stage-2 tests (1 skipped bounded C demo), TASK_2.6_STAGE1_REPORT.md + TASK_2.6_STAGE2_REPORT.md.
+- Current capability: deterministic adaptive signal evaluation, explicit adaptive state/decision, bounded adaptive execution loop over existing legitimate candidates, deterministic progression, explicit budget, replayable results, real Experiment C integration attempted (bounded).
+- Next exact task: Task 2.6 Build Stage 3 (adaptive ranking / frontier / selection; deferred; NOT started).
+- Do-not-change: keep guarded core files unchanged; no new dependencies; no experiment modifications; no automatic commits.

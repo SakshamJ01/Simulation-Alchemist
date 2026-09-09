@@ -714,3 +714,4 @@ This repository contains the Simulation Alchemist project. Key references:
 - World definitions: examples/*.yaml
 - Tests: tests/
 - This plan: IMPLEMENTATION_PLAN.md
+\n---\nTask 2.5 Stage 4+5 COMPLETE (2026-09-09): cross-composition ranking + diversity frontier + CLI + visualization verified; no source modifications to guarded core files beyond sanctioned Stage 2-3 re-baselines; no Task 2.6 implementation started.\n

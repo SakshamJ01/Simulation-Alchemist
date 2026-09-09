@@ -101,4 +101,4 @@ Task 2.5 Build Stage 4 — cross-composition sweep ranking + diversity frontier 
 - No GA/evolutionary/Bayesian/ML/RL optimization in the core.
 - Coupling contracts validate declared edges; they never synthesize or invent couplings.
 - Adapter binding is by id + variant, never positional.
-- Do not weaken prior tests.
+- Do not weaken prior tests.\n## Stage 4+5 Update (2026-09-09)\n- Milestone updated: Task 2.5 Stages 4+5 complete.\n- Completed: Stage 4 adapter (ranking/frontier), Stage 5 CLI + visualization.\n- Next: Task 2.6 design (plan-only) per AGENTS.md / IMPLEMENTATION_PLAN.md.\n

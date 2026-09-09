@@ -150,7 +150,13 @@ class VariantRunner:
         self._executor = executor
         self._specs = dict(parameter_specs or {})
 
-    def _record(self, world: WorldDefinition, mutations: tuple[MutationRecord, ...], parent: str | None) -> RunResult:
+    def _record(
+        self,
+        world: WorldDefinition,
+        mutations: tuple[MutationRecord, ...],
+        parent: str | None,
+        composition_id: str | None = None,
+    ) -> RunResult:
         outcome = self._executor(world)
         record = RunRecord(
             run_id=run_id_of(world),
@@ -158,6 +164,7 @@ class VariantRunner:
             parent_run_id=parent,
             mutations=mutations,
             metrics=outcome.metrics,
+            composition_id=composition_id,
         )
         self._store.record_run(record)
         return RunResult(
@@ -177,20 +184,33 @@ class VariantRunner:
                 out[path] = fn
         return out
 
-    def run(self, base_world: WorldDefinition) -> RunResult:
-        """Execute and record the base world as a root lineage run."""
-        return self._record(base_world, (), None)
+    def run(
+        self,
+        base_world: WorldDefinition,
+        *,
+        composition_id: str | None = None,
+    ) -> RunResult:
+        """Execute and record the base world as a root lineage run.
+
+        ``composition_id`` optionally stamps the run with the content-addressed
+        identity of the composition that produced this world (default ``None``
+        preserves prior behaviour for non-compositional use).
+        """
+        return self._record(base_world, (), None, composition_id=composition_id)
 
     def run_variant(
         self,
         base_world: WorldDefinition,
         mutation: Mutation | Sequence[Mutation],
+        *,
+        composition_id: str | None = None,
     ) -> RunResult:
         """Clone ``base_world``, apply ``mutation``(s), execute and record.
 
         The parent run must already be recorded (``run`` on the same world);
         otherwise the child lineage link would dangle.  Validation happens
-        before any simulation starts.
+        before any simulation starts.  ``composition_id`` optionally stamps the
+        variant with its composing identity.
         """
         mutations = [mutation] if isinstance(mutation, Mutation) else list(mutation)
         child_world, records = apply_mutations(
@@ -203,13 +223,20 @@ class VariantRunner:
                 f"{parent_run_id}) is not recorded. Record it first via "
                 "run(base_world)."
             )
-        return self._record(child_world, records, parent_run_id)
+        return self._record(
+            child_world, records, parent_run_id, composition_id=composition_id
+        )
 
     def run_variants(
         self,
         base_world: WorldDefinition,
         mutations: Sequence[Mutation | Sequence[Mutation]],
+        *,
+        composition_id: str | None = None,
     ) -> list[RunResult]:
         """Run a batch of variants of one base world (each recorded with its
         own parent link).  Order of results matches order of input."""
-        return [self.run_variant(base_world, m) for m in mutations]
+        return [
+            self.run_variant(base_world, m, composition_id=composition_id)
+            for m in mutations
+        ]

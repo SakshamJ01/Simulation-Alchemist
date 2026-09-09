@@ -33,6 +33,7 @@ from sim_alchemist.core.mutation import MutationRecord
 from sim_alchemist.core.world import WorldDefinition
 
 __all__ = [
+    "CrossCompositionSweepRow",
     "LineageStore",
     "RunRecord",
     "SearchRecord",
@@ -376,6 +377,87 @@ class SearchRecord:
         )
 
 
+class CrossCompositionSweepRow:
+    """Immutable durable row of one composition's participation in a sweep.
+
+    Task 2.5 stores a cross-composition sweep pass as **one row per
+    participating composition** (compact, columnar).  The row preserves all the
+    identities the viewer needs to answer "which cross sweep, which
+    composition, which per-composition sweep, which baseline, which variants":
+    ``cross_split_sweep_id`` is the whole-pass content address shared by every
+    row of the pass, ``composition_id``/``shape_id`` the concrete composition,
+    ``parameter_space_ref`` the (opaque) reference to a declared space (``None``
+    if the composition declared none), ``sweep_id`` the per-composition sweep
+    identity, ``baseline_run_id`` the composition's baseline control run, and
+    ``variant_run_ids`` the executed parameter variants in generation order.
+    ``status`` is ``"planned"`` or ``"executed"``.  No trajectories, no per-step
+    data, no transient timestamps beyond the single ``created_at`` (consistent
+    with the compact-only lineage policy).
+    """
+
+    __slots__ = (
+        "baseline_run_id",
+        "composition_id",
+        "created_at",
+        "cross_split_sweep_id",
+        "parameter_space_ref",
+        "shape_id",
+        "status",
+        "sweep_id",
+        "variant_run_ids",
+    )
+
+    def __init__(
+        self,
+        cross_split_sweep_id: str,
+        composition_id: str,
+        *,
+        shape_id: str,
+        parameter_space_ref: str | None = None,
+        sweep_id: str | None = None,
+        baseline_run_id: str,
+        variant_run_ids: list[str] | tuple[str, ...] = (),
+        status: str = "executed",
+        created_at: str | None = None,
+    ) -> None:
+        self.cross_split_sweep_id = cross_split_sweep_id
+        self.composition_id = composition_id
+        self.shape_id = shape_id
+        self.parameter_space_ref = parameter_space_ref
+        self.sweep_id = sweep_id
+        self.baseline_run_id = baseline_run_id
+        self.variant_run_ids = tuple(variant_run_ids)
+        self.status = status
+        self.created_at = created_at or _now_iso()
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "cross_split_sweep_id": self.cross_split_sweep_id,
+            "composition_id": self.composition_id,
+            "shape_id": self.shape_id,
+            "parameter_space_ref": self.parameter_space_ref,
+            "sweep_id": self.sweep_id,
+            "baseline_run_id": self.baseline_run_id,
+            "variant_run_ids": list(self.variant_run_ids),
+            "status": self.status,
+            "created_at": self.created_at,
+        }
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> CrossCompositionSweepRow:
+        return cls(
+            cross_split_sweep_id=row["cross_split_sweep_id"],
+            composition_id=row["composition_id"],
+            shape_id=row["shape_id"],
+            parameter_space_ref=row["parameter_space_ref"],
+            sweep_id=row["sweep_id"],
+            baseline_run_id=row["baseline_run_id"],
+            variant_run_ids=json.loads(row["variant_run_ids"]),
+            status=row["status"],
+            created_at=row["created_at"],
+        )
+
+
 class LineageStore:
     """Small local SQLite-backed lineage store.
 
@@ -444,6 +526,20 @@ class LineageStore:
         created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_searches_base ON searches(base_run_id);
+    CREATE TABLE IF NOT EXISTS cross_composition_sweeps (
+        cross_split_sweep_id TEXT NOT NULL,
+        composition_id TEXT NOT NULL,
+        shape_id TEXT NOT NULL,
+        parameter_space_ref TEXT,
+        sweep_id TEXT,
+        baseline_run_id TEXT NOT NULL,
+        variant_run_ids TEXT NOT NULL,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (cross_split_sweep_id, composition_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ccs_composition ON cross_composition_sweeps(composition_id);
+    CREATE INDEX IF NOT EXISTS idx_ccs_pass ON cross_composition_sweeps(cross_split_sweep_id);
     """
 
     def __init__(self, path: str | Path = ":memory:") -> None:
@@ -711,6 +807,66 @@ class LineageStore:
     @property
     def search_count(self) -> int:
         (count,) = self._conn.execute("SELECT COUNT(*) FROM searches").fetchone()
+        return int(count)
+
+    def record_cross_composition_sweep(
+        self, row: CrossCompositionSweepRow
+    ) -> None:
+        """Insert or overwrite one composition's participation row (idempotent).
+
+        The row's primary key is ``(cross_split_sweep_id, composition_id)``, so
+        re-persisting the same pass + composition converges to a single row --
+        repeated execution never accumulates duplicate cross-sweep lineage.
+        """
+        payload = row.as_dict()
+        json_kwargs: dict[str, Any] = {"sort_keys": True, "separators": (",", ":")}
+        self._conn.execute(
+            """
+            INSERT OR REPLACE INTO cross_composition_sweeps
+                (cross_split_sweep_id, composition_id, shape_id,
+                 parameter_space_ref, sweep_id, baseline_run_id,
+                 variant_run_ids, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                payload["cross_split_sweep_id"],
+                payload["composition_id"],
+                payload["shape_id"],
+                payload["parameter_space_ref"],
+                payload["sweep_id"],
+                payload["baseline_run_id"],
+                json.dumps(payload["variant_run_ids"], **json_kwargs),
+                payload["status"],
+                payload["created_at"],
+            ),
+        )
+        self._conn.commit()
+
+    def get_cross_composition_sweeps(
+        self, cross_split_sweep_id: str
+    ) -> list[CrossCompositionSweepRow]:
+        """All participation rows of one cross-composition sweep, in canonical
+        (composition id ascending) order."""
+        rows = self._conn.execute(
+            "SELECT * FROM cross_composition_sweeps "
+            "WHERE cross_split_sweep_id = ? ORDER BY composition_id",
+            (cross_split_sweep_id,),
+        ).fetchall()
+        return [CrossCompositionSweepRow.from_row(dict(r)) for r in rows]
+
+    def iter_cross_composition_sweeps(self) -> Iterator[CrossCompositionSweepRow]:
+        rows = self._conn.execute(
+            "SELECT * FROM cross_composition_sweeps "
+            "ORDER BY cross_split_sweep_id, composition_id"
+        ).fetchall()
+        for row in rows:
+            yield CrossCompositionSweepRow.from_row(dict(row))
+
+    @property
+    def cross_composition_sweep_count(self) -> int:
+        (count,) = self._conn.execute(
+            "SELECT COUNT(*) FROM cross_composition_sweeps"
+        ).fetchone()
         return int(count)
 
     def close(self) -> None:

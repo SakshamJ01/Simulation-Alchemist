@@ -281,6 +281,7 @@ class SweepRunner:
         mutation_space: MutationSpace,
         *,
         sweep_id: str | None = None,
+        composition_id: str | None = None,
     ) -> SweepResult:
         """Execute the baseline control plus every variant, sequentially.
 
@@ -289,6 +290,9 @@ class SweepRunner:
         aborts the sweep with nothing recorded.  Variant combinations that are
         no-ops (they reproduce the base world exactly) are skipped and counted
         in the timing summary.
+
+        ``composition_id`` optionally stamps the recorded base and variant runs
+        with the composing identity (default ``None`` preserves prior behaviour).
 
         Returns a ``SweepResult`` and records the base run, all variant runs,
         and the sweep metadata in the store.
@@ -312,13 +316,17 @@ class SweepRunner:
 
         # Phase 2 (simulation): baseline control first, then variants.
         window_start = time.monotonic()
-        base = self._runner.run(base_world)
+        base = self._runner.run(base_world, composition_id=composition_id)
         base_seconds = time.monotonic() - window_start
 
         variants: list[RunResult] = []
         variant_start = time.monotonic()
         for mutations in planned:
-            variants.append(self._runner.run_variant(base_world, mutations))
+            variants.append(
+                self._runner.run_variant(
+                    base_world, mutations, composition_id=composition_id
+                )
+            )
         variant_seconds = time.monotonic() - variant_start
 
         total = base_seconds + variant_seconds

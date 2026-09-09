@@ -1,0 +1,14 @@
+START 2026-09-09 22:27:05
+============================= test session starts =============================
+platform win32 -- Python 3.13.5, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\Saksham\Documents\simulation project\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: C:\Users\Saksham\Documents\simulation project
+configfile: pyproject.toml
+plugins: hypothesis-6.167.1
+collecting ... collected 1 item
+
+tests/test_cross_composition_sweep_stage2.py::TestSlowCanonicalCrossCompositionSweep::test_real_repository_sweep_executes_and_persists PASSED
+
+======================= 1 passed in 2253.87s (0:37:33) ========================
+FINISHED exit=0 at 2026-09-09 23:04:44

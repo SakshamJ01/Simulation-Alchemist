@@ -212,22 +212,50 @@ class CrossCompositionSweepResult:
     spec: CrossCompositionSweepSpec
     bindings: tuple[CompositionSpaceBinding, ...] = ()
     state: Literal["planned", "executed"] = "planned"
+    timing: Any | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "bindings", tuple(self.bindings))
         if self.state not in ("planned", "executed"):
             raise ValueError(f"state must be 'planned' or 'executed', got {self.state!r}")
 
+    @property
+    def status(self) -> Literal["planned", "executed"]:
+        """Pass status mirrors ``state`` (planned = not executed; executed)."""
+        return self.state
+
+    @property
+    def total_evaluations(self) -> int:
+        """Number of logical run evaluations this pass accounts for.
+
+        Every participating composition contributes exactly its baseline (one),
+        plus the executed parameter variants of its declared space -- but only
+        when the pass was executed.  Safe (planning returns 0) and used for the
+        execution count bookkeeping.
+        """
+        if self.state != "executed":
+            return 0
+        return sum(1 + len(b.variant_run_ids) for b in self.bindings)
+
     def binding(self, composition_id: str) -> CompositionSpaceBinding | None:
         return next((b for b in self.bindings if b.composition_id == composition_id), None)
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        data: dict[str, Any] = {
             "cross_split_sweep_id": self.cross_split_sweep_id,
             "spec": self.spec.as_dict(canonical=True),
             "bindings": [b.as_dict() for b in self.bindings],
             "state": self.state,
+            "status": self.status,
+            "total_evaluations": self.total_evaluations,
         }
+        if self.timing is not None:
+            data["timing"] = (
+                self.timing.as_dict()
+                if hasattr(self.timing, "as_dict")
+                else self.timing
+            )
+        return data
 
 
 @dataclass(frozen=True)

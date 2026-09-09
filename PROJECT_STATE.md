@@ -1,7 +1,7 @@
 # Simulation Alchemist — Current State
 
 ## Current milestone
-Task 2.5 Build Stage 2 — CrossCompositionSweep orchestrator complete (durable cross-composition sweep lineage + composition_id stamping on variant runs); Next: Task 2.5 Build Stage 3 — cross-composition common-observable comparison
+Task 2.5 Build Stage 3 — cross-composition common-observable aggregation (COMPLETE: pure projection of completed Stage 2 sweep onto CommonObservable surface; 30 observations; vocabulary derived from actual metric pool; baseline/variant preserved; no ranking/frontier/CLI)
 
 ## Completed
 - Task 0.1 — chemo-mechanical feedback spike
@@ -29,6 +29,7 @@ Task 2.5 Build Stage 2 — CrossCompositionSweep orchestrator complete (durable 
 - Task 2.5 PLAN — cross-composition parameter sweep / joint structural + parametric discovery architecture (design doc `TASK_2.5_DESIGN.md`: model D-hybrid, per-composition local sweeps over the existing `SweepRunner`, experiment-owned spaces)
 - Task 2.5 Build Stage 1 — composition-specific parameter-space binding + result model (data-model only; `core/cross_sweep.py` + experiment-owned `repository_parameter_spaces()` + deterministic `cross_split_sweep_id`; no execution; no lineage changes; guard-safe — no guarded core file re-baselined)
 - Task 2.5 Build Stage 2 — CrossCompositionSweep orchestrator (durable cross-composition sweep lineage via `core/lineage.py::CrossCompositionSweepRow` + `INSERT OR REPLACE`; `composition_id` stamped on variant `RunRecord`; per-composition baseline/sweep execution through `SweepRunner`; re-baseline of guarded `lineage.py`/`runner.py`/`sweep.py` hashes; `core/cross_composition_sweep.py` new module, experiment-free)
+- Task 2.5 Build Stage 3 — cross-composition common-observable aggregation (`core/cross_composition_behavior.py`; pure projection; 19 tests; vocabulary from pool; baseline/variant preserved; no execution/ranking/frontier/CLI)
 
 ## Current experiments
 - A — Chemo-Mechanical Morphogenesis (Mesa + py-pde + Pymunk)
@@ -71,13 +72,14 @@ Task 2.5 Build Stage 2 — CrossCompositionSweep orchestrator complete (durable 
 - Canonical discovery regression (seed 0, 160 steps): discovery id `91a72c708d07d66b5926edec`, 3 EXECUTABLE, 3 genuinely common observables (`final_field_mean`, `final_field_std`, `field_entropy`), evaluation 59.69 s; Profile A ranking: C 1.75 > A 0.413 > B 0.268; Profile B ranking: C 1.25 > B 0.855 > A 0.707; Stage 4 analysis ~0.0004 s (essentially free); deterministic replay canonical-identical; `run_count` unchanged across replay
 
 ## Next exact task
-Task 2.5 Build Stage 3 — cross-composition common-observable comparison (one deterministic `CommonObservableSet` per evaluated composition in catalog order — sorted union of executor metric names, missing = explicit `available=False`/`None`; pure O(n) extraction reusing in-memory evaluations, no re-run, no persistence, world immutable; evaluation/extraction timing split; no ranking/behavior/frontier/visualization)
+Task 2.5 Build Stage 4 — cross-composition sweep ranking + diversity frontier (`core/composition_analysis.py`: `rank_compositions` / `select_frontier` over common-observable feature vectors; pool min-max normalization; analysis-only; no execution/persistence; Stage 3 NOT restarted)
 
-## Current capability (Task 2.5 Stage 2)
-- Executable composition-specific parameter-space declarations (`experiments/catalog.py::repository_parameter_spaces()`; C real 27-variant space, A/B `None` / baseline-only)
-- CrossCompositionSweep orchestrator (`core/cross_composition_sweep.py`: deterministic `catalog.executable()` order → resolve executors + bindings → run `SweepRunner.sweep` for C / record baseline for A/B → persist `CrossCompositionSweepRow`; fail-fast planning + execution-time error identification; experiment-free core module, purity-scan safe)
-- Durable cross-composition sweep lineage (`lineage.py` `cross_composition_sweeps` table + `CrossCompositionSweepRow`; INSERT OR REPLACE on PK `(pass_id, composition_id)`; `get/iter/count` APIs; old-DB migration via `CREATE TABLE IF NOT EXISTS`; `composition_id` stamped on `RunRecord` via `runner.py`/`sweep.py` optional parameter threading)
-- Gate-verified results (16 fast + 1 slow integration tests pass; `test_cross_sweep_stage1.py` purity scan green; 3 guarded core file hash re-baselines documented in `tests/test_field_guided_movers.py`)
+## Current capability (Task 2.5 Stage 3)
+- Executable composition-specific parameter-space declarations (`experiments/catalog.py::repository_parameter_spaces()`; C real 27-variant space, A/B `None`)
+- CrossCompositionSweep orchestrator (`core/cross_composition_sweep.py`)
+- Durable cross-composition sweep lineage (`lineage.py` `cross_composition_sweeps` + `CrossCompositionSweepRow`; INSERT OR REPLACE; idempotent)
+- `composition_id` stamped on `RunRecord` (`runner.py`/`sweep.py` optional threading)
+- Cross-composition common-observable aggregation (`core/cross_composition_behavior.py`; pure projection; `CrossCompositionBehaviorResult`; vocabulary from pool; 30 observations; baseline/variant preserved; no ranking/frontier/visualization/CLI)
 
 ## Known limitations (Task 2.4 + Task 2.5 Stage 1 & design §16–§17)
 - No cross-composition sweep ranking / diversity frontier / shared sweep behavior aggregation (Stage 4 — deferred to Stage 3+4).

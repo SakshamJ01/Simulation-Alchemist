@@ -60,7 +60,7 @@ experiments (A: chemo-morphogenesis, B: field-guided movers, C: adaptive network
 morphogenesis) execute through the generic `AlchemistEngine` + core `StepScheduler`
 against declaratively-described worlds; the science, scheduling, and declared
 coupling contracts live in experiment coupling modules, not in engine subclasses.
-**Next milestone: Task 2.5 (NOT started). Do NOT start Task 2.5 until it is issued.**
+**Next milestone: Task 2.5 Build Stage 2 (PLAN + Build Stage 1 complete). Do NOT start Task 2.5 Build Stage 2 until it is issued.**
 
 ## Current Repository State (validated prototype — do not paper over)
 
@@ -199,6 +199,19 @@ map, compact *unranked* result with deterministic replay — no ranking/behavior
    evaluated baseline onto the common vocabulary; composition-specific names
    elsewhere become explicit missing rows; horizon from the generated world with
    id/hash validation; structural/type-checked errors; nothing simulated/persisted).
+- **src/sim_alchemist/core/cross_sweep.py** — Task 2.5 Build Stage 1 data-model
+  foundation (experiment-free): `CompositionSpaceBinding` (one composition and
+  its own `MutationSpace`/opaque `ref`; `ref=None ⇔ space=None` = "no registered
+  space", distinct from error/empty; carries later `sweep_id`/`baseline_run_id`/
+  `variant_run_ids`), `CrossCompositionSweepSpec` (ordered composition→space
+  bindings + profile + seed + evaluation_config; canonical `as_dict`),
+  `cross_split_sweep_id` (deterministic content-addressed 24-hex over the
+  canonical spec — no timestamps/repr/dict-order), `CrossCompositionSweepResult`
+  (`planned`/`executed`, baseline never a mutated variant),
+  `CrossCompositionSweepRecord` (immutable in-memory compact metadata; durable
+  lineage persistence deferred to Stage 2). Bound in `experiments/catalog.py`
+  via `repository_parameter_spaces()` (C has a real space from `PARAMETER_SPECS`;
+  A/B are `None`). No execution, no lineage writes.
 - **src/sim_alchemist/core/search.py** — Task 1.9 **guided beam search over `SearchSpec` (frozen, validated config: name,
   generations, beam_width, children_per_parent, mutation_space, profile,
   seed, optional selection_profile), `child_mutations` (dimension-major,
@@ -294,6 +307,7 @@ Do not start building that until the extraction task is issued.
 | Task 2.4 Stage 3 common observables | generic core | `src/sim_alchemist/core/observables.py`, `src/sim_alchemist/core/composition_search.py`, `tests/test_common_observables_stage3.py` |
 | Task 2.4 Stage 4 analysis | generic core (analysis-only) | `src/sim_alchemist/core/composition_analysis.py`, `tests/test_composition_analysis_stage4.py` |
 | Task 2.4 Stage 5 discovery CLI + figure | experiments + CLI | `run_composition_discovery.py`, `experiments/composition_discovery.py`, `tests/test_composition_discovery_cli_stage5.py`, `figures/discovery_quality_diversity.png` |
+| Task 2.5 Stage 1 parameter-space binding + cross-sweep identity | generic core + experiment-owned registry | `src/sim_alchemist/core/cross_sweep.py`, `experiments/catalog.py` (`repository_parameter_spaces()`), `tests/test_cross_sweep_stage1.py` |
 | Experiment coupling + worlds | YAML + closures | `chemomech/coupling.py`, `experiments/field_guided_movers/coupling.py`, `experiments/network_morphogenesis/coupling.py`, `worlds/*.yaml` |
 | Validation A–G + figures | numpy / matplotlib | `chemomech/validate.py` |
 | Stability checks S1–S6 | numpy | `run_stability.py` |

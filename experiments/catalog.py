@@ -41,7 +41,10 @@ from experiments.network_morphogenesis.coupling import (
     build_network_morphogenesis_registry,
     build_network_morphogenesis_template,
 )
-from experiments.network_morphogenesis.experiment import run_network_world
+from experiments.network_morphogenesis.experiment import (
+    run_network_world,
+    specs_by_path,
+)
 from sim_alchemist.core.capabilities import SimulationEngine
 from sim_alchemist.core.catalog import CompositionCatalog
 from sim_alchemist.core.composition import (
@@ -51,8 +54,13 @@ from sim_alchemist.core.composition import (
     CompositionSpace,
     capability_surfaces_from_registry,
 )
+from sim_alchemist.core.cross_sweep import (
+    CompositionSpaceBinding,
+    parameter_space_ref,
+)
 from sim_alchemist.core.registry import default_registry
 from sim_alchemist.core.runner import Executor
+from sim_alchemist.core.sweep import MutationSpace, ParameterSweep
 from sim_alchemist.core.templates import (
     CouplingTemplate,
     CouplingTemplateRegistry,
@@ -160,3 +168,66 @@ def repository_executors() -> dict[str, Executor]:
         template_composition_id(build_field_guided_movers_template()): run_field_guided_movers_world,
         template_composition_id(build_network_morphogenesis_template()): run_network_world,
     }
+
+
+def _network_parameter_space() -> MutationSpace:
+    """The legitimate parameter space of the network composition (C).
+
+    Built from the experiment's declared ``PARAMETER_SPECS`` (paths + bounds)
+    so no scientific dimension is invented and no existing parameter value is
+    changed.  The three mutable dimensions are the ones the coupling layer
+    already carries experimental meaning for:
+    ``components.network.config.loss`` (0..1), ``config.force_fmax`` (0..10)
+    and ``config.source_amplitude`` (0..1).  Value lists are modest
+    exploration points strictly inside the declared valid bounds.
+    """
+    specs = specs_by_path()
+    dims = (
+        ParameterSweep("components.network.config.loss", (0.2, 0.5, 0.8)),
+        ParameterSweep("config.force_fmax", (2.0, 5.0, 8.0)),
+        ParameterSweep("config.source_amplitude", (0.2, 0.5, 0.8)),
+    )
+    for dim in dims:
+        spec = specs[dim.path]
+        for value in dim.values:
+            if not (spec.minimum <= value <= spec.maximum):
+                raise ValueError(
+                    f"value {value} for {dim.path} outside declared bounds "
+                    f"[{spec.minimum}, {spec.maximum}]"
+                )
+    return MutationSpace(dims)
+
+
+def repository_parameter_spaces() -> dict[str, CompositionSpaceBinding]:
+    """Experiment-owned parameter spaces keyed by executable composition id.
+
+    Mirrors ``repository_executors()``: the map is keyed by the
+    content-addressed ``template_composition_id`` of each experiment template.
+    A composition owns a real ``MutationSpace`` only where the experiment
+    declares a legitimate parameter space; otherwise it binds ``space=None``
+    (and ``ref=None``) meaning "no registered parameter sweep space" -- never
+    an error and never an empty space.  The experiment keeps the generic core
+    free of any science: the core sees only opaque refs and the generic
+    ``MutationSpace``.
+    """
+    a_template = build_morphogenesis_template()
+    b_template = build_field_guided_movers_template()
+    c_template = build_network_morphogenesis_template()
+    c_space = _network_parameter_space()
+    bindings = (
+        CompositionSpaceBinding(
+            composition_id=template_composition_id(a_template),
+            shape_id=a_template.shape.shape_id,
+        ),
+        CompositionSpaceBinding(
+            composition_id=template_composition_id(b_template),
+            shape_id=b_template.shape.shape_id,
+        ),
+        CompositionSpaceBinding(
+            composition_id=template_composition_id(c_template),
+            shape_id=c_template.shape.shape_id,
+            ref=parameter_space_ref(c_space),
+            space=c_space,
+        ),
+    )
+    return {b.composition_id: b for b in bindings}

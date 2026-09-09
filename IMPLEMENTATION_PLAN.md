@@ -20,8 +20,12 @@ discovery frontier — `composition_analysis.py`: `rank_compositions` /
 behavior_distance machinery unchanged; analysis-only) COMPLETE**, **Task 2.4 Build
 Stage 5 (developer CLI `run_composition_discovery.py` + matplotlib
 quality-vs-diversity figure artifact; canonical demo 3 EXECUTABLE evaluated in
-59.69 s, analysis ~0.0004 s) COMPLETE.** Next is **Task 2.5** (NOT started);
-do not start it until it is issued.
+59.69 s, analysis ~0.0004 s) COMPLETE.** Next is **Task 2.5** (PLAN COMPLETE;
+Build Stage 1 COMPLETE — composition-specific parameter-space binding + result
+model, `experiments/catalog.py::repository_parameter_spaces()` +
+`core/cross_sweep.py` + deterministic `cross_split_sweep_id`); the next build
+step is **Task 2.5 Build Stage 2** (CrossCompositionSweep orchestrator over the
+existing SweepRunner) — do not start it until it is issued.
 **Date:** 2026-09-05 (updated 2026-09-09)
 
 ---
@@ -292,7 +296,11 @@ and ranking pipeline (evaluate → extract common observables → rank →
 diversity frontier → developer CLI + figure).
 
 ### NEXT
-- **Task 2.5** (NOT started) — exact scope TBD. Do not start until issued.
+- **Task 2.5 Build Stage 2** — CrossCompositionSweep orchestrator over the
+  existing `SweepRunner` (per-composition sweeps, `composition_id` stamping on
+  variant runs, then durable `cross_composition_sweeps` lineage persistence +
+  cross-composition common-observable comparison). Build Stage 1 (binding +
+  result model, `cross_split_sweep_id`) is COMPLETE. Do not start until issued.
 - Plugin/adapter registry (extensible `ComponentRegistry` with external
   adapters and capability discovery).
 - Generalized world composition beyond `compose()` (world graph, runtime

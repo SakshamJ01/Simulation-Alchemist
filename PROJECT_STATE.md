@@ -1,8 +1,8 @@
 # Simulation Alchemist — Current State
 
 ## Current milestone
-Task 2.4 Build Stages 4+5 — cross-composition ranking + diversity frontier + discovery CLI + figure (COMPLETE)
-Next: Task 2.5 — cross-composition parameter sweep / joint structural + parametric discovery architecture (PLAN-ONLY, in progress; design doc authored, NOT implemented)
+Task 2.5 Build Stage 1 — composition-specific parameter-space binding + result model (COMPLETE; PLAN-ONLY design + Build Stage 1 data-model only, no execution)
+Next: Task 2.5 Build Stage 2 — CrossCompositionSweep orchestrator (NOT started)
 
 ## Completed
 - Task 0.1 — chemo-mechanical feedback spike
@@ -27,6 +27,8 @@ Next: Task 2.5 — cross-composition parameter sweep / joint structural + parame
 - Task 2.4 Build Stage 3 — common cross-composition observables (one deterministic `CommonObservableSet` per evaluated composition over the sorted union of executor metric names; missing = explicit `available=False`/`None`; horizon captured from generated worlds; pure extraction, no persistence; timing split evaluation vs extraction; integrated into `CompositionSearcher.search` with backward-compatible result/timing)
 - Task 2.4 Build Stage 4 — cross-composition ranking + diversity-aware discovery frontier (`composition_analysis.py`: `rank_compositions`/`select_frontier` reusing Task 1.8 `rank_by_profile` and Task 2.0 `select_diverse_frontier`; pool min-max normalization; analysis-only — no execution, no lineage writes)
 - Task 2.4 Build Stage 5 — developer discovery CLI (`run_composition_discovery.py`) + matplotlib figure artifact (`figures/discovery_quality_diversity.png`); full test suites (34 fast/1 slow Stage 4, 9 fast/1 slow Stage 5)
+- Task 2.5 PLAN — cross-composition parameter sweep / joint structural + parametric discovery architecture (design doc `TASK_2.5_DESIGN.md`: model D-hybrid, per-composition local sweeps over the existing `SweepRunner`, experiment-owned spaces)
+- Task 2.5 Build Stage 1 — composition-specific parameter-space binding + result model (data-model only; `core/cross_sweep.py` + experiment-owned `repository_parameter_spaces()` + deterministic `cross_split_sweep_id`; no execution; no lineage changes; guard-safe — no guarded core file re-baselined)
 
 ## Current experiments
 - A — Chemo-Mechanical Morphogenesis (Mesa + py-pde + Pymunk)
@@ -69,9 +71,19 @@ Next: Task 2.5 — cross-composition parameter sweep / joint structural + parame
 - Canonical discovery regression (seed 0, 160 steps): discovery id `91a72c708d07d66b5926edec`, 3 EXECUTABLE, 3 genuinely common observables (`final_field_mean`, `final_field_std`, `field_entropy`), evaluation 59.69 s; Profile A ranking: C 1.75 > A 0.413 > B 0.268; Profile B ranking: C 1.25 > B 0.855 > A 0.707; Stage 4 analysis ~0.0004 s (essentially free); deterministic replay canonical-identical; `run_count` unchanged across replay
 
 ## Next exact task
-Task 2.5 — cross-composition parameter sweep. PLAN-ONLY design authored in `TASK_2.5_DESIGN.md` (model D-hybrid: per-composition local sweeps orchestrated over the existing `SweepRunner`, with an experiment-owned `repository_parameter_spaces()` map). Next build step: **Task 2.5 Build Stage 1** — composition-specific mutation-space binding + result model (no execution). NOT marked complete; DO NOT start Task 2.6.
+Task 2.5 Build Stage 2 — **CrossCompositionSweep orchestrator** over the existing `SweepRunner`: per-composition sweeps in catalog order, `composition_id` stamping on variant runs (optional `composition_id=` threaded into the core recording path), durable `cross_composition_sweeps` lineage persistence (+ sanctioned re-baseline of guarded `lineage.py`), then cross-composition common-observable comparison. Build Stage 1 (binding + result model) is COMPLETE. DO NOT start Task 2.6.
 
-## Known limitations (Task 2.4, per design §16–§17)
+## Current capability (Task 2.5 Stage 1)
+- composition-specific parameter-space declarations (`experiments/catalog.py::repository_parameter_spaces()`; C has a real space, A/B `None`)
+- deterministic cross-sweep identity (`core/cross_sweep.py::cross_split_sweep_id`, 24-hex content-addressed)
+- cross-composition sweep result foundation (`CompositionSpaceBinding`/`CrossCompositionSweepSpec`/`CrossCompositionSweepResult`/in-memory `CrossCompositionSweepRecord`; planned-only)
+
+## Known limitations (Task 2.4 + Task 2.5 Stage 1 & design §16–§17)
+- No sweep execution across compositions (Stage 1 is metadata-only; orchestrator is Stage 2).
+- No cross-composition sweep ranking / diversity frontier / shared sweep behavior aggregation.
+- No CLI / figure for cross-composition sweeps.
+- A and B have no declared parameter space; they contribute only baselines until an experiment declares one.
+- `CrossCompositionSweepRecord` durability is deferred to Stage 2.
 - The Stage 3 common-observable envelope is the sorted union of the scalar executor metric names; the genuinely-common subspace is the 3 names every composition produces (`final_field_mean`, `final_field_std`, `field_entropy`). It does not claim physical equivalence of A/B/C quantities absent an explicit semantic alias (not yet built — later stages).
 - Native-substep/engine differences mean A/B/C runs are not bitwise-comparable peers.
 - Diversity is behavioral (Task 1.8 features); a heuristic, not a calibrated metric.

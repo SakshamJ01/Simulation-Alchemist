@@ -540,6 +540,21 @@ class LineageStore:
     );
     CREATE INDEX IF NOT EXISTS idx_ccs_composition ON cross_composition_sweeps(composition_id);
     CREATE INDEX IF NOT EXISTS idx_ccs_pass ON cross_composition_sweeps(cross_split_sweep_id);
+    CREATE TABLE IF NOT EXISTS adaptive_exploration_sessions (
+        adaptive_exploration_id TEXT PRIMARY KEY,
+        spec_dict TEXT NOT NULL,
+        composition_ids TEXT NOT NULL,
+        profile_text TEXT,
+        seed INTEGER NOT NULL,
+        budget INTEGER NOT NULL,
+        pass_adaptive_run_ids TEXT NOT NULL,
+        final_decision TEXT NOT NULL,
+        termination_reason TEXT NOT NULL,
+        total_simulated INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_adapt_exp_id ON adaptive_exploration_sessions(adaptive_exploration_id);
     """
 
     def __init__(self, path: str | Path = ":memory:") -> None:
@@ -564,6 +579,16 @@ class LineageStore:
             self._conn.execute("ALTER TABLE runs ADD COLUMN feature_snapshot TEXT")
         if "composition_id" not in cols:
             self._conn.execute("ALTER TABLE runs ADD COLUMN composition_id TEXT")
+        # Additive adaptive exploration session table (Task 2.7 Stage 3)
+        self._ensure_adaptive_exploration_sessions_table()
+
+    def _ensure_adaptive_exploration_sessions_table(self) -> None:
+        try:
+            self._conn.execute("CREATE TABLE IF NOT EXISTS adaptive_exploration_sessions (adaptive_exploration_id TEXT PRIMARY KEY, spec_dict TEXT NOT NULL, composition_ids TEXT NOT NULL, profile_text TEXT, seed INTEGER NOT NULL, budget INTEGER NOT NULL, pass_adaptive_run_ids TEXT NOT NULL, final_decision TEXT NOT NULL, termination_reason TEXT NOT NULL, total_simulated INTEGER NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL)")
+            self._conn.execute("CREATE INDEX IF NOT EXISTS idx_adapt_exp_id ON adaptive_exploration_sessions(adaptive_exploration_id)")
+            self._conn.commit()
+        except Exception:
+            pass  # table may already exist; ignore migration errors safely
 
     def record_run(self, record: RunRecord) -> None:
         """Insert or overwrite the record for ``record.run_id`` (idempotent)."""
@@ -861,6 +886,66 @@ class LineageStore:
         ).fetchall()
         for row in rows:
             yield CrossCompositionSweepRow.from_row(dict(row))
+
+    # ---------------------------------------------------------------
+    # Task 2.7 Stage 3 — adaptive exploration session lineage (additive)
+    # ---------------------------------------------------------------
+
+    def record_exploration_session(self, session_id: str, spec_dict: dict, eligible_compositions: list[str],
+                                   profile_text: str, seed: int, budget: int,
+                                   pass_adaptive_run_ids: list[str], final_decision: str,
+                                   termination_reason: str, total_simulated: int,
+                                   status: str, created_at: str | None = None) -> None:
+        """Idempotent record of a bounded adaptive exploration session."""
+        from datetime import datetime as dt
+        at = created_at or dt.now(dt.timezone.utc).isoformat()
+        payload_json_kwargs: dict[str, Any] = {"sort_keys": True, "separators": (",", ":")}
+        self._conn.execute(
+            """
+            INSERT OR REPLACE INTO adaptive_exploration_sessions
+                (adaptive_exploration_id, spec_dict, composition_ids, profile_text, seed,
+                 budget, pass_adaptive_run_ids, final_decision, termination_reason,
+                 total_simulated, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                session_id,
+                json.dumps(spec_dict, **payload_json_kwargs),
+                json.dumps(sorted(eligible_compositions), **payload_json_kwargs),
+                profile_text,
+                seed,
+                budget,
+                json.dumps(sorted(pass_adaptive_run_ids), **payload_json_kwargs),
+                final_decision,
+                termination_reason,
+                total_simulated,
+                status,
+                at,
+            ),
+        )
+        self._conn.commit()
+
+    def get_exploration_session(self, adaptive_exploration_id: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT * FROM adaptive_exploration_sessions WHERE adaptive_exploration_id = ?",
+            (adaptive_exploration_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return dict(row)
+
+    def iter_exploration_sessions(self) -> Iterator[dict[str, Any]]:
+        rows = self._conn.execute(
+            "SELECT * FROM adaptive_exploration_sessions ORDER BY adaptive_exploration_id"
+        ).fetchall()
+        for row in rows:
+            yield dict(row)
+
+    def count_exploration_sessions(self) -> int:
+        row = self._conn.execute(
+            "SELECT COUNT(*) FROM adaptive_exploration_sessions"
+        ).fetchone()
+        return int(row[0]) if row else 0
 
     @property
     def cross_composition_sweep_count(self) -> int:

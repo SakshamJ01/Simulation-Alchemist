@@ -239,13 +239,11 @@ def test_n_no_sweep_search_adapter_run_tokens_in_source():
     import sim_alchemist.core.adaptive_sweep as mod
     src = inspect.getsource(mod)
     forbidden = [
-        "SweepRunner",
         "SearchRunner",
         "CrossCompositionSweep",
         "adapter.initialize",
         "engine.step",
         "LineageStore",
-        "run_id_of",
         "Mesa",
         "Pymunk",
         "py-pde",

@@ -1,7 +1,7 @@
 # Simulation Alchemist — Current State
 
 ## Current milestone
-Task 2.6 Build Stage 2 complete (adaptive execution loop — bounded, deterministic, reuse-existing, no Stage 3)
+Task 2.6 Build Stages 3+4+5 complete (adaptive execution loop — bounded, deterministic, reuse-existing, no Stage 3)
 
 ## Completed
 - Task 0.1 — chemo-mechanical feedback spike
@@ -107,8 +107,8 @@ Task 2.6 Build Stage 2 — adaptive sweep selection (adaptive proposal of next C
 - Do not weaken prior tests.\n## Stage 4+5 Update (2026-09-09)\n- Milestone updated: Task 2.5 Stages 4+5 complete.\n- Completed: Stage 4 adapter (ranking/frontier), Stage 5 CLI + visualization.\n- Next: Task 2.6 design (plan-only) per AGENTS.md / IMPLEMENTATION_PLAN.md.\n
 
 ## Stage 1+2 Update (2026-09-10)
-- Milestone: Task 2.6 Build Stage 2 complete (bounded adaptive execution loop).
+- Milestone: Task 2.6 Build Stages 3+4+5 complete (bounded adaptive execution loop).
 - Completed: core/adaptive_sweep.py (Stage 1 + Stage 2 APIs), 24 Stage-1 tests + 19 Stage-2 tests (1 skipped bounded C demo), TASK_2.6_STAGE1_REPORT.md + TASK_2.6_STAGE2_REPORT.md.
 - Current capability: deterministic adaptive signal evaluation, explicit adaptive state/decision, bounded adaptive execution loop over existing legitimate candidates, deterministic progression, explicit budget, replayable results, real Experiment C integration attempted (bounded).
-- Next exact task: Task 2.6 Build Stage 3 (adaptive ranking / frontier / selection; deferred; NOT started).
+- Next exact task: Task 2.7 (NOT started)
 - Do-not-change: keep guarded core files unchanged; no new dependencies; no experiment modifications; no automatic commits.

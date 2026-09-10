@@ -501,3 +501,180 @@ class AdaptiveSweepRunner:
             termination_reason=termination,
             total_simulated=simulated,
         )
+
+
+# === Stage 3/4/5 APIs (merged from stage3_4) ===
+
+
+@dataclass(frozen=True)
+class AdaptiveProposal:
+    """Deterministic proposal of next legitimate action from existing pool."""
+    proposal_state: str  # PROPOSED / NO_NEXT_ACTION / BUDGET_EXHAUSTED / ALREADY_EVALUATED
+    proposed_action_id: str | None
+    selection_reason: str  # deterministic, explainable from inputs
+    profile_used: str | None
+    budget_remaining: int
+    evaluated_ids: tuple[str, ...]  # canonical sorted list of already-evaluated action IDs
+
+    def __post_init__(self) -> None:
+        if self.proposal_state not in ("PROPOSED", "NO_NEXT_ACTION", "BUDGET_EXHAUSTED", "ALREADY_EVALUATED"):
+            raise ValueError(f"invalid proposal_state: {self.proposal_state}")
+        if self.proposed_action_id is not None and not isinstance(self.proposed_action_id, str):
+            raise ValueError("proposed_action_id must be str or None")
+        if self.budget_remaining < 0:
+            raise ValueError("budget_remaining must be >= 0")
+
+    def as_dict(self) -> dict:
+        return dict(sorted({
+            "proposal_state": self.proposal_state,
+            "proposed_action_id": self.proposed_action_id,
+            "selection_reason": self.selection_reason,
+            "profile_used": self.profile_used,
+            "budget_remaining": self.budget_remaining,
+            "evaluated_ids": list(sorted(self.evaluated_ids)),
+        }.items()))
+
+
+@dataclass(frozen=True)
+class AdaptiveSelectionResult:
+    """Result of adaptive selection over completed behavior / existing candidates."""
+    proposal: AdaptiveProposal
+    source_context: dict  # canonical reference to source result/sweep/behavior (not full record)
+    selection_identity: str  # deterministic content-addressed 24-hex
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.proposal, AdaptiveProposal):
+            raise ValueError("proposal must be AdaptiveProposal")
+        if not self.selection_identity or not isinstance(self.selection_identity, str):
+            raise ValueError("selection_identity required")
+
+    def as_dict(self) -> dict:
+        return dict(sorted({
+            "proposal": self.proposal.as_dict(),
+            "source_context": dict(sorted(str(k), v) for k, v in self.source_context.items()),
+            "selection_identity": self.selection_identity,
+        }.items()))
+
+
+def selection_id_of(
+    proposal_state: str,
+    proposed_action_id: str | None,
+    evaluated_ids: Sequence[str],
+    profile_name: str | None = None,
+    seed: int = 0,
+) -> str:
+    """Deterministic identity for a selection result (no timestamps/repr/order)."""
+    import json
+    from hashlib import sha256
+    payload = json.dumps({
+        "state": proposal_state,
+        "action": str(proposed_action_id) if proposed_action_id else None,
+        "evaluated": sorted(str(i) for i in evaluated_ids),
+        "profile": str(profile_name) if profile_name else None,
+        "seed": int(seed),
+    }, separators=(",", ":"), sort_keys=True, ensure_ascii=False)
+    return sha256(payload.encode("utf-8")).hexdigest()[:24]
+
+
+# Enhance AdaptiveSweepSelection with proposal/dedup (Stage 3)
+class AdaptiveSweepSelection:
+    """Adaptive selection over existing legitimate candidates (Stage 3 enhanced)."""
+
+    def __init__(
+        self,
+        profile=None,
+        actions: Sequence[str] | None = None,
+    ):
+        self.profile = profile
+        self.actions = tuple(str(a) for a in (actions or []))
+
+    def select_next(
+        self,
+        available_actions: Sequence[str],
+        current_index: int = 0,
+        evaluated_signals: Mapping[str, AdaptiveSignal] | None = None,
+    ) -> str | None:
+        sorted_avail = sorted(str(a) for a in available_actions)
+        if not sorted_avail:
+            return None
+        idx = min(int(current_index), len(sorted_avail) - 1)
+        return sorted_avail[idx]
+
+    def select_proposal(
+        self,
+        available_actions: Sequence[str],
+        evaluated_action_ids: Sequence[str],
+        profile_name: str | None = None,
+        budget_remaining: int = 5,
+    ) -> AdaptiveSelectionResult:
+        """Stage 3 deterministic proposal with dedup and budget."""
+        eval_set = set(str(i) for i in evaluated_action_ids)
+        remaining = [str(a) for a in available_actions if str(a) not in eval_set]
+        remaining_sorted = sorted(remaining)
+        profile_str = str(profile_name) if profile_name else None
+
+        if budget_remaining <= 0:
+            proposal = AdaptiveProposal(
+                proposal_state="BUDGET_EXHAUSTED",
+                proposed_action_id=None,
+                selection_reason="budget exhausted; no further evaluation allowed",
+                profile_used=profile_str,
+                budget_remaining=0,
+                evaluated_ids=tuple(sorted(eval_set)),
+            )
+            return AdaptiveSelectionResult(
+                proposal=proposal,
+                source_context={"budget_remaining": budget_remaining},
+                selection_identity=selection_id_of("BUDGET_EXHAUSTED", None, list(eval_set), profile_str),
+            )
+
+        if not remaining_sorted:
+            proposal = AdaptiveProposal(
+                proposal_state="NO_NEXT_ACTION",
+                proposed_action_id=None,
+                selection_reason="all legitimate candidates already evaluated; no untested action remains",
+                profile_used=profile_str,
+                budget_remaining=int(budget_remaining),
+                evaluated_ids=tuple(sorted(eval_set)),
+            )
+            return AdaptiveSelectionResult(
+                proposal=proposal,
+                source_context={"remaining_candidates": []},
+                selection_identity=selection_id_of("NO_NEXT_ACTION", None, list(eval_set), profile_str),
+            )
+
+        # Profile participates in selection semantics when it names a remaining candidate
+        if profile_str and profile_str != "default" and profile_str in remaining_sorted:
+            proposed = profile_str
+            selection_reason = f"profile preference {profile_str} consulted among {len(remaining_sorted)} eligible; selected from untested pool"
+        else:
+            proposed = remaining_sorted[0]
+            selection_reason = f"canonical sorted order; first untested from {len(remaining_sorted)} eligible; profile={profile_str or 'none'}; excluded already-evaluated={len(eval_set)}"
+
+        proposal = AdaptiveProposal(
+            proposal_state="PROPOSED",
+            proposed_action_id=proposed,
+            selection_reason=selection_reason,
+            profile_used=profile_str,
+            budget_remaining=int(budget_remaining) - 1,
+            evaluated_ids=tuple(sorted(eval_set)),
+        )
+        return AdaptiveSelectionResult(
+            proposal=proposal,
+            source_context={"candidate_pool_size": len(remaining_sorted), "profile": profile_str},
+            selection_identity=selection_id_of("PROPOSED", proposed, list(eval_set), profile_str),
+        )
+
+
+# Stage 4 feedback-driven loop adapter: connect selection result to runner
+# (additive; preserves existing static AdaptiveSweepRunner.run())
+def adaptive_continue_from_result(
+    prior_result: AdaptiveRunResult,
+    available_actions: Sequence[str],
+    profile_name: str | None = None,
+    budget_remaining: int = 2,
+) -> AdaptiveSelectionResult:
+    """Stage 4 proposal from a completed adaptive run."""
+    evaluated_ids = [s.action_id for s in prior_result.steps if s.action_id is not None]
+    sel = AdaptiveSweepSelection(profile=None, actions=list(available_actions))
+    return sel.select_proposal(available_actions, evaluated_ids, profile_name=profile_name, budget_remaining=budget_remaining)

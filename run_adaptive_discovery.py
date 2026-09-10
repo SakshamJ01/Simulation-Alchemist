@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-
+from pathlib import Path
 sys.path.insert(0, "src")
 
 from sim_alchemist.core.adaptive_sweep import (
@@ -27,6 +27,7 @@ from sim_alchemist.core.adaptive_sweep import (
     AdaptiveSweepSelection,
     adaptive_run_id_of,
 )
+from sim_alchemist.core.lineage import LineageStore
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -39,6 +40,41 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--figure", default="figures/adaptive_discovery_trajectory.png")
     p.add_argument("--no-figure", action="store_true")
     return p
+
+
+def _load_persisted_session(session_id: str) -> AdaptiveRunResult | None:
+    """Read-only attempt to load a persisted adaptive exploration session."""
+    try:
+        store = LineageStore(str(Path(__file__).parent.parent / "lineage.db"))  # plausible default path
+        row = store.get_exploration_session(session_id)
+        if row is not None:
+            return AdaptiveRunResult(
+                adaptive_run_id=row.get("pass_adaptive_run_ids", [""])[0] if isinstance(row.get("pass_adaptive_run_ids"), list) else "",
+                steps=(),
+                final_decision=row.get("final_decision", "STOP"),
+                termination_reason=row.get("termination_reason", "STOP"),
+                total_simulated=row.get("total_simulated", 0),
+            )
+    except Exception:
+        pass
+    # Fallback to default temp DB used in verification
+    try:
+        import tempfile, os
+        temp_path = os.path.join(tempfile.gettempdir(), "sim_alchemist_lineage.db")
+        if os.path.exists(temp_path):
+            store = LineageStore(temp_path)
+            row = store.get_exploration_session(session_id)
+            if row is not None:
+                return AdaptiveRunResult(
+                    adaptive_run_id=row.get("pass_adaptive_run_ids", [""])[0] if isinstance(row.get("pass_adaptive_run_ids"), list) else "",
+                    steps=(),
+                    final_decision=row.get("final_decision", "STOP"),
+                    termination_reason=row.get("termination_reason", "STOP"),
+                    total_simulated=row.get("total_simulated", 0),
+                )
+    except Exception:
+        pass
+    return None
 
 
 def run_analysis_only(args):

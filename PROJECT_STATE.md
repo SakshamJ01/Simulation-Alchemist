@@ -112,9 +112,9 @@ Task 2.6 Build Stage 2 — adaptive sweep selection (adaptive proposal of next C
 - Next exact task: Task 2.7 Build Stage 1 (after PLAN-ONLY design confirmed)
 - Do-not-change: keep guarded core files unchanged; no new dependencies; no experiment modifications; no automatic commits.
 
-## Task 2.7 Plan (2026-09-10) — PLAN-ONLY, No Implementation
-- Milestone: Task 2.7 Design complete (PLAN-ONLY). Implementation NOT started.
-- Completed: TASK_2.7_DESIGN.md (researcher-constrained adaptive exploration specification; content-addressed adaptive_exploration_id; additive lineage session model; Stage 1/2/3 sequence; non-goals documented); verified against actual repository (only C parameter space; 3 EXECUTABLE; adaptive loop complete).
-- Recommended direction: Researcher-Constrained Adaptive Exploration Specification (smallest spec-layer change unlocking multi-pass adaptive comparison across compositions).
-- Next exact task: Task 2.7 Build Stage 1 (`AdaptiveExplorationSpec` / identity / subspace filter; no execution).
-- Confirmed: no source/test/dependency/world modifications; no Task 2.8; no commit.
+## Task 2.7 Build Stage 1 Update (current)
+- Milestone: Task 2.7 Build Stage 1 complete (adaptive exploration specification + identity + subspace filter + tests + report).
+- Completed: `core/adaptive_exploration.py` (AdaptiveExplorationSpec / ParameterConstraint / adaptive_exploration_id_of / filter_subspace / evaluate_exploration_spec); `tests/test_adaptive_exploration_stage1.py` (26 passed, A–Z); `TASK_2.7_STAGE1_REPORT.md`; real C subspace proof (freeze => 9 variants, identity deterministic); no execution / no lineage / core pure.
+- Current capability: researcher-declared deterministic exploration specification with composition filtering, parameter subspace projection over existing MutationSpace, deterministic content-addressed identity, explicit VALID/INVALID/EMPTY_SUBSPACE status, bounded budget.
+- Next exact task: Task 2.7 Build Stage 2 (CLI / multi-pass runner adapter / replay / figure).
+- Do-not-change: no source changes beyond new module + tests; keep guarded files unchanged; no new dependencies; no experiment modifications; no automatic commits.

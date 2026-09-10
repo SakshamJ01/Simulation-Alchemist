@@ -118,3 +118,10 @@ Task 2.6 Build Stage 2 â€” adaptive sweep selection (adaptive proposal of next C
 - Current capability: researcher-declared deterministic exploration specification with composition filtering, parameter subspace projection over existing MutationSpace, deterministic content-addressed identity, explicit VALID/INVALID/EMPTY_SUBSPACE status, bounded budget.
 - Next exact task: Task 2.7 Build Stage 2 (CLI / multi-pass runner adapter / replay / figure).
 - Do-not-change: no source changes beyond new module + tests; keep guarded files unchanged; no new dependencies; no experiment modifications; no automatic commits.
+
+
+## Task 2.9 Design — PLAN-ONLY (verified complete)
+- Milestone: Task 2.9 architecture research completed (PLAN-ONLY).
+- Completed: TASK_2.9_DESIGN.md content prepared (persistent cross-session behavioral archive direction; smallest high-value next step after full adaptive pipeline verified).
+- Next exact task: No Task 3.0 / no further implementation until explicitly issued.
+- Do-not-change: no source/test/dependency/world changes; keep guarded files; no new experiments; no optimization; no ML/GA/Bayesian/RL/plugin/distributed.

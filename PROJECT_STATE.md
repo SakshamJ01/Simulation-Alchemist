@@ -106,9 +106,15 @@ Task 2.6 Build Stage 2 — adaptive sweep selection (adaptive proposal of next C
 - Adapter binding is by id + variant, never positional.
 - Do not weaken prior tests.\n## Stage 4+5 Update (2026-09-09)\n- Milestone updated: Task 2.5 Stages 4+5 complete.\n- Completed: Stage 4 adapter (ranking/frontier), Stage 5 CLI + visualization.\n- Next: Task 2.6 design (plan-only) per AGENTS.md / IMPLEMENTATION_PLAN.md.\n
 
-## Stage 1+2 Update (2026-09-10)
-- Milestone: Task 2.6 Build Stages 3+4+5 complete (bounded adaptive execution loop).
-- Completed: core/adaptive_sweep.py (Stage 1 + Stage 2 APIs), 24 Stage-1 tests + 19 Stage-2 tests (1 skipped bounded C demo), TASK_2.6_STAGE1_REPORT.md + TASK_2.6_STAGE2_REPORT.md.
-- Current capability: deterministic adaptive signal evaluation, explicit adaptive state/decision, bounded adaptive execution loop over existing legitimate candidates, deterministic progression, explicit budget, replayable results, real Experiment C integration attempted (bounded).
-- Next exact task: Task 2.7 (NOT started)
+## Stage 3+4+5 Update (2026-09-10)
+- Milestone: Task 2.6 Build Stages 3+4+5 complete (adaptive selection / proposal / continuation / CLI / figure / docs).
+- Completed: Stage 3 selection APIs + Stage 4 feedback loop + Stage 5 CLI/visualization; 59 adaptive tests pass; real bounded C demo verified; profile semantics verified; replay verified.
+- Next exact task: Task 2.7 Build Stage 1 (after PLAN-ONLY design confirmed)
 - Do-not-change: keep guarded core files unchanged; no new dependencies; no experiment modifications; no automatic commits.
+
+## Task 2.7 Plan (2026-09-10) — PLAN-ONLY, No Implementation
+- Milestone: Task 2.7 Design complete (PLAN-ONLY). Implementation NOT started.
+- Completed: TASK_2.7_DESIGN.md (researcher-constrained adaptive exploration specification; content-addressed adaptive_exploration_id; additive lineage session model; Stage 1/2/3 sequence; non-goals documented); verified against actual repository (only C parameter space; 3 EXECUTABLE; adaptive loop complete).
+- Recommended direction: Researcher-Constrained Adaptive Exploration Specification (smallest spec-layer change unlocking multi-pass adaptive comparison across compositions).
+- Next exact task: Task 2.7 Build Stage 1 (`AdaptiveExplorationSpec` / identity / subspace filter; no execution).
+- Confirmed: no source/test/dependency/world modifications; no Task 2.8; no commit.

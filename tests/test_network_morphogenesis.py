@@ -414,6 +414,9 @@ def test_network_adapter_contract():
 # Re-baselined at Task 2.3 Build Stage 3+4+5 for the coupling-template /
 # world-generation / composition-catalog layer (templates.py + catalog.py
 # are new; world.py and __init__.py moved for the variant stamp + new API).
+# Re-baselined at Task 2.9 Stage 1 for the persistent adaptive-comparison
+# archive (lineage.py gains the additive adaptive_comparison_archive table
+# + record/get_adaptive_comparison).
 # ----------------------------------------------------------------------
 def test_core_files_unchanged() -> None:
     import test_field_guided_movers as b

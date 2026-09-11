@@ -61,6 +61,11 @@ FAST_STEPS = 10
 
 # Tokens that must never appear in the generic core mutation/lineage/runner
 # sources (they are experiment or domain identifiers, not data keys).
+# "adaptive_network" (Experiment C's world identifier) is the intent behind
+# the original "adapt" token; since Task 2.7 the *core* legitimately speaks
+# adaptive exploration/comparison vocabulary (adaptive_exploration_sessions,
+# adaptive_comparison_archive), so the guard is pinned to the experiment
+# identifier itself, not the "adapt" substring.
 FORBIDDEN_CORE_TOKENS = (
     "ndlib",
     "mesa",
@@ -68,7 +73,7 @@ FORBIDDEN_CORE_TOKENS = (
     "chemomech",
     "morphogen",
     "network",
-    "adapt",
+    "adaptive_network",
 )
 
 

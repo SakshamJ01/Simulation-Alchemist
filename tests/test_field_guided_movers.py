@@ -250,6 +250,12 @@ def test_deterministic_replay_bitwise() -> None:
 # never analysis).  Re-pinning is the documented extension path; modifying
 # and then silently re-pinning immutable core behavior is what this guard
 # prohibits.
+# Task 2.9 (Build Stage 2) sanctioned extension: the same archive gains its
+# read-only consumption layer -- iter_adaptive_comparisons /
+# count_adaptive_comparisons / find_adaptive_comparisons /
+# verify_adaptive_comparison (deterministic listing/filtering and integrity
+# audit from the stored row alone; never simulation, never analysis).  The
+# guard is RE-PINNED again per the documented extension path.
 # ----------------------------------------------------------------------
 CORE_COMMIT_HASHES = {
     "__init__.py": "6A924E7EE03870DF0069EF0B83DA9F00FA7D183D422D30DD6A74800A12826571",
@@ -264,7 +270,7 @@ CORE_COMMIT_HASHES = {
     "contracts.py": "1DEEC8B2042B6F67FEEBDED4B397833BF9D231880524AB638B2AD449EF6ADAC0",
     "engine.py": "6260F90E45DD1D6E54FE677F6BB9DDA42F06A99E7B8E406A821C8E95E6A475E3",
     "events.py": "EF1DDF2206E21DC05CE835CFBC1A9CD0B089EEF861E58C3D50D7D54723005903",
-    "lineage.py": "2B91B51B55EC0BA1DE1A7C2EA630BB24EDBF3872AC5996A332FFE6C1C809525F",
+    "lineage.py": "41A18556AE571607AE62DEFAF9E77D23CACD5CCAA766D9941F1D3F6E90023260",
     "mutation.py": "7FCDCD4EFC6B575E203282955D8320222B5F37631A709F5A2637A82A9F94ED77",
     "observables.py": "B8A7D95240BADEF968E54D19099894CDC00195166F0954ECF7ABD99B7CE0C191",
     "registry.py": "CA14083FC66FDDCA1DCB59D30B643920299E86A65CBB84E746537D68CAF626D1",

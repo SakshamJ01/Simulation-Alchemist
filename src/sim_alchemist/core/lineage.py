@@ -1008,10 +1008,219 @@ class LineageStore:
         ).fetchone()
         if row is None:
             return None
-        data = dict(row)
+        return self._adaptive_comparison_from_row(dict(row))
+
+    @staticmethod
+    def _adaptive_comparison_from_row(data: dict[str, Any]) -> dict[str, Any]:
         data["session_ids"] = json.loads(data.pop("session_ids_json"))
         data["result_digest"] = _loads(data.pop("comparison_result_digest"))
         return data
+
+    def iter_adaptive_comparisons(self) -> Iterator[dict[str, Any]]:
+        """All archived comparisons, in canonical ``adaptive_comparison_id``
+        ascending order (never raw database row order).
+
+        Read-only retrieval: no simulation, no analysis, no ranking or
+        frontier recomputation, no writes.
+        """
+        rows = self._conn.execute(
+            "SELECT * FROM adaptive_comparison_archive ORDER BY adaptive_comparison_id"
+        ).fetchall()
+        for row in rows:
+            yield self._adaptive_comparison_from_row(dict(row))
+
+    def count_adaptive_comparisons(self) -> int:
+        """Number of archived comparison rows."""
+        (count,) = self._conn.execute(
+            "SELECT COUNT(*) FROM adaptive_comparison_archive"
+        ).fetchone()
+        return int(count)
+
+    def find_adaptive_comparisons(
+        self,
+        *,
+        profile: str | None = None,
+        session_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Archived comparisons matching optional exact filters.
+
+        - ``profile`` matches the stored ``profile_text`` verbatim (no
+          invention, no normalization).
+        - ``session_id`` matches membership in the stored source session ids.
+
+        Results keep the canonical ``adaptive_comparison_id`` ascending order.
+        Read-only retrieval: no execution, no analysis, no writes.
+        """
+        matches: list[dict[str, Any]] = []
+        for comparison in self.iter_adaptive_comparisons():
+            if profile is not None and comparison["profile_text"] != profile:
+                continue
+            if session_id is not None and session_id not in comparison["session_ids"]:
+                continue
+            matches.append(comparison)
+        return matches
+
+    def verify_adaptive_comparison(self, comparison_id: str) -> dict[str, Any] | None:
+        """Deterministic audit/replay of one archived comparison (read-only).
+
+        Reconstructs and integrity-verifies the archived comparison **from the
+        archive row alone** -- no simulation, no comparison/ranking/frontier
+        recomputation, no feature fabrication, and no writes.
+
+        Every check derives only from the stored row:
+
+        - ``adaptive_comparison_id_well_formed``: 24-hex content address.
+        - ``session_ids_well_formed``: non-empty unique non-empty strings.
+        - ``session_ids_sorted``: canonical sorted order is preserved.
+        - ``result_digest_valid``: JSON decodes to a dict.
+        - ``result_digest_well_formed``: the documented digest shape
+          (ranked_order / frontend_ids / diagnostics / explanation).
+        - ``ranked_frontier_within_sessions``: every ranked/frontier id is one
+          of the archived source sessions.
+        - ``profile_well_formed``: ``None`` or a non-empty string.
+        - ``status_well_formed`` / ``created_at_well_formed``: non-empty.
+
+        The complete comparison identity is **not** recomputable from the
+        archive alone: the Task 2.8 identity payload also depends on the
+        pre-normalization profile string and the feature-key set, neither of
+        which is durably stored (``identity_recomputable`` is therefore always
+        ``False`` with the exact reason).
+
+        Feature linkage stays explicit: ``feature_linkage.available`` reflects
+        whether the archived digest attests that feature vectors were used at
+        comparison time (derived, never re-derived); ``resolvable_from_archive``
+        is always ``False`` because no durable feature-snapshot reference is
+        persisted.
+
+        Returns ``None`` for an unknown comparison id (explicit not-found).
+        """
+        row = self._conn.execute(
+            "SELECT * FROM adaptive_comparison_archive WHERE adaptive_comparison_id = ?",
+            (comparison_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        data = dict(row)
+        # Decode defensively: this is the corruption-detection entry, so a
+        # malformed JSON payload must be reported, never raised on.
+        try:
+            sessions = json.loads(data["session_ids_json"])
+        except ValueError:
+            sessions = None
+        digest_text = data["comparison_result_digest"]
+        if digest_text is None:
+            digest = None
+        else:
+            try:
+                digest = json.loads(digest_text)
+            except ValueError:
+                digest = None
+
+        hex_chars = "0123456789abcdef"
+        id_ok = (
+            isinstance(data["adaptive_comparison_id"], str)
+            and len(data["adaptive_comparison_id"]) == 24
+            and all(c in hex_chars for c in data["adaptive_comparison_id"])
+        )
+        sessions_are = isinstance(sessions, list)
+        sessions_ok = (
+            sessions_are
+            and len(sessions) > 0
+            and all(isinstance(s, str) and s for s in sessions)
+            and len(set(sessions)) == len(sessions)
+        )
+        session_ids: list[Any]
+        if isinstance(sessions, list):
+            session_ids = sessions
+        else:
+            session_ids = []
+        sessions_sorted = sessions_ok and sessions == sorted(session_ids)
+
+        digest_dict = isinstance(digest, dict)
+        digest_keys = {"ranked_order", "frontend_ids", "diagnostics", "explanation"}
+        digest_ok = (
+            digest_dict
+            and digest_keys <= set(digest.keys())
+            and isinstance(digest["ranked_order"], list)
+            and isinstance(digest["frontend_ids"], list)
+            and isinstance(digest["diagnostics"], dict)
+            and isinstance(digest["explanation"], str)
+        )
+        # Cross-reference the digest's ranked/frontier ids against the archived
+        # sessions, tolerating any stored shape (the audit must report, never
+        # raise, on malformed data).
+        ranked_value = digest.get("ranked_order", []) if digest_dict else None
+        frontend_value = digest.get("frontend_ids", []) if digest_dict else None
+        ranked = [x for x in ranked_value if isinstance(x, str)] if isinstance(ranked_value, list) else []
+        frontend = (
+            [x for x in frontend_value if isinstance(x, str)]
+            if isinstance(frontend_value, list)
+            else []
+        )
+        within_sessions = bool(
+            sessions_ok
+            and digest_ok
+            and set(ranked) <= set(session_ids)
+            and set(frontend) <= set(session_ids)
+        )
+        profile_ok = data["profile_text"] is None or (
+            isinstance(data["profile_text"], str) and bool(data["profile_text"])
+        )
+        status_ok = isinstance(data["status"], str) and bool(data["status"])
+        created_ok = isinstance(data["created_at"], str) and bool(data["created_at"])
+        consistent = bool(
+            id_ok
+            and sessions_ok
+            and sessions_sorted
+            and digest_dict
+            and digest_ok
+            and within_sessions
+            and profile_ok
+            and status_ok
+            and created_ok
+        )
+
+        diagnostics = digest.get("diagnostics") if digest_dict else None
+        feature_available = bool(
+            isinstance(diagnostics, dict)
+            and diagnostics.get("feature_vectors_available") is True
+        )
+        return {
+            "adaptive_comparison_id": data["adaptive_comparison_id"],
+            "session_ids": sessions,
+            "profile": data["profile_text"],
+            "status": data["status"],
+            "created_at": data["created_at"],
+            "result_digest": digest,
+            "feature_linkage": {
+                "available": feature_available,
+                "resolvable_from_archive": False,
+                "reason": (
+                    "the archive stores only a compact comparison-result digest; no durable "
+                    "feature-snapshot reference is persisted, so linked feature evidence "
+                    "cannot be resolved from the archive alone"
+                ),
+            },
+            "identity_recomputable": False,
+            "identity_recomputable_reason": (
+                "the Task 2.8 comparison identity also depends on the pre-normalization "
+                "profile payload and the feature-key set, neither of which is durably stored; "
+                "complete identity recomputation from the archive alone is not possible"
+            ),
+            "integrity": {
+                "adaptive_comparison_id_well_formed": id_ok,
+                "session_ids_well_formed": sessions_ok,
+                "session_ids_sorted": sessions_sorted,
+                "result_digest_valid": digest_dict,
+                "result_digest_well_formed": digest_ok,
+                "ranked_frontier_within_sessions": within_sessions,
+                "profile_well_formed": profile_ok,
+                "status_well_formed": status_ok,
+                "created_at_well_formed": created_ok,
+                "consistent": consistent,
+            },
+            "verdict": "OK" if consistent else "CORRUPT",
+        }
 
     @property
     def cross_composition_sweep_count(self) -> int:

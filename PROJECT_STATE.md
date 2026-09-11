@@ -1,7 +1,7 @@
 # Simulation Alchemist — Current State
 
 ## Current milestone
-Task 2.6 Build Stages 3+4+5 complete (adaptive execution loop — bounded, deterministic, reuse-existing, no Stage 3)
+Task 2.9 Build Stage 2 complete (real archive consumption + deterministic replay + explicit feature linkage)
 
 ## Completed
 - Task 0.1 — chemo-mechanical feedback spike
@@ -72,7 +72,7 @@ Task 2.6 Build Stages 3+4+5 complete (adaptive execution loop — bounded, deter
 - Canonical discovery regression (seed 0, 160 steps): discovery id `91a72c708d07d66b5926edec`, 3 EXECUTABLE, 3 genuinely common observables (`final_field_mean`, `final_field_std`, `field_entropy`), evaluation 59.69 s; Profile A ranking: C 1.75 > A 0.413 > B 0.268; Profile B ranking: C 1.25 > B 0.855 > A 0.707; Stage 4 analysis ~0.0004 s (essentially free); deterministic replay canonical-identical; `run_count` unchanged across replay
 
 ## Next exact task
-Task 2.6 Build Stage 2 — adaptive sweep selection (adaptive proposal of next CrossCompositionSweepSpec from behavior result + profile; deferred; NOT started)
+Task 2.9 Build Stage 3 (NOT started). Stage 3 / Task 3.0 NOT started.
 
 ## Current capability (Task 2.6 Stage 1)
 - Deterministic adaptive signal / state / decision evaluation (core/adaptive_sweep.py)
@@ -126,7 +126,7 @@ Task 2.6 Build Stage 2 — adaptive sweep selection (adaptive proposal of next C
 - Next exact task: No Task 3.0 / no further implementation until explicitly issued.
 - Do-not-change: no source/test/dependency/world changes; keep guarded files; no new experiments; no optimization; no ML/GA/Bayesian/RL/plugin/distributed.
 
-## Task 2.9 Build Stage 1 Update (current)
+## Task 2.9 Build Stage 1 Update (complete)
 - Milestone: Task 2.9 Build Stage 1 complete (persistent adaptive-comparison archive + focused repair + verification).
 - Completed: intact additive `adaptive_comparison_archive` table + index; new `LineageStore.record_adaptive_comparison` / `get_adaptive_comparison` (idempotent compact digest; no trajectories/feature vectors); restored `make_run_id`; fixed pre-existing `dt.timezone` latent bug in `record_exploration_session` and removed a blind try/except; `tests/test_adaptive_comparison_archive_stage1.py` strengthened (9 test); `TASK_2.9_STAGE1_REPORT.md`; real-data proof on genuine pre-2.9 DB (migration, idempotency 3x->1 row, same-DB, round-trip, real comparison id `e7ca46439e8f874408a9e3c0`); archive is execution-free and analysis-free (source-level scan + counters).
 - Guard: `lineage.py` deliberately re-baselined in `test_field_guided_movers.py::CORE_COMMIT_HASHES` (documented RE-PIN, `2B91B51B55EC0BA1DE1A7C2EA630BB24EDBF3872AC5996A332FFE6C1C809525F`); Check-L token `"adapt"` pinned to `"adaptive_network"` in `test_mutation_lineage.py` (documented) to un-break a guard that had been failing at HEAD since Task 2.7.
@@ -134,3 +134,14 @@ Task 2.6 Build Stage 2 — adaptive sweep selection (adaptive proposal of next C
 - Real-data missing-data statement: durable per-pass feature vectors are not persisted, so a fully-real comparison archives empty ranked/frontier with the honest requirement explanation; nothing fabricated.
 - Next exact task: Task 2.9 Build Stage 2 (NOT started). Stage 3 / Task 3.0 NOT started.
 - Do-not-change: no commit made; scratch/untracked files untouched; keep guarded core files unchanged beyond the sanctioned lineage.py re-baseline; no new dependencies; no experiment modifications.
+
+## Task 2.9 Build Stage 2 Update (current)
+- Milestone: Task 2.9 Build Stage 2 complete (real archive consumption + deterministic replay + explicit feature linkage).
+- Completed: `LineageStore` Stage 2 read-only consumption on top of the Task 2.9 archive — `iter_adaptive_comparisons` / `count_adaptive_comparisons` / `find_adaptive_comparisons(*, profile=, session_id=)` (canonical `adaptive_comparison_id` ascending order; verbatim profile match; exact session membership; explicit not-found) + `verify_adaptive_comparison(comparison_id)` (deterministic audit/replay from the archive row alone: 24-hex id, session well-formedness/sortedness, digest valid/well-formed shape, ranked/frontier ids within sessions, profile/status/created well-formed, `verdict` OK/CORRUPT; corruption reported never raised and never repaired; unknown id → None). `_adaptive_comparison_from_row` shared by get/iter; `get` contract unchanged.
+- Feature linkage explicitly deferred: `feature_linkage.available` derived from the stored digest's own `diagnostics.feature_vectors_available`; `resolvable_from_archive` always False (no durable feature-snapshot reference persisted); `identity_recomputable` always False (identity also depends on pre-normalization profile payload + feature-key set, not stored), with exact reasons in both cases.
+- Real repository proof on the genuine Stage 1 archive (copy of `task29_real_proof.db`): `e7ca46439e8f874408a9e3c0` (real sessions `2f41779e1947f870b32140e3` + `c592521de654e7c165d8ec15`) → get/iter/count/find(profile=default + by session)/verify == OK; `total_changes` unchanged (read-only); no execution/recomputation; identity independently recomputed outside simulation from the real sessions == `e7ca46439e8f874408a9e3c0`.
+- Guard: `lineage.py` re-baselined again in `test_field_guided_movers.py::CORE_COMMIT_HASHES` → `41A18556AE571607AE62DEFAF9E77D23CACD5CCAA766D9941F1D3F6E90023260` (final Stage 2 state; documented RE-PIN with Task 2.9 Build Stage 2 comment; `test_network_morphogenesis` reuses the dict; `test_mutation_lineage` unchanged this stage).
+- Verification: focused 19 Stage 2 + 9 Stage 1 + guard tests pass; focused ruff 0; focused pyright 0; full pytest 677 passed / 1 failed (identical pre-existing `test_cross_composition_sweep_cli_stage5.py::test_cli_parse_and_analysis_path`); run_validation A-G PASS; run_stability S1-S6 PASS; full ruff 118 + full pyright 15 residuals all pre-existing (none in Stage 2 files).
+- Performance on the real archive: get 0.031 ms, iter 0.038 ms, count 0.025 ms, find 0.030 ms, verify 0.034 ms (2000-iter means); retrieval/verify O(1), iter/find O(n) read-only.
+- Next exact task: Task 2.9 Build Stage 3 (NOT started). Stage 3 / Task 3.0 NOT started.
+- Do-not-change: no commit made; scratch/untracked files untouched; keep guarded core files unchanged beyond the two sanctioned lineage.py re-baselines; no new dependencies; no experiment modifications.

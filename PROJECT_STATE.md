@@ -120,8 +120,17 @@ Task 2.6 Build Stage 2 — adaptive sweep selection (adaptive proposal of next C
 - Do-not-change: no source changes beyond new module + tests; keep guarded files unchanged; no new dependencies; no experiment modifications; no automatic commits.
 
 
-## Task 2.9 Design � PLAN-ONLY (verified complete)
+## Task 2.9 Design � PLAN-ONLY (verified complete)
 - Milestone: Task 2.9 architecture research completed (PLAN-ONLY).
 - Completed: TASK_2.9_DESIGN.md content prepared (persistent cross-session behavioral archive direction; smallest high-value next step after full adaptive pipeline verified).
 - Next exact task: No Task 3.0 / no further implementation until explicitly issued.
 - Do-not-change: no source/test/dependency/world changes; keep guarded files; no new experiments; no optimization; no ML/GA/Bayesian/RL/plugin/distributed.
+
+## Task 2.9 Build Stage 1 Update (current)
+- Milestone: Task 2.9 Build Stage 1 complete (persistent adaptive-comparison archive + focused repair + verification).
+- Completed: intact additive `adaptive_comparison_archive` table + index; new `LineageStore.record_adaptive_comparison` / `get_adaptive_comparison` (idempotent compact digest; no trajectories/feature vectors); restored `make_run_id`; fixed pre-existing `dt.timezone` latent bug in `record_exploration_session` and removed a blind try/except; `tests/test_adaptive_comparison_archive_stage1.py` strengthened (9 test); `TASK_2.9_STAGE1_REPORT.md`; real-data proof on genuine pre-2.9 DB (migration, idempotency 3x->1 row, same-DB, round-trip, real comparison id `e7ca46439e8f874408a9e3c0`); archive is execution-free and analysis-free (source-level scan + counters).
+- Guard: `lineage.py` deliberately re-baselined in `test_field_guided_movers.py::CORE_COMMIT_HASHES` (documented RE-PIN, `2B91B51B55EC0BA1DE1A7C2EA630BB24EDBF3872AC5996A332FFE6C1C809525F`); Check-L token `"adapt"` pinned to `"adaptive_network"` in `test_mutation_lineage.py` (documented) to un-break a guard that had been failing at HEAD since Task 2.7.
+- Verification: focused 9 passed; focused ruff 0; focused pyright 0; full pytest 658 passed / 1 failed (the failure is circumstantially proven pre-existing on pristine `HEAD` — `test_cross_composition_sweep_cli_stage5.py::test_cli_parse_and_analysis_path`, unrelated to lineage); run_validation A-G PASS; run_stability S1-S6 PASS; full ruff 118 + full pyright 15 residuals are all pre-existing/scratch (none in Stage 1 files; identical pyright set on HEAD).
+- Real-data missing-data statement: durable per-pass feature vectors are not persisted, so a fully-real comparison archives empty ranked/frontier with the honest requirement explanation; nothing fabricated.
+- Next exact task: Task 2.9 Build Stage 2 (NOT started). Stage 3 / Task 3.0 NOT started.
+- Do-not-change: no commit made; scratch/untracked files untouched; keep guarded core files unchanged beyond the sanctioned lineage.py re-baseline; no new dependencies; no experiment modifications.

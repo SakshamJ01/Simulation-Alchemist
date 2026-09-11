@@ -540,6 +540,8 @@ class LineageStore:
     );
     CREATE INDEX IF NOT EXISTS idx_ccs_composition ON cross_composition_sweeps(composition_id);
     CREATE INDEX IF NOT EXISTS idx_ccs_pass ON cross_composition_sweeps(cross_split_sweep_id);
+    CREATE TABLE IF NOT EXISTS adaptive_comparison_archive (adaptive_comparison_id TEXT PRIMARY KEY, session_ids_json TEXT NOT NULL, profile_text TEXT, comparison_result_digest TEXT, status TEXT NOT NULL, created_at TEXT NOT NULL);
+    CREATE INDEX IF NOT EXISTS idx_adapt_comp_archive ON adaptive_comparison_archive(adaptive_comparison_id);
     CREATE TABLE IF NOT EXISTS adaptive_exploration_sessions (
         adaptive_exploration_id TEXT PRIMARY KEY,
         spec_dict TEXT NOT NULL,
@@ -583,12 +585,13 @@ class LineageStore:
         self._ensure_adaptive_exploration_sessions_table()
 
     def _ensure_adaptive_exploration_sessions_table(self) -> None:
-        try:
-            self._conn.execute("CREATE TABLE IF NOT EXISTS adaptive_exploration_sessions (adaptive_exploration_id TEXT PRIMARY KEY, spec_dict TEXT NOT NULL, composition_ids TEXT NOT NULL, profile_text TEXT, seed INTEGER NOT NULL, budget INTEGER NOT NULL, pass_adaptive_run_ids TEXT NOT NULL, final_decision TEXT NOT NULL, termination_reason TEXT NOT NULL, total_simulated INTEGER NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL)")
-            self._conn.execute("CREATE INDEX IF NOT EXISTS idx_adapt_exp_id ON adaptive_exploration_sessions(adaptive_exploration_id)")
-            self._conn.commit()
-        except Exception:
-            pass  # table may already exist; ignore migration errors safely
+        self._conn.execute(
+            "CREATE TABLE IF NOT EXISTS adaptive_exploration_sessions (adaptive_exploration_id TEXT PRIMARY KEY, spec_dict TEXT NOT NULL, composition_ids TEXT NOT NULL, profile_text TEXT, seed INTEGER NOT NULL, budget INTEGER NOT NULL, pass_adaptive_run_ids TEXT NOT NULL, final_decision TEXT NOT NULL, termination_reason TEXT NOT NULL, total_simulated INTEGER NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL)"
+        )
+        self._conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_adapt_exp_id ON adaptive_exploration_sessions(adaptive_exploration_id)"
+        )
+        self._conn.commit()
 
     def record_run(self, record: RunRecord) -> None:
         """Insert or overwrite the record for ``record.run_id`` (idempotent)."""
@@ -897,8 +900,7 @@ class LineageStore:
                                    termination_reason: str, total_simulated: int,
                                    status: str, created_at: str | None = None) -> None:
         """Idempotent record of a bounded adaptive exploration session."""
-        from datetime import datetime as dt
-        at = created_at or dt.now(dt.timezone.utc).isoformat()
+        at = created_at or _now_iso()
         payload_json_kwargs: dict[str, Any] = {"sort_keys": True, "separators": (",", ":")}
         self._conn.execute(
             """
@@ -946,6 +948,70 @@ class LineageStore:
             "SELECT COUNT(*) FROM adaptive_exploration_sessions"
         ).fetchone()
         return int(row[0]) if row else 0
+
+    # ---------------------------------------------------------------
+    # Task 2.9 Stage 1 — adaptive comparison archive (additive)
+    # ---------------------------------------------------------------
+
+    def record_adaptive_comparison(
+        self,
+        result: Any,
+        *,
+        status: str = "VALID",
+        created_at: str | None = None,
+    ) -> None:
+        """Idempotently persist one compact adaptive-comparison record.
+
+        ``result`` is duck-typed from the analysis-only task 2.8
+        ``AdaptiveComparisonResult``: its content-addressed identity, the
+        source session references, the comparison profile, and a compact
+        content digest of the analysis outputs (ranked order / frontier /
+        diagnostics / explanation) are stored.  No trajectories and no
+        feature vectors are persisted (compact-only lineage policy).
+        Re-recording the same ``comparison_id`` overwrites, so replay
+        converges on exactly one logical archive row.
+        """
+        if not isinstance(getattr(result, "comparison_id", None), str):
+            raise TypeError("adaptive comparison result must expose comparison_id")
+        json_kwargs: dict[str, Any] = {"sort_keys": True, "separators": (",", ":")}
+        digest = json.dumps(
+            {
+                "ranked_order": list(result.ranked_order),
+                "frontend_ids": list(result.frontend_ids),
+                "diagnostics": result.diagnostics,
+                "explanation": result.explanation,
+            },
+            **json_kwargs,
+        )
+        self._conn.execute(
+            """
+            INSERT OR REPLACE INTO adaptive_comparison_archive
+                (adaptive_comparison_id, session_ids_json, profile_text,
+                 comparison_result_digest, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                result.comparison_id,
+                json.dumps(sorted(result.source_session_ids), **json_kwargs),
+                result.profile,
+                digest,
+                status,
+                created_at or _now_iso(),
+            ),
+        )
+        self._conn.commit()
+
+    def get_adaptive_comparison(self, comparison_id: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT * FROM adaptive_comparison_archive WHERE adaptive_comparison_id = ?",
+            (comparison_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        data = dict(row)
+        data["session_ids"] = json.loads(data.pop("session_ids_json"))
+        data["result_digest"] = _loads(data.pop("comparison_result_digest"))
+        return data
 
     @property
     def cross_composition_sweep_count(self) -> int:

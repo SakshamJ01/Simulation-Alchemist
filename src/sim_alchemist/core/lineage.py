@@ -1222,6 +1222,104 @@ class LineageStore:
             "verdict": "OK" if consistent else "CORRUPT",
         }
 
+    def feature_linkage_of(self, comparison_id: str) -> dict[str, Any] | None:
+        """Deterministic, read-only resolution of authoritative feature evidence.
+
+        Resolves one archived comparison's *authoritative source references*
+        (the source session ids stored on the archive row) against the durable
+        exploration-session and per-run feature records that actually exist in
+        this store:
+
+        - every source id is looked up in ``adaptive_exploration_sessions``;
+        - every session's ``pass_adaptive_run_ids`` are looked up in ``runs``;
+        - a pass run id whose ``RunRecord.feature_snapshot`` is not ``None`` is
+          an authoritative, durable per-run feature source (Task 1.8 per-run
+          snapshot); its own ``run_id`` is reused as the resolved identity.
+
+        No feature values are fabricated, re-derived, normalized, or inferred:
+        only the existence and identity of authoritative feature records is
+        reported.  Returns ``None`` for an unknown comparison id.  Read-only
+        (SELECT-only, no writes).
+        """
+        row = self._conn.execute(
+            "SELECT session_ids_json FROM adaptive_comparison_archive "
+            "WHERE adaptive_comparison_id = ?",
+            (comparison_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        try:
+            session_ids = json.loads(row[0])
+        except ValueError:
+            session_ids = None
+
+        evidence: list[dict[str, Any]] = []
+        resolved: set[str] = set()
+        missing_sessions: list[str] = []
+        if isinstance(session_ids, list):
+            for sid in sorted(session_ids):
+                session = self.get_exploration_session(sid)
+                if session is None:
+                    missing_sessions.append(sid)
+                    evidence.append({"session_id": sid, "session_present": False})
+                    continue
+                raw_pass_ids = session.get("pass_adaptive_run_ids")
+                try:
+                    pass_run_ids: list[Any] | None = (
+                        json.loads(raw_pass_ids) if isinstance(raw_pass_ids, str) else None
+                    )
+                except ValueError:
+                    pass_run_ids = None
+                findings: list[dict[str, Any]] = []
+                if isinstance(pass_run_ids, list):
+                    for pid in sorted(str(p) for p in pass_run_ids):
+                        run = self.get_run(pid)
+                        if run is None:
+                            findings.append(
+                                {
+                                    "pass_run_id": pid,
+                                    "run_present": False,
+                                    "feature_snapshot_present": False,
+                                }
+                            )
+                        else:
+                            has_feature = run.feature_snapshot is not None
+                            findings.append(
+                                {
+                                    "pass_run_id": pid,
+                                    "run_present": True,
+                                    "feature_snapshot_present": bool(has_feature),
+                                }
+                            )
+                            if has_feature:
+                                resolved.add(pid)
+                evidence.append({"session_id": sid, "session_present": True, "pass_run_ids": findings})
+        available = len(resolved) > 0
+        source_ids = sorted(str(s) for s in session_ids) if isinstance(session_ids, list) else []
+        if available:
+            reason = "authoritative durable per-run feature snapshots resolve through the archived source references"
+        elif evidence and not missing_sessions:
+            reason = (
+                "all archived source sessions are present, but none of their pass run ids "
+                "reference a durable per-run feature snapshot (runs.feature_snapshot)"
+            )
+        elif evidence and missing_sessions:
+            reason = (
+                "some archived source sessions are absent from adaptive_exploration_sessions "
+                "and no durable feature chain resolves"
+            )
+        else:
+            reason = "unable to decode the archived source session references"
+        return {
+            "adaptive_comparison_id": comparison_id,
+            "available": available,
+            "resolvable": available,
+            "source_ids": source_ids,
+            "resolved_feature_sources": sorted(resolved),
+            "evidence": evidence,
+            "reason": reason,
+        }
+
     @property
     def cross_composition_sweep_count(self) -> int:
         (count,) = self._conn.execute(

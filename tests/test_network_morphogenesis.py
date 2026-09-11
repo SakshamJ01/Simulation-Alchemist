@@ -417,6 +417,10 @@ def test_network_adapter_contract():
 # Re-baselined at Task 2.9 Stage 1 for the persistent adaptive-comparison
 # archive (lineage.py gains the additive adaptive_comparison_archive table
 # + record/get_adaptive_comparison).
+# Re-baselined at Task 2.9 Stage 3 for the additive read-only feature-linkage
+# resolver feature_linkage_of (evidence-grounded OUTCOME B resolution; old
+# 41A18556AE571607AE62DEFAF9E77D23CACD5CCAA766D9941F1D3F6E90023260 ->
+# 1B71EAF6DD5A098BC0334647119510093334AE8F79179FDB431B75A89A04675F).
 # ----------------------------------------------------------------------
 def test_core_files_unchanged() -> None:
     import test_field_guided_movers as b

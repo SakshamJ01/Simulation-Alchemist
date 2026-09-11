@@ -1,7 +1,7 @@
 # Simulation Alchemist — Current State
 
 ## Current milestone
-Task 2.9 Build Stage 2 complete (real archive consumption + deterministic replay + explicit feature linkage)
+Task 2.9 complete (persistent adaptive-comparison archive: Stage 1 storage, Stage 2 query/audit, Stage 3 authoritative feature linkage + read-only archive CLI). Task 3.0 NOT started.
 
 ## Completed
 - Task 0.1 — chemo-mechanical feedback spike
@@ -30,6 +30,7 @@ Task 2.9 Build Stage 2 complete (real archive consumption + deterministic replay
 - Task 2.5 Build Stage 1 — composition-specific parameter-space binding + result model (data-model only; `core/cross_sweep.py` + experiment-owned `repository_parameter_spaces()` + deterministic `cross_split_sweep_id`; no execution; no lineage changes; guard-safe — no guarded core file re-baselined)
 - Task 2.5 Build Stage 2 — CrossCompositionSweep orchestrator (durable cross-composition sweep lineage via `core/lineage.py::CrossCompositionSweepRow` + `INSERT OR REPLACE`; `composition_id` stamped on variant `RunRecord`; per-composition baseline/sweep execution through `SweepRunner`; re-baseline of guarded `lineage.py`/`runner.py`/`sweep.py` hashes; `core/cross_composition_sweep.py` new module, experiment-free)
 - Task 2.5 Build Stage 3 — cross-composition common-observable aggregation (`core/cross_composition_behavior.py`; pure projection; 19 tests; vocabulary from pool; baseline/variant preserved; no execution/ranking/frontier/CLI)
+- Task 2.9 — persistent adaptive-comparison archive: Stage 1 (`adaptive_comparison_archive` table + idempotent `record_adaptive_comparison` + `get_adaptive_comparison`), Stage 2 (read-only consumption + deterministic `verify_adaptive_comparison` audit/replay + explicit feature linkage), Stage 3 (OUTCOME-B `feature_linkage_of` evidence-grounded resolver + strict read-only archive CLI `run_adaptive_comparison_archive.py` + hard-evidence audit + 46 archive tests)
 
 ## Current experiments
 - A — Chemo-Mechanical Morphogenesis (Mesa + py-pde + Pymunk)
@@ -72,7 +73,7 @@ Task 2.9 Build Stage 2 complete (real archive consumption + deterministic replay
 - Canonical discovery regression (seed 0, 160 steps): discovery id `91a72c708d07d66b5926edec`, 3 EXECUTABLE, 3 genuinely common observables (`final_field_mean`, `final_field_std`, `field_entropy`), evaluation 59.69 s; Profile A ranking: C 1.75 > A 0.413 > B 0.268; Profile B ranking: C 1.25 > B 0.855 > A 0.707; Stage 4 analysis ~0.0004 s (essentially free); deterministic replay canonical-identical; `run_count` unchanged across replay
 
 ## Next exact task
-Task 2.9 Build Stage 3 (NOT started). Stage 3 / Task 3.0 NOT started.
+Task 3.0 (NOT started). Task 2.9 complete.
 
 ## Current capability (Task 2.6 Stage 1)
 - Deterministic adaptive signal / state / decision evaluation (core/adaptive_sweep.py)
@@ -83,6 +84,7 @@ Task 2.9 Build Stage 3 (NOT started). Stage 3 / Task 3.0 NOT started.
 - Durable cross-composition sweep lineage (`lineage.py` `cross_composition_sweeps` + `CrossCompositionSweepRow`; INSERT OR REPLACE; idempotent)
 - `composition_id` stamped on `RunRecord` (`runner.py`/`sweep.py` optional threading)
 - Cross-composition common-observable aggregation (`core/cross_composition_behavior.py`; pure projection; `CrossCompositionBehaviorResult`; vocabulary from pool; 30 observations; baseline/variant preserved; no ranking/frontier/visualization/CLI)
+- Persistent adaptive-comparison archive (`core/lineage.py` `adaptive_comparison_archive` + idempotent `record_adaptive_comparison`/`get_adaptive_comparison`; read-only `iter/count/find/verify_adaptive_comparison` replay/audit; `feature_linkage_of` evidence-grounded OUTCOME-B resolution; read-only CLI `run_adaptive_comparison_archive.py` `list/get/find/verify/link` with explicit unknown/corrupt/missing semantics)
 
 ## Known limitations (Task 2.4 + Task 2.5 Stage 1 & design §16–§17)
 - No cross-composition sweep ranking / diversity frontier / shared sweep behavior aggregation (Stage 4 — deferred to Stage 3+4).
@@ -135,7 +137,7 @@ Task 2.9 Build Stage 3 (NOT started). Stage 3 / Task 3.0 NOT started.
 - Next exact task: Task 2.9 Build Stage 2 (NOT started). Stage 3 / Task 3.0 NOT started.
 - Do-not-change: no commit made; scratch/untracked files untouched; keep guarded core files unchanged beyond the sanctioned lineage.py re-baseline; no new dependencies; no experiment modifications.
 
-## Task 2.9 Build Stage 2 Update (current)
+## Task 2.9 Build Stage 2 Update (complete)
 - Milestone: Task 2.9 Build Stage 2 complete (real archive consumption + deterministic replay + explicit feature linkage).
 - Completed: `LineageStore` Stage 2 read-only consumption on top of the Task 2.9 archive — `iter_adaptive_comparisons` / `count_adaptive_comparisons` / `find_adaptive_comparisons(*, profile=, session_id=)` (canonical `adaptive_comparison_id` ascending order; verbatim profile match; exact session membership; explicit not-found) + `verify_adaptive_comparison(comparison_id)` (deterministic audit/replay from the archive row alone: 24-hex id, session well-formedness/sortedness, digest valid/well-formed shape, ranked/frontier ids within sessions, profile/status/created well-formed, `verdict` OK/CORRUPT; corruption reported never raised and never repaired; unknown id → None). `_adaptive_comparison_from_row` shared by get/iter; `get` contract unchanged.
 - Feature linkage explicitly deferred: `feature_linkage.available` derived from the stored digest's own `diagnostics.feature_vectors_available`; `resolvable_from_archive` always False (no durable feature-snapshot reference persisted); `identity_recomputable` always False (identity also depends on pre-normalization profile payload + feature-key set, not stored), with exact reasons in both cases.
@@ -143,5 +145,16 @@ Task 2.9 Build Stage 3 (NOT started). Stage 3 / Task 3.0 NOT started.
 - Guard: `lineage.py` re-baselined again in `test_field_guided_movers.py::CORE_COMMIT_HASHES` → `41A18556AE571607AE62DEFAF9E77D23CACD5CCAA766D9941F1D3F6E90023260` (final Stage 2 state; documented RE-PIN with Task 2.9 Build Stage 2 comment; `test_network_morphogenesis` reuses the dict; `test_mutation_lineage` unchanged this stage).
 - Verification: focused 19 Stage 2 + 9 Stage 1 + guard tests pass; focused ruff 0; focused pyright 0; full pytest 677 passed / 1 failed (identical pre-existing `test_cross_composition_sweep_cli_stage5.py::test_cli_parse_and_analysis_path`); run_validation A-G PASS; run_stability S1-S6 PASS; full ruff 118 + full pyright 15 residuals all pre-existing (none in Stage 2 files).
 - Performance on the real archive: get 0.031 ms, iter 0.038 ms, count 0.025 ms, find 0.030 ms, verify 0.034 ms (2000-iter means); retrieval/verify O(1), iter/find O(n) read-only.
-- Next exact task: Task 2.9 Build Stage 3 (NOT started). Stage 3 / Task 3.0 NOT started.
+- Next exact task: Task 2.9 Build Stage 3 (NOT started at Stage 2 close). Stage 3 / Task 3.0 NOT started.
 - Do-not-change: no commit made; scratch/untracked files untouched; keep guarded core files unchanged beyond the two sanctioned lineage.py re-baselines; no new dependencies; no experiment modifications.
+
+## Task 2.9 Build Stage 3 Update (current)
+- Milestone: Task 2.9 complete (authoritative feature linkage + read-only archive tooling + final verification). Task 3.0 NOT started.
+- Evidence audit (OUTCOME B): no authoritative durable per-run feature data exists for adaptive passes — `run_adaptive_exploration.py` records no runs; `pass_adaptive_run_ids` are content-addressed `adaptive_run_id` values, never `runs.run_id`; real proof DB (`task29_real_proof.db` copy) shows 1 run with `feature_snapshot=NULL`, 0 `behavior_analyses`, real pass id `1611ed456112f8d3af7c8678` matches no `runs` row, and the archived comparison `e7ca46439e8f874408a9e3c0` itself attests `feature_vectors_available:false`.
+- Added `LineageStore.feature_linkage_of(comparison_id)` (read-only, SELECT-only): resolves the archive row's source-session refs against `adaptive_exploration_sessions` + `runs` and reports `{available, resolvable, source_ids, resolved_feature_sources, evidence, reason}`; resolves `available=True` only through actual `runs.run_id` records carrying a real `feature_snapshot`; never fabricates values/ids; explicit unavailable with exact reason on real data.
+- Added strict real-mode, read-only CLI `run_adaptive_comparison_archive.py` (subcommands `list`/`get`/`find`/`verify`/`link`; exit codes 0/10/20/30/40/50; unknown ≠ corrupt ≠ missing; `mode=ro` schema pre-flight refuses migration-writes; per-command `total_changes` proof; delegates to existing archive APIs, no ranking/frontier/analysis reimplementation).
+- Guard: `lineage.py` re-baselined in `test_field_guided_movers.py::CORE_COMMIT_HASHES` → `1B71EAF6DD5A098BC0334647119510093334AE8F79179FDB431B75A89A04675F` (old `41A18556AE571607AE62DEFAF9E77D23CACD5CCAA766D9941F1D3F6E90023260`; documented in both guard files; `test_network_morphogenesis` reuses the dict).
+- Verification: 18 new Stage 3 tests + 46 total Task 2.9 tests + guards pass; focused ruff 0 / focused pyright 0; full pytest 695 passed / 1 failed (identical pre-existing `test_cross_composition_sweep_cli_stage5.py::test_cli_parse_and_analysis_path`), slow canonical suite 13/13; run_validation A–G PASS; run_stability S1–S6 PASS; full ruff 118 + full pyright 15 residuals all pre-existing (none in Task 2.9 files).
+- Performance on the real archive copy: get 0.031 ms, verify 0.033 ms, feature_linkage_of 0.104 ms, count 0.023 ms, iter 0.030 ms, find 0.027 ms; CLI cold start + list 219.6 ms.
+- Limitation (preserved, not hidden): feature re-analysis/re-ranking remains unavailable at the archive layer because no authoritative durable feature chain exists (OUTCOME B); `resolvable_from_archive` stays False by design.
+- Next exact task: Task 3.0 (NOT started). No commit made; scratch/untracked files untouched.

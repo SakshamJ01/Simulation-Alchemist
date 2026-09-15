@@ -11,7 +11,7 @@ Every decision is reachable: each candidate carries its shape identity, its
 taxonomy status, the reasons (missing capabilities, or the "no declared
 template" verdict), the matched template and composition id (executable
 candidates), and -- with ``--generate-worlds`` -- the generated declarative
-``WorldDefinition`` of the three executable compositions.
+``WorldDefinition`` of the four executable compositions.
 
 Usage::
 
@@ -69,7 +69,7 @@ def main() -> None:
         print(f"  {count:>2} x {status}")
     print(f"  {len(catalog.executable()):>2} x EXECUTABLE -> composable worlds")
 
-    print("\nexecutable compositions (the three experiment worlds):")
+    print("\nexecutable compositions (the four experiment worlds):")
     for candidate in catalog.executable():
         print(candidate.explain())
         print()

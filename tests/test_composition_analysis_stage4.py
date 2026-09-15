@@ -218,12 +218,12 @@ class TestRankingValid:
         ranking = rank_compositions(search_fixture.result, PROFILE_A)
         assert ranking.profile == PROFILE_A
         assert ranking.vocabulary == COMMON_TRIPLE
-        assert len(ranking.rows) == 3
+        assert len(ranking.rows) == 4
         assert sorted(r.composition_id for r in ranking.rows) == sorted(
             search_fixture.result.composition_ids
         )
         assert ranking.ranked_ids() == [row.composition_id for row in ranking.rows]
-        assert [row.rank for row in ranking.rows] == [1, 2, 3]
+        assert [row.rank for row in ranking.rows] == [1, 2, 3, 4]
 
     def test_b_ranking_is_score_descending_with_run_id_tiebreak(
         self, search_fixture: _SearchFixture
@@ -446,7 +446,7 @@ class TestAnalysisOnly:
         before = search_fixture.store.run_count
         analyst = CompositionAnalyst()
         analyst.analyze(search_fixture.result, PROFILE_A)
-        assert search_fixture.store.run_count == before == 3
+        assert search_fixture.store.run_count == before == 4
         tables = [
             row[0]
             for row in search_fixture.store._conn.execute(
@@ -556,8 +556,8 @@ class TestTwoProfiles:
         assert analysis_a.vocabulary == analysis_b.vocabulary == COMMON_TRIPLE
         assert analysis_a.ranked_ids() != []
         assert analysis_a.ranked_ids() == list(dict.fromkeys(analysis_a.ranked_ids()))
-        assert len(analysis_a.frontier.members) == 3
-        assert len(analysis_b.frontier.members) == 3
+        assert len(analysis_a.frontier.members) == 4
+        assert len(analysis_b.frontier.members) == 4
         assert analysis_a.frontier.member_ids() == list(dict.fromkeys(analysis_a.frontier.member_ids()))
 
     def test_m_analysis_id_is_content_addressed(self) -> None:
@@ -689,13 +689,13 @@ class TestFrontierStructure:
         self, search_fixture: _SearchFixture
     ) -> None:
         frontier = select_frontier(search_fixture.result, PROFILE_A)
-        assert frontier.beam_width == 3
-        assert len(frontier.members) == 3
+        assert frontier.beam_width == 4
+        assert len(frontier.members) == 4
 
     def test_p_diagnostics_are_present(self, search_fixture: _SearchFixture) -> None:
         frontier = select_frontier(search_fixture.result, PROFILE_A)
         diagnostics = frontier.diagnostics
-        assert diagnostics.n_candidates == 3
+        assert diagnostics.n_candidates == 4
         assert diagnostics.n_unique_signatures >= 1
         assert diagnostics.mean_pairwise_distance >= 0
         assert diagnostics.min_pairwise_distance >= 0
@@ -742,11 +742,11 @@ class TestPurityScans:
 @pytest.mark.slow
 def test_slow_canonical_analysis_and_frontiers() -> None:
     catalog = build_repository_catalog(generate_worlds=True)
-    assert len(catalog.executable()) == 3
+    assert len(catalog.executable()) == 4
     store = LineageStore(":memory:")
     searcher = CompositionSearcher(catalog, repository_executors(), store)
     result = searcher.search(_spec())
-    assert store.run_count == 3
+    assert store.run_count == 4
 
     analyst = CompositionAnalyst()
     analysis_a = analyst.analyze(result, PROFILE_A)
@@ -754,10 +754,10 @@ def test_slow_canonical_analysis_and_frontiers() -> None:
 
     assert analysis_a.vocabulary == COMMON_TRIPLE
     assert analysis_a.discovery_id == result.discovery_id
-    assert len(analysis_a.ranking.rows) == 3
-    assert len(analysis_a.frontier.members) == 3
-    assert len(analysis_b.ranking.rows) == 3
-    assert len(analysis_b.frontier.members) == 3
+    assert len(analysis_a.ranking.rows) == 4
+    assert len(analysis_a.frontier.members) == 4
+    assert len(analysis_b.ranking.rows) == 4
+    assert len(analysis_b.frontier.members) == 4
     assert set(analysis_a.frontier.isolation) == set(result.composition_ids)
 
     for row in analysis_a.ranking.rows:
@@ -770,6 +770,6 @@ def test_slow_canonical_analysis_and_frontiers() -> None:
     replay = CompositionAnalyst().analyze(result, PROFILE_A)
     assert replay.analysis_id == analysis_a.analysis_id
     assert replay.as_dict(canonical=True) == analysis_a.as_dict(canonical=True)
-    assert store.run_count == 3
+    assert store.run_count == 4
 
     store.close()

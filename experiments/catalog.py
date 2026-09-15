@@ -1,17 +1,17 @@
-"""Repository-facing composition catalog for the three experiments (Task 2.3).
+"""Repository-facing composition catalog for the four experiments (Task 3.0).
 
 This is the experiment-owned side of the Stage 3-5 composition layer.  It
-binds the three experiment coupling templates (A: morphogenesis, B:
-field-guided movers, C: adaptive network morphogenesis) to the five-binding
-composition space and supplies the adapter-construction hook the generic
-classification gate needs (constructor-only; nothing is ever initialized or
-stepped here).
+binds the four experiment coupling templates (A: morphogenesis, B:
+field-guided movers, D: gated mover morphogenesis, C: adaptive network
+morphogenesis) to the five-binding composition space and supplies the
+adapter-construction hook the generic classification gate needs (constructor-
+only; nothing is ever initialized or stepped here).
 
 The five bindings come from the union of the experiment registries:
     * ``mesa``            -- core (agent sensing/decisions),
     * ``py-pde``          -- core (reaction-diffusion field),
     * ``pymunk/walls``    -- core (rigid-body wall physics),
-    * ``pymunk/movers``   -- Experiment B point-mover variant,
+    * ``pymunk/movers``   -- Experiment B + D point-mover variant,
     * ``network``         -- Experiment C network-diffusion variant.
 
 Task 2.4 (Build Stage 1) adds ``repository_executors()``: the ``executor_ref``
@@ -37,6 +37,11 @@ from experiments.field_guided_movers.coupling import (
     build_field_guided_movers_template,
 )
 from experiments.field_guided_movers.experiment import run_field_guided_movers_world
+from experiments.gated_movers.coupling import (
+    build_gated_movers_registry,
+    build_gated_movers_template,
+)
+from experiments.gated_movers.experiment import run_gated_movers_world
 from experiments.network_morphogenesis.coupling import (
     build_network_morphogenesis_registry,
     build_network_morphogenesis_template,
@@ -93,15 +98,19 @@ def repository_surfaces() -> dict[ComponentBinding, CapabilitySurface]:
     surfaces.update(
         capability_surfaces_from_registry(build_field_guided_movers_registry())
     )
+    surfaces.update(
+        capability_surfaces_from_registry(build_gated_movers_registry())
+    )
     return surfaces
 
 
 def repository_templates() -> CouplingTemplateRegistry:
-    """The three experiment coupling templates, registered deterministically."""
+    """The four experiment coupling templates, registered deterministically."""
     registry = CouplingTemplateRegistry()
     for template in (
         build_morphogenesis_template(),
         build_field_guided_movers_template(),
+        build_gated_movers_template(),
         build_network_morphogenesis_template(),
     ):
         registry.register(template)
@@ -114,20 +123,27 @@ def build_repository_adapters(
 ) -> Sequence[SimulationEngine]:
     """Construct (only) the adapters a template-matched shape needs.
 
-    Dispatch by binding identity: the ``network`` component id comes from
-    Experiment C, the ``pymunk/movers`` variant from Experiment B, everything
-    else from the core default registry.  Constructors run with the template's
-    component configs; no adapter is initialized or stepped.
+    Dispatch by template + binding identity: the ``network`` component id comes
+    from Experiment C, the ``pymunk/movers`` variant from Experiment B, the
+    whole gated-movers composition from Experiment D (whose ``mesa`` binding is
+    the experiment-owned gating adapter), and everything else from the core
+    default registry.  Constructors run with the template's component configs;
+    no adapter is initialized or stepped.
     """
+
+    def _registry_for(binding: ComponentBinding) -> object:
+        if template.name == "gated_movers":
+            return build_gated_movers_registry()
+        if binding.component == "network":
+            return build_network_morphogenesis_registry()
+        if binding.variant == "movers":
+            return build_field_guided_movers_registry()
+        return default_registry()
+
     configs = dict(template.component_configs)
     adapters: list[SimulationEngine] = []
     for binding in shape:
-        if binding.component == "network":
-            registry = build_network_morphogenesis_registry()
-        elif binding.variant == "movers":
-            registry = build_field_guided_movers_registry()
-        else:
-            registry = default_registry()
+        registry = _registry_for(binding)
         adapters.append(
             registry.build(binding.component, dict(configs.get(binding.component, {})))
         )
@@ -138,7 +154,7 @@ def build_repository_catalog(*, generate_worlds: bool = False) -> CompositionCat
     """The full 23-shape repository catalog (k = 1..4 over five bindings).
 
     ``generate_worlds=True`` materializes the ``WorldDefinition`` of every
-    ``EXECUTABLE`` candidate (exactly three).
+    ``EXECUTABLE`` candidate (exactly four).
     """
     space = CompositionSpace(
         name="repository",
@@ -158,14 +174,16 @@ def build_repository_catalog(*, generate_worlds: bool = False) -> CompositionCat
 def repository_executors() -> dict[str, Executor]:
     """Conforming executors keyed by the executable composition ids.
 
-    Keys are ``template_composition_id`` of the three experiment templates
+    Keys are ``template_composition_id`` of the four experiment templates
     (content-addressed, immutable).  A and B wrappers are supplied here
     because their staged ``executor_ref`` points at config-based runners; C's
-    ``run_network_world`` already conforms to the ``Executor`` contract.
+    ``run_network_world`` and D's ``run_gated_movers_world`` already conform
+    to the ``Executor`` contract.
     """
     return {
         template_composition_id(build_morphogenesis_template()): run_morphogenesis_world,
         template_composition_id(build_field_guided_movers_template()): run_field_guided_movers_world,
+        template_composition_id(build_gated_movers_template()): run_gated_movers_world,
         template_composition_id(build_network_morphogenesis_template()): run_network_world,
     }
 
@@ -209,10 +227,20 @@ def repository_parameter_spaces() -> dict[str, CompositionSpaceBinding]:
     an error and never an empty space.  The experiment keeps the generic core
     free of any science: the core sees only opaque refs and the generic
     ``MutationSpace``.
+
+    Task 3.0 Build Stage 1 registers Experiment D with its **binding entry** but
+    no sweep space yet: ``CompositionSpaceBinding`` deliberately distinguishes
+    "no registered parameter space" (``space=None``/``ref=None``, baseline-only)
+    from an error or an empty space, and the cross-composition sweep layer
+    requires a binding entry for *every* EXECUTABLE composition.  D's three
+    gating dimensions are therefore authored now (PARAMETER_SPECS in
+    ``experiments.gated_movers.experiment``); the real ``MutationSpace`` lands
+    with the Task 3.0 Build Stage 3 sweep integration.
     """
     a_template = build_morphogenesis_template()
     b_template = build_field_guided_movers_template()
     c_template = build_network_morphogenesis_template()
+    d_template = build_gated_movers_template()
     c_space = _network_parameter_space()
     bindings = (
         CompositionSpaceBinding(
@@ -228,6 +256,10 @@ def repository_parameter_spaces() -> dict[str, CompositionSpaceBinding]:
             shape_id=c_template.shape.shape_id,
             ref=parameter_space_ref(c_space),
             space=c_space,
+        ),
+        CompositionSpaceBinding(
+            composition_id=template_composition_id(d_template),
+            shape_id=d_template.shape.shape_id,
         ),
     )
     return {b.composition_id: b for b in bindings}

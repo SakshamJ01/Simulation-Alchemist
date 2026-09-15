@@ -1,0 +1,121 @@
+# Gated Mover Morphogenesis — declarative world definition (Experiment D)
+#
+# Declarative twin of the programmatic world built by
+# `experiments.gated_movers.coupling.build_gated_movers_world`.
+# Loading it with `sim_alchemist.core.world.load_world_yaml` produces an
+# identical WorldDefinition.
+#
+# Composition: py-pde field + experiment-owned gating Mesa agents + Pymunk
+# probe bodies (the Experiment B MoversAdapter, constructed from the superset
+# GatedMoversConfig).
+
+id: gated_movers
+
+components:
+  - id: py-pde
+    config:
+      n: 32
+      du: 0.005
+      dv: 0.2
+      a: 0.1
+      b: 0.9
+      dt: 5.0e-4
+      seed: 0
+      field_step: 0.2
+  - id: mesa
+    config:
+      agent_configs:
+        - id: 0
+          x: 0.25
+          y: 0.25
+        - id: 1
+          x: 0.25
+          y: 0.75
+        - id: 2
+          x: 0.75
+          y: 0.25
+        - id: 3
+          x: 0.75
+          y: 0.75
+        - id: 4
+          x: 0.30
+          y: 0.50
+        - id: 5
+          x: 0.70
+          y: 0.50
+      seed: 0
+      macro_timestep: 0.2
+  - id: pymunk
+    variant: movers
+    config:
+      n: 32
+      seed: 0
+      pde_dt: 5.0e-4
+      du: 0.005
+      dv: 0.2
+      a: 0.1
+      b: 0.9
+      macro_timestep: 0.2
+      n_steps: 160
+      n_movers: 6
+      mover_mass: 1.0
+      mover_damping: 0.2
+      mover_radius: 0.05
+      phys_dt: 0.05
+      phys_substeps: 4
+      apply_forces: true
+      apply_sources: true
+      force_fmax: 0.8
+      force_gsat: 2.0
+      source_u: 0.03
+      source_v: -0.04
+      source_radius: 0.04
+      gate_threshold: 0.5
+      gate_cooldown: 4
+      source_amplitude: 1.0
+
+requires:
+  - agent_population
+  - reaction_diffusion
+  - rigid_body
+  - field_gradient
+
+schedule:
+  - field.step
+  - agents.step
+  - agents.apply
+  - movers.force
+  - movers.step
+  - field.source
+  - observables.record
+
+macro_timestep: 0.2
+max_steps: 160
+seed: 0
+
+config:
+  n: 32
+  seed: 0
+  pde_dt: 5.0e-4
+  du: 0.005
+  dv: 0.2
+  a: 0.1
+  b: 0.9
+  macro_timestep: 0.2
+  n_steps: 160
+  n_movers: 6
+  mover_mass: 1.0
+  mover_damping: 0.2
+  mover_radius: 0.05
+  phys_dt: 0.05
+  phys_substeps: 4
+  apply_forces: true
+  apply_sources: true
+  force_fmax: 0.8
+  force_gsat: 2.0
+  source_u: 0.03
+  source_v: -0.04
+  source_radius: 0.04
+  gate_threshold: 0.5
+  gate_cooldown: 4
+  source_amplitude: 1.0

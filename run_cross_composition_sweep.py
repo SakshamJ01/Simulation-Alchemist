@@ -80,7 +80,16 @@ def run_analysis(
     # Print CLI output (deterministic; excludes timing from canonical identity)
     print(f"cross_split_sweep_id: {analysis.cross_split_sweep_id}")
     print(f"observation_count: {len(result.observations)}")
-    print(f"composition_counts: A={sum(1 for o in result.observations if o.composition_id=='cid_a')}, B={sum(1 for o in result.observations if o.composition_id=='cid_b')}, C={sum(1 for o in result.observations if o.composition_id=='cid_c')}")
+    composition_counts = {
+        composition_id: sum(
+            1 for observation in result.observations
+            if observation.composition_id == composition_id
+        )
+        for composition_id in sorted(
+            {observation.composition_id for observation in result.observations}
+        )
+    }
+    print(f"composition_counts: {composition_counts}")
     print(f"vocabulary: {list(analysis.vocabulary)}")
     print(f"profile: {profile.name}")
     print(f"ranking_ids: {[r.run_id for r in analysis.ranking.rows]}")
@@ -94,11 +103,14 @@ def run_analysis(
             # Each analyzed observation contributes one point.
             # Quality = ranking score; diversity = isolation approximation
             # For simplicity, plot mean feature value vs diversity proxy.
-            x_vals = [0.0 + i * 0.1 for i in range(len(result.observations))]
-            y_vals = [float(o.common_observables[0].value) if o.common_observables else 0.0 for o in result.observations]
+            y_vals = [
+                float(o.common_observables[0].value)
+                if o.common_observables and o.common_observables[0].value is not None
+                else 0.0
+                for o in result.observations
+            ]
             # Mark frontier members
             frontier_ids = {m.run_id for m in analysis.frontier.members}
-            colors = ["red" if any(o.run_id in frontier_ids for o in result.observations if o.run_id == o.run_id) else "blue" for o in result.observations]
             # Actually simpler: plot by composition, highlight frontier
             plt.figure(figsize=(8, 5))
             plt.scatter(
@@ -116,7 +128,7 @@ def run_analysis(
             plt.savefig("figures/cross_composition_sweep_quality_diversity.png")
             plt.close()
             print("figure: figures/cross_composition_sweep_quality_diversity.png")
-        except Exception as exc:
+        except (ImportError, OSError, RuntimeError, ValueError) as exc:
             print(f"figure: suppressed ({exc})")
     return {
         "analysis": analysis,
@@ -164,6 +176,7 @@ def main() -> None:
         vocabulary=("final_field_mean", "final_field_std", "field_entropy"),
         union_vocabulary=("final_field_mean", "final_field_std", "field_entropy"),
     )
+    print("source: synthetic_demo")
     result = run_analysis(synth_result, profile_name=args.profile, figure=args.figure)
     print(f"CLI finished. Analysis deterministic. No simulation rerun. Profile={result['profile_name']}")
 

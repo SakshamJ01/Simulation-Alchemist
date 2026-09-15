@@ -3,9 +3,15 @@
 The ``CompositionCatalog`` pre-classifies every shape of a ``CompositionSpace``
 through the executable taxonomy and makes each decision reachable as a flat
 ``CatalogCandidate`` row.  These tests pin the repository catalog's exact shape
-(23 = 16 capability-invalid + 4 coupling-unavailable + 3 executable), probe its
+(23 = 16 capability-invalid + 3 coupling-unavailable + 4 executable), probe its
 query surface, prove that construction performs no simulation and no world
 generation unless asked, and keep the two new core modules experiment-free.
+
+Task 3.0 Build Stage 1 adds Experiment D (gated mover morphogenesis) to the
+catalog: COUPLING_UNAVAILABLE drops 4 -> 3 and EXECUTABLE grows 3 -> 4.  The
+``mesa`` binding's capability surface is unchanged (the gating adapter mirrors
+the core Mesa adapter), so the five-binding universe and the 23 shape count are
+untouched.
 """
 
 from __future__ import annotations
@@ -37,7 +43,7 @@ from sim_alchemist.core.templates import classify_composition
 
 CORE_DIR = Path(__file__).resolve().parents[1] / "src" / "sim_alchemist" / "core"
 
-EXPECTED = {CAPABILITY_INVALID: 16, COUPLING_UNAVAILABLE: 4, EXECUTABLE: 3}
+EXPECTED = {CAPABILITY_INVALID: 16, COUPLING_UNAVAILABLE: 3, EXECUTABLE: 4}
 
 
 def _bindings_set(candidate: CatalogCandidate) -> set[tuple[str, str | None]]:
@@ -48,16 +54,16 @@ class TestCatalogShape:
     def test_full_catalog_has_23_candidates(self) -> None:
         catalog = build_repository_catalog()
         assert len(catalog.all()) == 23
-        assert len(catalog.invalid()) == 20
-        assert len(catalog.executable()) == 3
+        assert len(catalog.invalid()) == 19
+        assert len(catalog.executable()) == 4
 
     def test_status_counts_exact(self) -> None:
         assert build_repository_catalog().status_counts() == EXPECTED
 
     def test_query_surfaces_agree(self) -> None:
         catalog = build_repository_catalog()
-        assert len(catalog.by_status(EXECUTABLE)) == 3
-        assert len(catalog.by_status(COUPLING_UNAVAILABLE)) == 4
+        assert len(catalog.by_status(EXECUTABLE)) == 4
+        assert len(catalog.by_status(COUPLING_UNAVAILABLE)) == 3
         assert len(catalog.by_status(CAPABILITY_INVALID)) == 16
         assert len(catalog.by_status("nonsense-status")) == 0
 
@@ -76,16 +82,22 @@ class TestCatalogShape:
 
 
 class TestCatalogExecutable:
-    def test_executable_are_the_three_experiment_worlds(self) -> None:
+    def test_executable_are_the_four_experiment_worlds(self) -> None:
         catalog = build_repository_catalog()
         by_binding = {tuple(sorted(_bindings_set(c))): c for c in catalog.executable()}
         assert set(by_binding) == {
             (("mesa", None), ("py-pde", None), ("pymunk", "walls")),
+            (("mesa", None), ("py-pde", None), ("pymunk", "movers")),
             (("py-pde", None), ("pymunk", "movers")),
             (("network", None), ("py-pde", None), ("pymunk", "walls")),
         }
         templates = {c.template for c in catalog.executable()}
-        assert templates == {"adaptive_network", "field_guided_movers", "morphogenesis"}
+        assert templates == {
+            "adaptive_network",
+            "field_guided_movers",
+            "gated_movers",
+            "morphogenesis",
+        }
 
     def test_executable_composition_id_matches_template(self) -> None:
         catalog = build_repository_catalog()
@@ -139,7 +151,7 @@ class TestCatalogWorldGeneration:
         registry = repository_templates()
         catalog = build_repository_catalog(generate_worlds=True)
         executable = catalog.executable()
-        assert len(executable) == 3
+        assert len(executable) == 4
         for candidate in catalog.all():
             if candidate.status == EXECUTABLE:
                 assert candidate.generated_world is not None
@@ -204,10 +216,10 @@ class TestCatalogNoSimulation:
             templates,
             build_adapters=build_repository_adapters,
         )
-        # Only the three template-matched shapes construct adapters during
-        # classification: 3 (A) + 2 (B) + 3 (C) components.
-        assert builds[0] - build_count_before == 3 + 2 + 3
-        assert len(catalog.executable()) == 3
+        # Only the four template-matched shapes construct adapters during
+        # classification: 3 (A) + 2 (B) + 3 (C) + 3 (D) components.
+        assert builds[0] - build_count_before == 3 + 2 + 3 + 3
+        assert len(catalog.executable()) == 4
 
     def test_world_generation_happens_only_when_requested(self, monkeypatch) -> None:
         import sim_alchemist.core.catalog as catalog_module
@@ -224,7 +236,7 @@ class TestCatalogNoSimulation:
         assert calls[0] == 0
 
         build_repository_catalog(generate_worlds=True)
-        assert calls[0] == 3  # exactly the three EXECUTABLE candidates
+        assert calls[0] == 4  # exactly the four EXECUTABLE candidates
 
 
 class TestCatalogDeterminism:

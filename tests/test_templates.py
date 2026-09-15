@@ -38,6 +38,18 @@ from experiments.field_guided_movers.model import (
     MoversState,
     MoversTrajectory,
 )
+from experiments.gated_movers.coupling import (
+    GATED_MOVERS_SCHEDULE,
+    GatedMoversState,
+    build_gated_movers_operations,
+    build_gated_movers_registry,
+    build_gated_movers_template,
+)
+from experiments.gated_movers.model import (
+    GatedMesaAdapter,
+    GatedMoversConfig,
+    GatedMoversTrajectory,
+)
 from experiments.network_morphogenesis.adapter import AdaptiveNetworkAdapter
 from experiments.network_morphogenesis.coupling import (
     NETWORK_MORPHOGENESIS_SCHEDULE,
@@ -84,6 +96,7 @@ NETWORK = ComponentBinding("network")
 SHAPE_A = CompositionShape((MESA, PDE, WALLS))
 SHAPE_B = CompositionShape((PDE, MOVERS))
 SHAPE_C = CompositionShape((NETWORK, PDE, WALLS))
+SHAPE_D = CompositionShape((MESA, PDE, MOVERS))
 
 
 def _field_sensing_contract() -> CouplingContract:
@@ -211,13 +224,19 @@ class TestTemplateRegistry:
 
     def test_template_sequence_is_sorted_deterministically(self) -> None:
         names = [t.name for t in repository_templates().templates()]
-        assert names == ["adaptive_network", "field_guided_movers", "morphogenesis"]
-        assert len({t.shape.shape_id for t in repository_templates().templates()}) == 3
+        assert names == [
+            "adaptive_network",
+            "field_guided_movers",
+            "gated_movers",
+            "morphogenesis",
+        ]
+        assert len({t.shape.shape_id for t in repository_templates().templates()}) == 4
 
     def test_deterministic_canonical_serialization(self) -> None:
         for build in (
             build_morphogenesis_template,
             build_field_guided_movers_template,
+            build_gated_movers_template,
             build_network_morphogenesis_template,
         ):
             original = build()
@@ -232,7 +251,7 @@ class TestTemplateRegistry:
 # The classification funnel
 # ----------------------------------------------------------------------
 class TestClassification:
-    def test_repository_templates_classify_a_b_c_as_executable(self) -> None:
+    def test_repository_templates_classify_a_b_c_d_as_executable(self) -> None:
         verdict = _classify(SHAPE_A, repository_templates())
         assert verdict.status == EXECUTABLE
         assert verdict.template == "morphogenesis"
@@ -244,9 +263,9 @@ class TestClassification:
         templates = repository_templates()
         ids = {
             _classify(shape, templates).composition_id
-            for shape in (SHAPE_A, SHAPE_B, SHAPE_C)
+            for shape in (SHAPE_A, SHAPE_B, SHAPE_C, SHAPE_D)
         }
-        assert len(ids) == 3
+        assert len(ids) == 4
 
     def test_executable_composition_id_matches_template_id(self) -> None:
         templates = repository_templates()
@@ -254,6 +273,7 @@ class TestClassification:
             (SHAPE_A, build_morphogenesis_template),
             (SHAPE_B, build_field_guided_movers_template),
             (SHAPE_C, build_network_morphogenesis_template),
+            (SHAPE_D, build_gated_movers_template),
         ):
             verdict = _classify(shape, templates)
             assert verdict.composition_id == template_composition_id(build())
@@ -276,12 +296,11 @@ class TestTaxonomy:
     @pytest.mark.parametrize(
         "shape",
         [
-            CompositionShape((MESA, PDE, MOVERS)),
             CompositionShape((NETWORK, PDE, MOVERS)),
             CompositionShape((MESA, NETWORK, PDE, MOVERS)),
             CompositionShape((MESA, NETWORK, PDE, WALLS)),
         ],
-        ids=["a-with-movers", "c-with-movers", "ac-with-movers", "ac-with-walls"],
+        ids=["c-with-movers", "ac-with-movers", "ac-with-walls"],
     )
     def test_known_unwired_shapes_never_executable(self, shape) -> None:
         verdict = _classify(shape, repository_templates())
@@ -466,3 +485,19 @@ class TestTemplateOperationsMatchBuilders:
         )
         assert set(ops) == set(template.operations)
         assert set(ops) == set(NETWORK_MORPHOGENESIS_SCHEDULE)
+
+    def test_gated_movers_operations(self) -> None:
+        template = build_gated_movers_template()
+        world = generate_world(template)
+        adapters = build_components(build_gated_movers_registry(), world)
+        cfg = GatedMoversConfig(**dict(world.config))
+        ops = build_gated_movers_operations(
+            cast(PyPDEAdapter, adapter_by_id(adapters, "py-pde")),
+            cast(MoversAdapter, adapter_by_id(adapters, "pymunk")),
+            cast(GatedMesaAdapter, adapter_by_id(adapters, "mesa")),
+            cfg,
+            GatedMoversTrajectory(config=cfg),
+            GatedMoversState(),
+        )
+        assert set(ops) == set(template.operations)
+        assert set(ops) == set(GATED_MOVERS_SCHEDULE)

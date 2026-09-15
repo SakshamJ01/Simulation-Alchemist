@@ -1,11 +1,13 @@
-# Simulation Alchemist — Baseline v0.1
+# Simulation Alchemist — Simulation Composition Framework
 
-**Baseline v0.1** of Simulation Alchemist is the **validated chemo-mechanical
-prototype** (Tasks 0.1–0.3). It is the verified scientific starting point out
-of which the Simulation Alchemist composition core will be extracted. This is
-a working scientific prototype, not yet the framework.
+The repository contains the validated chemo-mechanical prototype and the
+composition framework extracted from it. The current state includes four
+catalogued experiments (A–D), deterministic composition/discovery tooling,
+cross-composition sweeps, behavioral analysis, and a persistent adaptive
+comparison archive. Experiment D is structurally complete at Task 3.0 Stage 1;
+its scientific gating validation is the next task and is not yet complete.
 
-## What this prototype is
+## Scientific foundation
 
 Three independent simulation engines are composed into a single deterministic
 closed feedback loop. A morphogen (activator) field grows Turing patterns, a

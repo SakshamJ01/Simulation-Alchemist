@@ -15,7 +15,7 @@ These tests prove, in order:
   * result model A-D: field population, round-trip, dict independence;
   * lineage A-E: persistence, root-parent semantics, pre-2.4 migration,
     legacy load, idempotence;
-  * executable evaluation A-F: all three EXECUTABLE compositions recognized,
+  * executable evaluation A-F: all four EXECUTABLE compositions recognized,
     one root baseline each, composition identity retained, non-executables
     never evaluated, idempotent re-evaluation, cross-store determinism.
 
@@ -50,6 +50,7 @@ from experiments.field_guided_movers.experiment import (
     run_field_guided_movers_world,
 )
 from experiments.field_guided_movers.model import MoversConfig, run_field_guided_movers
+from experiments.gated_movers.coupling import build_gated_movers_template
 from experiments.network_morphogenesis.coupling import (
     build_network_morphogenesis_template,
 )
@@ -110,6 +111,7 @@ def build_fast_repository_catalog(*, generate_worlds: bool = True) -> Compositio
     for build in (
         build_morphogenesis_template,
         build_field_guided_movers_template,
+        build_gated_movers_template,
         build_network_morphogenesis_template,
     ):
         registry.register(_fast_template(build(), steps=FAST_STEPS))
@@ -139,7 +141,7 @@ def fast_catalog() -> CompositionCatalog:
 
 @pytest.fixture(scope="module")
 def evaluated_store(fast_catalog):
-    """All three executable baselines, evaluated once into one fresh store."""
+    """All four executable baselines, evaluated once into one fresh store."""
     store = LineageStore(":memory:")
     executors = repository_executors()
     evals = [
@@ -340,12 +342,12 @@ class TestCompositionLineage:
 # 4. Executable evaluation (evaluate_composition_baseline): A-F
 # ----------------------------------------------------------------------
 class TestExecutableEvaluation:
-    def test_a_three_executables_recognized(self, fast_catalog) -> None:
+    def test_a_four_executables_recognized(self, fast_catalog) -> None:
         executable = fast_catalog.executable()
-        assert len(executable) == 3
+        assert len(executable) == 4
         assert fast_catalog.status_counts() == {
-            COUPLING_UNAVAILABLE: 4,
-            EXECUTABLE: 3,
+            COUPLING_UNAVAILABLE: 3,
+            EXECUTABLE: 4,
             "CAPABILITY_INVALID": 16,
         }
         for candidate in executable:
@@ -354,9 +356,9 @@ class TestExecutableEvaluation:
 
     def test_b_each_evaluates_to_a_root_baseline(self, evaluated_store) -> None:
         store, evals = evaluated_store
-        assert len(evals) == 3
+        assert len(evals) == 4
         run_ids = {ev.run_id for ev in evals}
-        assert len(run_ids) == 3
+        assert len(run_ids) == 4
         for ev in evals:
             assert ev.status == EXECUTABLE
             assert ev.metrics

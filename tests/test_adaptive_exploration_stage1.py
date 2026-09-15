@@ -4,6 +4,7 @@ from __future__ import annotations
 import inspect
 import json
 import sys
+from typing import Any, cast
 
 sys.path.insert(0, "src")
 
@@ -25,7 +26,7 @@ def test_a_spec_construction():
 def test_b_immobility():
     spec = AdaptiveExplorationSpec(composition_ids=("C",))
     try:
-        spec.budget = 99
+        cast(Any, spec).budget = 99
     except (AttributeError, TypeError):
         pass  # frozen dataclass
     assert spec.budget == 3
@@ -49,7 +50,15 @@ def test_e_unknown_composition_rejected_with_catalog():
     from experiments.catalog import build_repository_catalog
     catalog = build_repository_catalog()
     spec = AdaptiveExplorationSpec(composition_ids=("X",))
-    result = evaluate_exploration_spec(spec, mutation_space=None, catalog_compositions=tuple(catalog.all()))
+    result = evaluate_exploration_spec(
+        spec,
+        mutation_space=None,
+        catalog_compositions=tuple(
+            candidate.composition_id
+            for candidate in catalog.all()
+            if candidate.composition_id is not None
+        ),
+    )
     assert result.status.status == "INVALID"
 
 
@@ -62,7 +71,7 @@ def test_f_ab_none_parameter_space_behavior():
 
 def test_g_c_real_parameter_space_binding():
     from experiments.network_morphogenesis.experiment import PARAMETER_SPECS
-    space = MutationSpace(tuple(ParameterSweep(path=s.path, values=[0.3, 0.5, 0.7]) for s in PARAMETER_SPECS))
+    space = MutationSpace(tuple(ParameterSweep(path=s.path, values=(0.3, 0.5, 0.7)) for s in PARAMETER_SPECS))
     spec = AdaptiveExplorationSpec(
         composition_ids=("C",),
         constraints=(ParameterConstraint(path=PARAMETER_SPECS[0].path, freeze=True),),
@@ -84,7 +93,7 @@ def test_h_valid_parameter_constraint():
 
 def test_i_invalid_parameter_constraint():
     try:
-        ParameterConstraint(path="bad.path", allowed=("not_float",))
+        ParameterConstraint(path="bad.path", allowed=cast(Any, ("not_float",)))
         assert False
     except ValueError:
         pass
@@ -149,7 +158,7 @@ def test_n_empty_valid_subspace():
         ),
     )
     from experiments.network_morphogenesis.experiment import PARAMETER_SPECS
-    space = MutationSpace(tuple(ParameterSweep(path=s.path, values=[0.3, 0.5, 0.7]) for s in PARAMETER_SPECS))
+    space = MutationSpace(tuple(ParameterSweep(path=s.path, values=(0.3, 0.5, 0.7)) for s in PARAMETER_SPECS))
     result = evaluate_exploration_spec(spec, mutation_space=space, catalog_compositions=("C",))
     assert result.status.status == "EMPTY_SUBSPACE"
     assert "empty" in result.status.explanation.lower() or "subspace" in result.status.explanation.lower()

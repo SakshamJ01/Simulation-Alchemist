@@ -9,9 +9,12 @@ from pathlib import Path
 def test_cli_parse_and_analysis_path():
     result = subprocess.run(
         [sys.executable, "run_cross_composition_sweep.py", "--profile", "all", "--no-figure"],
-        capture_output=True, text=True, cwd=str(Path(__file__).resolve().parents[1])
+        capture_output=True, text=True, cwd=str(Path(__file__).resolve().parents[1]), check=False
     )
     assert result.returncode == 0
     assert "cross_split_sweep_id" in result.stdout
-    assert "ranking=" in result.stdout or "frontier=" in result.stdout
+    assert "ranking_ids:" in result.stdout
+    assert "frontier_members:" in result.stdout
+    assert "composition_counts:" in result.stdout
+    assert "source: synthetic_demo" in result.stdout
     assert "analysis_time_s" in result.stdout

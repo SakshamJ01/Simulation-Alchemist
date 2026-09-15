@@ -111,7 +111,7 @@ class TestCliReport:
         assert "Cross-composition discovery" in out
         assert "Discovery id     " in out
         for token in (
-            "3 EXECUTABLE (A, B, C)",
+            "4 EXECUTABLE (A, B, C, D)",
             "Common observables (genuinely common across every composition)",
             "field_entropy",
             "final_field_mean",
@@ -122,7 +122,7 @@ class TestCliReport:
             "=== PROFILE A: structural_quality",
             "score=",
             "combined=",
-            "runs=3)",
+            "runs=4)",
             "beam=2",
             "selection q=1.5 d=0.5",
         ):
@@ -193,8 +193,8 @@ class TestFigure:
         labels = composition_labels()
         for analysis in (analyzed["a"], analyzed["b"]):
             points, frontier_members = _scatter_data(analysis, labels)
-            assert len(points) == len(analysis.ranking.rows) == 3
-            assert sorted(p["label"] for p in points) == ["A", "B", "C"]
+            assert len(points) == len(analysis.ranking.rows) == 4
+            assert sorted(p["label"] for p in points) == ["A", "B", "C", "D"]
             assert sorted(p["composition_id"] for p in points) == sorted(
                 analysis.ranking.ranked_ids()
             )

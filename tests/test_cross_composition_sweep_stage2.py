@@ -9,7 +9,7 @@ stamps every recorded run with its ``composition_id``, persists one compact
 ``CrossCompositionSweepRow`` per participating composition, and returns one
 deterministic ``CrossCompositionSweepResult(state="executed")`` with timing.
 
-A/B/C semantics stay honest: A and B bind ``space=None`` ("no declared
+A/B/C/D semantics stay honest: A, B and D bind ``space=None`` ("no declared
 parameter sweep") and contribute their baseline only; C owns a real space and
 is swept.  These tests prove the mandated properties:
 
@@ -35,8 +35,8 @@ is swept.  These tests prove the mandated properties:
   * Q: lineage persistence -- durable rows round-trip and ``composition_id``
     is stamped on variant ``RunRecord``s;
 
-Plus a slow canonical test that runs the real cross-composition sweep (three
-full-length baselines + the real 27-variant C space = 30 logical runs / 29
+Plus a slow canonical test that runs the real cross-composition sweep (four
+full-length baselines + the real 27-variant C space = 31 logical runs / 30
 after no-op skipping) and persists/replays it.
 """
 from __future__ import annotations
@@ -165,9 +165,10 @@ class TestCrossCompositionSweep:
             _fast_catalog(), repository_executors(), spaces, store, parameter_specs=specs_by_path()
         )
         result = sweep.run(_spec(spaces))
+        assert result.timing is not None
         cid = next(b.composition_id for b in spaces.values() if b.space is not None)
         assert result.timing.n_swept == 1
-        assert result.timing.n_baseline_only == 2
+        assert result.timing.n_baseline_only == 3
         for b in result.bindings:
             if b.composition_id == cid:
                 assert b.sweep_id is not None
@@ -185,6 +186,7 @@ class TestCrossCompositionSweep:
         )
         result = sweep.run(_spec(spaces))
         for b in result.bindings:
+            assert b.baseline_run_id is not None
             rec = store.get_run(b.baseline_run_id)
             assert rec is not None
             assert rec.parent_run_id is None
@@ -198,10 +200,13 @@ class TestCrossCompositionSweep:
         )
         result = sweep.run(_spec(spaces))
         for b in result.bindings:
+            assert b.baseline_run_id is not None
             base = store.get_run(b.baseline_run_id)
+            assert base is not None
             assert base.composition_id == b.composition_id
             for vid in b.variant_run_ids:
                 v = store.get_run(vid)
+                assert v is not None
                 assert v.composition_id == b.composition_id
 
     def test_f_executors_resolve_per_composition_id(self) -> None:
@@ -215,7 +220,7 @@ class TestCrossCompositionSweep:
             catalog, executors, spaces, store, parameter_specs=specs_by_path()
         )
         result = sweep.run(_spec(spaces))
-        assert len(result.bindings) == 3
+        assert len(result.bindings) == 4
 
     def test_g_order_matches_catalog_executable(self) -> None:
         store = LineageStore(":memory:")
@@ -321,9 +326,9 @@ class TestCrossCompositionSweep:
         )
         result = sweep.run(_spec(spaces))
         rows = store.get_cross_composition_sweeps(result.cross_split_sweep_id)
-        assert len(rows) == 3
-        assert store.cross_composition_sweep_count == 3
-        assert len(list(store.iter_cross_composition_sweeps())) == 3
+        assert len(rows) == 4
+        assert store.cross_composition_sweep_count == 4
+        assert len(list(store.iter_cross_composition_sweeps())) == 4
         for row in rows:
             assert isinstance(row, CrossCompositionSweepRow)
             assert row.status == "executed"
@@ -355,11 +360,12 @@ class TestSlowCanonicalCrossCompositionSweep:
         )
         result = sweep.run(spec)
         assert result.state == "executed"
-        assert result.timing.n_executable == 3
+        assert result.timing is not None
+        assert result.timing.n_executable == 4
         assert result.timing.n_swept == 1
-        assert result.timing.n_baseline_only == 2
-        assert result.total_evaluations == 3 + 27
-        assert store.cross_composition_sweep_count == 3
+        assert result.timing.n_baseline_only == 3
+        assert result.total_evaluations == 4 + 27
+        assert store.cross_composition_sweep_count == 4
         cid = next(b.composition_id for b in spaces.values() if b.space is not None)
         c_row = next(
             r

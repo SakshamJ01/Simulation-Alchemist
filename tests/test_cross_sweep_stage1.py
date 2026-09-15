@@ -83,14 +83,20 @@ def toy_binding(composition_id: str = "c1", shape_id: str = "s1") -> Composition
 # ----------------------------------------------------------------------
 # A-G. Repository parameter-space registry
 # ----------------------------------------------------------------------
-def test_a_registry_contains_all_executable_compositions() -> None:
+def test_a_registry_covers_all_bound_executables() -> None:
     spaces = repository_parameter_spaces()
     catalog = build_repository_catalog(generate_worlds=True)
     executable_ids = {
         c.composition_id for c in catalog.executable() if c.composition_id is not None
     }
-    assert set(spaces) == executable_ids
-    assert len(spaces) == 3
+    # Task 3.0 Build Stage 1: D owns a binding entry with ``space=None`` ("no
+    # registered parameter sweep space", distinct from error/empty) so the
+    # cross-composition sweep layer can plan it baseline-only; the real gating
+    # MutationSpace lands in Build Stage 3.  The bound set therefore has one
+    # entry per executable composition, four total.
+    assert set(spaces) <= executable_ids
+    assert len(spaces) == 4
+    assert len(executable_ids) == 4
 
 
 def test_b_valid_space_where_defined() -> None:

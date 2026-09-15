@@ -1,7 +1,7 @@
 """Task 2.4 Stages 4+5 demonstration: cross-composition discovery.
 
-Runs ONE deterministic discovery search over the three canonical repository
-compositions (A/B/C), then analyzes the already-evaluated pool through the
+Runs ONE deterministic discovery search over the four canonical repository
+compositions (A/B/C/D), then analyzes the already-evaluated pool through the
 Stage 4 ranking + frontier layer under two explicit profiles, and renders the
 single quality-vs-diversity artifact.
 
@@ -10,9 +10,9 @@ Order of operations (all generic core, no experiment knowledge here):
     SEARCH (Stage 2/3) -> ANALYZE x2 (Stage 4) -> FIGURE (Stage 5)
 
 The search uses ``CompositionSearcher`` over the 23-shape repository catalog:
-every ``EXECUTABLE`` composition (A, B, C) is evaluated exactly once as a
+every ``EXECUTABLE`` composition (A, B, D, C) is evaluated exactly once as a
 baseline and reduced to a common-observable envelope.  Stage 4 then joins the
-three envelopes under one shared vocabulary -- only observables genuinely
+four envelopes under one shared vocabulary -- only observables genuinely
 available in *every* composition (final_field_mean, final_field_std,
 field_entropy) -- ranks them with ``rank_by_profile`` (pool-level min-max,
 weight/direction scoring) and selects the behaviorally diverse frontier with
@@ -62,6 +62,7 @@ from experiments.composition_discovery import (
 from experiments.field_guided_movers.coupling import (
     build_field_guided_movers_template,
 )
+from experiments.gated_movers.coupling import build_gated_movers_template
 from experiments.network_morphogenesis.coupling import (
     build_network_morphogenesis_template,
 )
@@ -111,6 +112,7 @@ def _catalog(*, steps: int | None) -> CompositionCatalog:
     for build in (
         build_morphogenesis_template,
         build_field_guided_movers_template,
+        build_gated_movers_template,
         build_network_morphogenesis_template,
     ):
         template = build()
@@ -248,8 +250,8 @@ def main(argv: list[str] | None = None) -> None:
     labels = composition_labels()
     catalog = _catalog(steps=args.steps)
     executable = catalog.executable()
-    if len(executable) != 3:
-        raise SystemExit(f"expected 3 executable compositions, got {len(executable)}")
+    if len(executable) != 4:
+        raise SystemExit(f"expected 4 executable compositions, got {len(executable)}")
 
     db_path = args.db or str(Path(tempfile.gettempdir()) / "discovery_lineage.db")
     store = LineageStore(db_path)

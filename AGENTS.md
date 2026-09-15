@@ -4,11 +4,13 @@
 > canonical compact snapshot of task/milestone status) and inspect the actual
 > repository state — do NOT trust previous conversation context.
 
-## Project: Simulation Alchemist — Baseline v0.1
+## Project: Simulation Alchemist — Current Repository State
 
 A framework for composing multiple independent simulation systems into a
-unified simulated world. This repository currently holds **Baseline v0.1**:
-the validated chemo-mechanical prototype (Tasks 0.1–0.3) plus the Task 1.2
+unified simulated world. The original Baseline v0.1 prototype remains the
+scientific foundation; the current repository also contains the completed
+composition, discovery, sweep, adaptive-archive, and Experiment D Stage 1
+layers described below. The validated chemo-mechanical prototype (Tasks 0.1–0.3) plus the Task 1.2
 scheduler, the **Task 1.3 declarative composition layer**, the **Task 1.5
 Adaptive Network Morphogenesis experiment (Experiment C)**, the **Task 1.6
 generic mutation / lineage / variant-runner layer**, the **Task 1.7
@@ -60,7 +62,10 @@ experiments (A: chemo-morphogenesis, B: field-guided movers, C: adaptive network
 morphogenesis) execute through the generic `AlchemistEngine` + core `StepScheduler`
 against declaratively-described worlds; the science, scheduling, and declared
 coupling contracts live in experiment coupling modules, not in engine subclasses.
-**Next milestone: Task 2.5 Build Stage 2 (PLAN + Build Stage 1 complete). Do NOT start Task 2.5 Build Stage 2 until it is issued.**
+**Current milestone:** Task 3.0 Build Stage 1 is complete. Task 3.0 Build
+Stage 2 is the next task, but it must not begin until the stabilization gate in
+`PROJECT_STATE.md` is green. Do not start Stage 2 during repository
+stabilization.
 
 ## Current Repository State (validated prototype — do not paper over)
 
@@ -339,7 +344,7 @@ The environment is managed by uv against Python 3.13:
 - `uv run python run_sweep.py --dim <path>:v1,v2,... [--dim ...] [--rank-by <metric>]` — Task 1.7 deterministic sweep + ranking demo
 - `uv run python run_behavior_demo.py --dim <path>:v1,v2,... --feature <obs>:<feature>:<weight>[:max|min] ...` — Task 1.8 behavioral characterization + interestingness demo
 - `uv run python run_search.py --dim <path>:v1,v2,... --feature <obs>:<feature>:<weight>[:max|min] ... [--generations N] [--beam-width N]` — Task 1.9 guided beam search + discovery loop
-- `uv run python run_catalog_demo.py [--generate-worlds [--worlds-dir DIR]]` — Task 2.3 composition catalog demo (23 shapes, 16/4/3) + writes the 3 EXECUTABLE worlds
+- `uv run python run_catalog_demo.py [--generate-worlds [--worlds-dir DIR]]` — current composition catalog demo (23 shapes, 16/3/4) + writes the 4 EXECUTABLE worlds
 - `uv run python run_composition_discovery.py [--steps N] [--seed N] [--profile {all,a,b}] [--no-figure]` — Task 2.4 canonical cross-composition discovery CLI (160-step default; writes `figures/discovery_quality_diversity.png`)
 - `uv run pytest` — test suite wrapping the same scientific checks
 

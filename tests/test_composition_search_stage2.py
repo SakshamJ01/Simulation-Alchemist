@@ -12,7 +12,7 @@ These tests prove the mandated properties A-P:
   * A: valid search configuration (``CompositionSearchSpec``);
   * B: empty executable catalog (zero evaluations, still a valid search);
   * C: one executable candidate;
-  * D: all three repository compositions (A/B/C) are evaluated;
+  * D: all four repository compositions (A/B/C/D) are evaluated;
   * E: invalid candidates are skipped (never simulated);
   * F: executor lookup per composition id is deterministic;
   * G: result ordering matches catalog executable ordering;
@@ -27,7 +27,7 @@ These tests prove the mandated properties A-P:
   * P: the core searcher source is experiment-free.
 
 Plus one slow test that runs a real Stage 2 search over the canonical
-repository catalog (three full-length baselines) and replays it.
+repository catalog (four full-length baselines) and replays it.
 """
 from __future__ import annotations
 
@@ -213,19 +213,19 @@ class TestSingleExecutable:
 
 
 # ----------------------------------------------------------------------
-# D. All three repository compositions evaluated
+# D. All four repository compositions evaluated (A/B/C/D; Task 3.0 re-baseline)
 # ----------------------------------------------------------------------
-class TestThreeExecutables:
-    def test_d_all_abc_evaluated(self) -> None:
+class TestFourExecutables:
+    def test_d_all_four_evaluated(self) -> None:
         catalog = build_fast_repository_catalog(generate_worlds=True)
-        assert len(catalog.executable()) == 3
+        assert len(catalog.executable()) == 4
         store = LineageStore(":memory:")
         result = CompositionSearcher(catalog, repository_executors(), store).search(_spec())
-        assert len(result.evaluations) == 3
+        assert len(result.evaluations) == 4
         assert set(result.composition_ids) == {
             c.composition_id for c in catalog.executable()
         }
-        assert store.run_count == 3
+        assert store.run_count == 4
         store.close()
 
     def test_d3_each_is_a_root_baseline(self) -> None:
@@ -246,7 +246,7 @@ class TestThreeExecutables:
 class TestInvalidSkipped:
     def test_e_never_simulates_invalid(self) -> None:
         catalog = build_fast_repository_catalog(generate_worlds=True)
-        assert len(catalog.invalid()) == 20
+        assert len(catalog.invalid()) == 19
         executed_world_ids: list[str] = []
 
         def _counting(executor):
@@ -261,13 +261,13 @@ class TestInvalidSkipped:
         }
         store = LineageStore(":memory:")
         result = CompositionSearcher(catalog, executors, store).search(_spec())
-        assert len(result.evaluations) == 3
+        assert len(result.evaluations) == 4
         executable_world_ids = {
             c.generated_world.id for c in catalog.executable() if c.generated_world
         }
         assert set(executed_world_ids) == executable_world_ids
-        assert len(executed_world_ids) == 3  # the 20 invalid shapes were never run
-        assert store.run_count == 3
+        assert len(executed_world_ids) == 4  # the 19 invalid shapes were never run
+        assert store.run_count == 4
         store.close()
 
 
@@ -297,7 +297,7 @@ class TestExecutorLookup:
         store = LineageStore(":memory:")
         CompositionSearcher(catalog, wrapped, store).search(_spec())
         assert calls == {cid: 1 for cid in base}
-        assert store.run_count == 3
+        assert store.run_count == 4
         store.close()
 
 
@@ -378,7 +378,7 @@ class TestDeterministicReplay:
         assert [dict(ev.metrics) for ev in first.evaluations] == [
             dict(ev.metrics) for ev in second.evaluations
         ]
-        assert store.run_count == 3  # re-evaluation replaces, never duplicates roots
+        assert store.run_count == 4  # re-evaluation replaces, never duplicates roots
         store.close()
 
     def test_i_fresh_store_replay(self) -> None:
@@ -491,11 +491,11 @@ class TestNoOverreach:
 @pytest.mark.slow
 def test_slow_real_search_over_repository_catalog() -> None:
     catalog = build_repository_catalog(generate_worlds=True)
-    assert len(catalog.executable()) == 3
+    assert len(catalog.executable()) == 4
     store = LineageStore(":memory:")
     searcher = CompositionSearcher(catalog, repository_executors(), store)
     result = searcher.search(_spec())
-    assert len(result.evaluations) == 3
+    assert len(result.evaluations) == 4
     assert result.composition_ids == tuple(c.composition_id for c in catalog.executable())
     for ev in result.evaluations:
         assert ev.status == EXECUTABLE
@@ -504,11 +504,11 @@ def test_slow_real_search_over_repository_catalog() -> None:
         assert record is not None
         assert record.parent_run_id is None
         assert record.composition_id == ev.composition_id
-    assert store.run_count == 3
+    assert store.run_count == 4
 
     replay = searcher.search(_spec())
     assert replay.discovery_id == result.discovery_id
     assert replay.as_dict(canonical=True) == result.as_dict(canonical=True)
     assert replay.composition_ids == result.composition_ids
-    assert store.run_count == 3
+    assert store.run_count == 4
     store.close()

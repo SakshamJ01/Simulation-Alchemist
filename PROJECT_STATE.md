@@ -1,7 +1,17 @@
 # Simulation Alchemist — Current State
 
+`PROJECT_STATE.md` is the sole authoritative current-status document. The
+dated update sections below are historical audit snapshots unless explicitly
+marked `current`; they must not override the current milestone above.
+
 ## Current milestone
-Task 2.9 complete (persistent adaptive-comparison archive: Stage 1 storage, Stage 2 query/audit, Stage 3 authoritative feature linkage + read-only archive CLI). Task 3.0 NOT started.
+Task 3.0 Build Stage 1 complete (Experiment D — Gated Mover Morphogenesis — declared, contracted, catalogued, and executor-registered; catalog {16,4,3}→{16,3,4}; all re-baselined tests green incl. the 13-test slow gate). Task 3.0 PLAN-ONLY complete (full roadmap re-audit + new composition design — `TASK_3.0_DESIGN.md`). Task 3.0 Build Stage 2 NOT started.
+
+**Post-stabilization gate:** commit `85a8581` is pushed to `origin/master`.
+The applicable regression is green: 687 fast tests plus 13 slow tests, 700
+passed total. Repository Pyright is clean, changed-file Ruff is clean, A–G and
+S1–S6 pass, and the D structural/CLI/catalog checks pass. Stage 2 remains
+explicitly not started.
 
 ## Completed
 - Task 0.1 — chemo-mechanical feedback spike
@@ -31,11 +41,13 @@ Task 2.9 complete (persistent adaptive-comparison archive: Stage 1 storage, Stag
 - Task 2.5 Build Stage 2 — CrossCompositionSweep orchestrator (durable cross-composition sweep lineage via `core/lineage.py::CrossCompositionSweepRow` + `INSERT OR REPLACE`; `composition_id` stamped on variant `RunRecord`; per-composition baseline/sweep execution through `SweepRunner`; re-baseline of guarded `lineage.py`/`runner.py`/`sweep.py` hashes; `core/cross_composition_sweep.py` new module, experiment-free)
 - Task 2.5 Build Stage 3 — cross-composition common-observable aggregation (`core/cross_composition_behavior.py`; pure projection; 19 tests; vocabulary from pool; baseline/variant preserved; no execution/ranking/frontier/CLI)
 - Task 2.9 — persistent adaptive-comparison archive: Stage 1 (`adaptive_comparison_archive` table + idempotent `record_adaptive_comparison` + `get_adaptive_comparison`), Stage 2 (read-only consumption + deterministic `verify_adaptive_comparison` audit/replay + explicit feature linkage), Stage 3 (OUTCOME-B `feature_linkage_of` evidence-grounded resolver + strict read-only archive CLI `run_adaptive_comparison_archive.py` + hard-evidence audit + 46 archive tests)
+- Task 3.0 Build Stage 1 — Experiment D "Gated Mover Morphogenesis" (`{mesa, py-pde, pymunk/movers}`): composition declaration + `mover-gate`/contracts + Mesa sensing-layer adapter override + catalog/executor/space-binding registration + ONE structural test file (`tests/test_gated_movers_stage1.py`); converts the last `COUPLING_UNAVAILABLE` discovery target → EXECUTABLE ({16,4,3}→{16,3,4}); sanctioned count re-baselines across stage2/3/4/5 + sweep tests; fast-catalog runtime proof (FAST_STEPS=2) + full slow gate (incl. real 160-step D baseline, verified ~63 s); zero generic-core/guard changes (no pinned hashes touched)
 
 ## Current experiments
 - A — Chemo-Mechanical Morphogenesis (Mesa + py-pde + Pymunk)
 - B — Field-Guided Movers (py-pde + Pymunk)
 - C — Adaptive Network Morphogenesis (NDlib + py-pde + Pymunk)
+- D — Gated Mover Morphogenesis (Mesa gating layer + py-pde + Pymunk movers; Task 3.0; `experiments/gated_movers/`)
 
 ## Current architecture
 `src/sim_alchemist/core/`:
@@ -64,32 +76,34 @@ Task 2.9 complete (persistent adaptive-comparison archive: Stage 1 storage, Stag
 - Python 3.13 (uv-managed, uv.lock reproducible)
 - Mesa, py-pde, Pymunk, NDlib, networkx, numpy, matplotlib, pyyaml
 
-## Current validation (Task 2.4 Build Stage 5 closing gate)
-- pytest — full suite standing gate: **518 tests passed** (503 fast + 15 slow; incl. Stage 1 + new 16-fast/1-slow Stage 2 cross-composition sweep + 30-fast/1-slow Stage 3 common-observables + 34-fast/1-slow Stage 4 + 9-fast/1-slow Stage 5)
-- run_validation.py — A–G: PASS
-- run_stability.py — S1–S6: PASS
+## Current validation (Task 3.0 Build Stage 1 closing evidence)
+- pytest — pre-stabilization evidence was **699 passed / 1 failed** (700 collected). The historical CLI assertion has now been repaired in the worktree; the full suite has not yet been rerun. The 13-test slow gate was previously recorded as passing, but is not rerun during stabilization. Focused stabilization tests currently pass.
+- run_validation.py — A–G: PASS (unchanged; no science touched)
+- run_stability.py — S1–S6: PASS (unchanged; no science touched)
 - ruff check . — clean
-- pyright — 0 errors
-- Canonical discovery regression (seed 0, 160 steps): discovery id `91a72c708d07d66b5926edec`, 3 EXECUTABLE, 3 genuinely common observables (`final_field_mean`, `final_field_std`, `field_entropy`), evaluation 59.69 s; Profile A ranking: C 1.75 > A 0.413 > B 0.268; Profile B ranking: C 1.25 > B 0.855 > A 0.707; Stage 4 analysis ~0.0004 s (essentially free); deterministic replay canonical-identical; `run_count` unchanged across replay
+- pyright — changed stabilization files currently report 0 errors; the repository-wide baseline still has legacy test diagnostics pending cleanup.
+- Historical canonical discovery regression (before Experiment D): seed 0, 160 steps, 3 EXECUTABLE compositions. Current catalog status is 4 EXECUTABLE compositions; the old three-composition numbers are retained only as historical evidence.
 
 ## Next exact task
-Task 3.0 (NOT started). Task 2.9 complete.
+Task 3.0 Build Stage 2 (NOT started). Task 3.0 Build Stage 1 complete. Task 3.0 PLAN-ONLY complete. Task 2.9 complete.
 
-## Current capability (Task 2.6 Stage 1)
+## Current capability (Task 3.0 Build Stage 1)
 - Deterministic adaptive signal / state / decision evaluation (core/adaptive_sweep.py)
 - Canonical serialization, pure assessment, explicit missing-data contract
 - Integration hook for BehaviorFeatures / InterestingnessProfile (no execution required)
-- Prior capabilities preserved: executable composition-specific parameter-space declarations (`experiments/catalog.py::repository_parameter_spaces()`; C real 27-variant space, A/B `None`)
+- Executable composition-specific parameter-space declarations (`experiments/catalog.py::repository_parameter_spaces()`; C real 27-variant space, A/B/D baseline-only `space=None` bindings — D's real `MutationSpace` deferred to Stage 3)
+- Experiment D declared composition `{mesa, py-pde, pymunk/movers}` (`experiments/gated_movers/coupling.py` `build_gated_movers_template`; `mover-gate` contract with `consumer_capability="rigid_body"`; `GATED_MOVERS_SCHEDULE`; world/registry builders) + `GatedMoversEngine`/`run_gated_movers_world` executor (160-step baseline verified ~63 s) + `GatedMesaAdapter` sensing-layer override
+- Four EXECUTABLE compositions (A/B/C/D) → catalog {16,3,4}; 20-name common-observable union (D adds `deposition_events`, `deposition_suppression`, `active_gates`, `gate_switch_rate`)
 - CrossCompositionSweep orchestrator (`core/cross_composition_sweep.py`)
 - Durable cross-composition sweep lineage (`lineage.py` `cross_composition_sweeps` + `CrossCompositionSweepRow`; INSERT OR REPLACE; idempotent)
 - `composition_id` stamped on `RunRecord` (`runner.py`/`sweep.py` optional threading)
 - Cross-composition common-observable aggregation (`core/cross_composition_behavior.py`; pure projection; `CrossCompositionBehaviorResult`; vocabulary from pool; 30 observations; baseline/variant preserved; no ranking/frontier/visualization/CLI)
 - Persistent adaptive-comparison archive (`core/lineage.py` `adaptive_comparison_archive` + idempotent `record_adaptive_comparison`/`get_adaptive_comparison`; read-only `iter/count/find/verify_adaptive_comparison` replay/audit; `feature_linkage_of` evidence-grounded OUTCOME-B resolution; read-only CLI `run_adaptive_comparison_archive.py` `list/get/find/verify/link` with explicit unknown/corrupt/missing semantics)
 
-## Known limitations (Task 2.4 + Task 2.5 Stage 1 & design §16–§17)
+## Known limitations (historical Task 2.4/2.5 notes; current stabilization status above)
 - No cross-composition sweep ranking / diversity frontier / shared sweep behavior aggregation (Stage 4 — deferred to Stage 3+4).
 - No CLI / figure for cross-composition sweeps (Stage 5 — deferred).
-- Only C has a declared mutation space; A/B remain baseline-only unless experiments declare new spaces.
+- Only C has a declared mutation space; A/B/D remain baseline-only (D's real `MutationSpace` is built in Task 3.0 Stage 3) unless experiments declare new spaces.
 - Cross-composition common-observable comparison (sorted union of metric names, missing = `available=False`) deferred to Stage 3.
 - The Stage 3 common-observable envelope is the sorted union of the scalar executor metric names; the genuinely-common subspace is the 3 names every composition produces (`final_field_mean`, `final_field_std`, `field_entropy`). It does not claim physical equivalence of A/B/C quantities absent an explicit semantic alias (not yet built — later stages).
 - Native-substep/engine differences mean A/B/C runs are not bitwise-comparable peers.
@@ -158,3 +172,25 @@ Task 3.0 (NOT started). Task 2.9 complete.
 - Performance on the real archive copy: get 0.031 ms, verify 0.033 ms, feature_linkage_of 0.104 ms, count 0.023 ms, iter 0.030 ms, find 0.027 ms; CLI cold start + list 219.6 ms.
 - Limitation (preserved, not hidden): feature re-analysis/re-ranking remains unavailable at the archive layer because no authoritative durable feature chain exists (OUTCOME B); `resolvable_from_archive` stays False by design.
 - Next exact task: Task 3.0 (NOT started). No commit made; scratch/untracked files untouched.
+
+## Task 3.0 DESIGN — PLAN-ONLY (verified complete)
+- Milestone: Task 3.0 full roadmap re-audit + new composition design completed (PLAN-ONLY). Task 2.9 complete. Task 3.0 implementation NOT started.
+- HEAD verified: `ad8343c` "feat: complete adaptive comparison archive" on `master` tracking `origin/master`. Task 3.0 NOT started at audit time.
+- Audit conclusion: the composition→discovery spine (worlds/capabilities/contracts/templates/catalog/evaluate/observables/sweep/behavior/rank/frontier) is complete and generic, but the executable universe is exactly the 3 hand-authored experiments (A/B/C); none of the 4 documented `COUPLING_UNAVAILABLE` discovery targets has ever been converted. Task 2.9 docs reconfirm the adaptive/archive tail is letter-coupled in action derivation (`_derive_actions_from_spec` keys on A/B/C) with no production archive write caller — deferred architecture work, not this milestone.
+- Recommended direction: **Gated Mover Morphogenesis — `{mesa, py-pde, pymunk/movers}` (Experiment D)**: a new Mesa sensing/decision layer gates Experiment B's unconditionally-depositing movers (hysteresis + cooldown + per-mover gate). Converts exactly one `COUPLING_UNAVAILABLE` shape → EXECUTABLE (catalog {16,4,3}→{16,3,4}); zero generic-core / guard changes; zero new dependencies; A/B/C bitwise-unchanged; first legitimate non-C `MutationSpace`; new policy observables. Candidates B (four-way; coherent but overcomplicated/ambiguous two-`agent_intentions`), C (new engine; violates no-new-deps + pre-empts deferred extraction), D-temporal (no durable feature foundation; engineering convenience) rejected for Task 3.0 with reasons.
+- Build stages: Stage 1 = composition declaration + contracts + adapter override + ONE structural test (no execution/sweep); Stage 2 = short-horizon deterministic baseline + gating-OFF control + boundedness/replay; Stage 3 = integration through existing discovery pipeline (search → common observables → sweep → behavior → rank → frontier). Smallest Stage 1 is the architecture proof only.
+- Files written (plan-only): `TASK_3.0_DESIGN.md` (42 sections, repository-grounded), `PROJECT_STATE.md` (this update). No source/test/dependency/world/experiment/CLI changes; no execution; no commit.
+- Next exact task: Task 3.0 Build Stage 1 (NOT started). Stage 2/3 / implementation NOT started; do not start Stage 1 until approved.
+- Do-not-change: no source/test/dependency/world/experiment changes; keep guarded core files unchanged; no new dependencies; no commit; scratch/untracked files untouched; no automatic coupling inference (unwired stays COUPLING_UNAVAILABLE).
+
+## Task 3.0 Build Stage 1 Update (current)
+- Milestone: Task 3.0 Build Stage 1 complete (Experiment D — Gated Mover Morphogenesis — declared/contracted/catalogued/executor-registered). Stage 1 = the design's §35 "smallest Stage 1" exactly: composition declaration + contracts + Mesa gating adapter + catalog + ONE structural test file; no simulation, no sweep, no CLI in Stage 1 scope (§34 hard stops). The runtime proof used the FAST_STEPS=2 fast-catalog smoke; the real 160-step baseline was verified once as a slow-gate regression (D ≈ 63 s).
+- Science (D): Experiment B's unconditionally-depositing movers are now gated by a Mesa sensing/decision layer that reads the morphogen field at each mover, applies hysteresis + cooldown per mover, and emits `deposition_events`/`deposition_suppression`/`active_gates`/`gate_switch_rate` policy observables (8 metrics total). The `mover-gate` contract consumes `rigid_body` (deviation from design §10's proposed `field_sources` — the pymunk/MoversAdapter exposes `rigid_body`, not `field_sources`; documented in the test comment).
+- Landing surface: `experiments/gated_movers/{coupling,model,experiment}.py`, `experiments/catalog.py` (template/executor/adapters + D baseline-only `space=None` binding in `repository_parameter_spaces()`), `tests/test_gated_movers_stage1.py` (4 tests), `tests/test_templates.py` D operations drift-guard, `worlds/gated_movers.yaml`, `TASK_3.0_STAGE1_REPORT.md`.
+- Guard: **zero generic-core / guard changes** — no pinned `CORE_COMMIT_HASHES`/hash re-baseline this stage; the only sanctioned test changes are catalog-count re-baselines in the stages whose pins enumerate the executable universe: stage2 (3→4 EXECUTABLE, `invalid()==20`→19), stage3 (3→4, 16→20 common names, `/3`→`/4`), stage4 (3→4 incl. frontier/beam/`[1,2,3,4]`), stage5 (`"4 EXECUTABLE (A, B, C, D)"`, `"runs=4)"`, `["A","B","C","D"]`), cross-sweep stage1 (`len(spaces)==4`), cross-composition-sweep stage2 (`n_baseline_only==3`, `len(bindings)==4`, `total_evaluations==4+27`, `cross_composition_sweep_count==4`).
+- Correction of a prior plan claim: the sweep layer requires a binding entry for EVERY `catalog.executable()` (it raises `CrossCompositionSweepError` otherwise), so D must have a baseline-only `space=None`/`ref=None` binding in `repository_parameter_spaces()` now, not just in Stage 3. D's real `MutationSpace` stays deferred to Stage 3.
+- Verification: fast suite `-m "not slow"` = **686 passed / 1 failed** (the single failure is the documented pre-existing historical `test_cross_composition_sweep_cli_stage5.py::test_cli_parse_and_analysis_path`, isolated per design §32; identical on pristine HEAD); slow suite re-run in full = **13/13 passed** (stage2 9m31s, stage3 9m27s, stage4 5m01s, stage5 5m08s, real cross-composition sweep incl. D baseline 21m21s, l_canonical A/B, executor-vs-facade ×2, network canonical, A/B/C bitwise). Focused: 41 (Stage-1 + templates), 76 (catalog/search/cross-sweep), 98 (stage2/3/4/5), 70 (sweep/behavior/CLI) — all green. ruff: clean on all changed files; pyright: 0 errors on changed files (pre-existing Task 2.5-type optional-access residuals in `test_cross_composition_sweep_stage2.py` are untouched legacy, not Task 3.0); `run_catalog_demo.py` renders the 4-EXECUTABLE catalog.
+- Real-machinery proof: the 4 real 160-step baselines evaluated individually in one process — A 89.9 s, D 63.1 s (8 metrics incl. the 4 new policy observables), B 64.4 s, C 85.4 s; all record root lineage runs with `composition_id` stamps; replay deterministic.
+- Limitation (preserved, not hidden): D's gating science has NOT been validated (no baseline-vs-gating-OFF comparison; no boundedness); that is Task 3.0 Build Stage 2.
+- Next exact task: Task 3.0 Build Stage 2 (NOT started; do not start until issued).
+- Do-not-change: no commit made; scratch/untracked files untouched; keep guarded core files unchanged (no pinned hash touched); no new dependencies; no experiment modifications to A/B/C.

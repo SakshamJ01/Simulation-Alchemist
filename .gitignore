@@ -24,5 +24,10 @@ Thumbs.db
 dist/
 build/
 
+# Local stabilization scratch and databases (repository root only)
+/fix_*.py
+/test_*.py
+/*.db
+
 # NOTE: figures/ is intentionally NOT ignored -- the baseline evidence figures
 # are part of the verified Task 0.3 repository and should be tracked.

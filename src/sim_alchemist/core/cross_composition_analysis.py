@@ -7,7 +7,7 @@ Reuses Task 1.8/2.0 ranking + diversity machinery unchanged.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from sim_alchemist.core.behavior import (
     BehaviorFeatures,
@@ -24,14 +24,11 @@ from sim_alchemist.core.composition_analysis import (
     CompositionRanking,
     FrontierDiagnostics,
 )
-from sim_alchemist.core.cross_composition_behavior import (
-    CrossCompositionBehaviorResult,
-    CrossCompositionObservation,
-)
+from sim_alchemist.core.cross_composition_behavior import CrossCompositionObservation
+from sim_alchemist.core.world import WorldDefinition
 
 __all__ = [
     "CrossCompositionSweepAnalysisResult",
-    "CrossCompositionSweepAnalyst",
     "analyze_sweep_behavior",
 ]
 
@@ -63,7 +60,7 @@ class CrossCompositionSweepAnalysisResult:
             "cross_split_sweep_id": self.cross_split_sweep_id,
             "profile": self.profile.name,
             "vocabulary": list(self.vocabulary),
-            "ranking_id": getattr(self.ranking, "profile", None).name if hasattr(self.ranking, "profile") else None,
+            "ranking_id": self.ranking.profile.name,
             "frontier_members": len(self.frontier.members) if hasattr(self.frontier, "members") else 0,
             "timing": (
                 self.timing.as_dict()
@@ -76,10 +73,10 @@ class CrossCompositionSweepAnalysisResult:
 class _AnalysisProxy:
     """Minimal proxy satisfying rank_by_profile / feature extraction."""
 
-    def __init__(self, obs: CrossCompositionBehaviorResult, composition_id: str, metrics: dict[str, float]):
-        self.run_id = obs.run_id if hasattr(obs, "run_id") else str(obs)
-        self.composition_id = composition_id
-        self.baseline = obs.baseline if hasattr(obs, "baseline") else True
+    def __init__(self, obs: CrossCompositionObservation, metrics: dict[str, float]):
+        self.run_id = obs.run_id
+        self.composition_id = obs.composition_id
+        self.baseline = obs.baseline
         # Build valid BehaviorFeatures from scalar metrics (temporal series len=1)
         units: dict[str, Any] = {}
         for k, v in metrics.items():
@@ -104,15 +101,6 @@ def _feature_dict_from_observation(obs: CrossCompositionObservation) -> dict[str
         if obs_row.available and obs_row.value is not None:
             out[obs_row.name] = float(obs_row.value)
     return out
-
-
-def _build_proxy_population(
-    behavior_result,
-) -> list[_AnalysisProxy]:
-    proxies: list[_AnalysisProxy] = []
-    for obs in behavior_result.observations:
-        proxies.append(_AnalysisProxy(obs, _feature_dict_from_observation(obs)))
-    return proxies
 
 
 def _analysis_id_of(
@@ -155,7 +143,7 @@ def analyze_sweep_behavior(
             for obs_row in obs.common_observables
             if obs_row.available and obs_row.value is not None
         }
-        proxies.append(_AnalysisProxy(obs, obs.composition_id, metrics))
+        proxies.append(_AnalysisProxy(obs, metrics))
     # Derive vocabulary from proxies (genuinely common = names present in all)
     names = sorted({name for p in proxies for name in p.features.units})
     truly_common = sorted(
@@ -174,7 +162,7 @@ def analyze_sweep_behavior(
             FeaturedRun(
                 run_id=p.run_id,
                 kind="composition",
-                world=None,  # not needed for ranking; kept minimal
+                world=cast(WorldDefinition, None),  # not needed for ranking
                 mutations=(),
                 metrics=p.metrics,
                 features=p.features,
@@ -182,30 +170,6 @@ def analyze_sweep_behavior(
         )
     # Call ranking machinery directly
     ranking_result = rank_by_profile(featured, profile)
-    # Build CompositionRanking from ranking_result
-    ranking_rows: list = []
-    for row in ranking_result.rows:
-        ranking_rows.append(
-            # Import locally to avoid circular issues if any
-            CompositionRankedRow(
-                rank=row.rank,
-                composition_id=p.com_dict.get(row.run_id, "") if hasattr(p, "com_dict") else row.run_id,  # simplified; real mapping preserved via proxy
-                shape_id="",
-                run_id=row.run_id,
-                world_hash="",
-                world_id="",
-                status="executed",
-                score=row.score,
-                raw={k: row.raw_features.get(k) for k in (row.contributions or {})},
-                normalized={k: row.contributions[k].normalized for k in (row.contributions or {})},
-                contributions=row.contributions,
-                explanation=(),
-                evaluation=None,
-                observable_set=None,
-            )
-        )
-    # Actually, using internal _featured_runs + ranking result is cleaner.
-    # Given time, rebuild CompositionRanking manually from ranking_result.
     from sim_alchemist.core.composition_analysis import CompositionRanking
     ranking = CompositionRanking(
         profile=profile,

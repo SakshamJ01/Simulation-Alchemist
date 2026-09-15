@@ -6,10 +6,10 @@ single quality-vs-diversity artifact.  It only *reads* Stage 4 results
 per-composition isolation map): every plotted quantity is taken from the
 analysis, never recomputed here.
 
-``composition_labels`` maps the three canonical composition ids to their
-human-readable experiment labels (A / B / C) via ``template_composition_id``,
-so both the fast (``--steps 2``) and the canonical (160-step) runs label the
-same compositions.
+``composition_labels`` maps the four canonical composition ids to their
+human-readable experiment labels (A / B / C / D) via ``template_composition_id``
+(Task 3.0 adds D), so both the fast (``--steps 2``) and the canonical (160-step)
+runs label the same compositions.
 
 The figure is entirely deterministic: panels follow the analysis order, the
 points within a panel are sorted by (label, composition id), and all plotted
@@ -30,6 +30,7 @@ from chemomech.coupling import build_morphogenesis_template
 from experiments.field_guided_movers.coupling import (
     build_field_guided_movers_template,
 )
+from experiments.gated_movers.coupling import build_gated_movers_template
 from experiments.network_morphogenesis.coupling import (
     build_network_morphogenesis_template,
 )
@@ -39,12 +40,13 @@ __all__ = ["composition_labels", "make_diversity_scatter"]
 
 
 def composition_labels() -> dict[str, str]:
-    """The three canonical composition ids -> experiment labels (A/B/C)."""
+    """The four canonical composition ids -> experiment labels (A/B/C/D)."""
     labels: dict[str, str] = {}
     for label, build in (
         ("A", build_morphogenesis_template),
         ("B", build_field_guided_movers_template),
         ("C", build_network_morphogenesis_template),
+        ("D", build_gated_movers_template),
     ):
         labels[template_composition_id(build())] = label
     return labels

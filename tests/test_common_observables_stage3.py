@@ -121,10 +121,10 @@ class TestExtraction:
         common = common_observable_names(search_fixture.result.evaluations)
         assert common == tuple(sorted(common))
         assert common == tuple(sorted(common_observable_names(search_fixture.result.evaluations)))
-        assert len(common) == 16  # the deterministic A/B/C union
+        assert len(common) == 20  # the deterministic A/B/C/D union
         assert common_observable_names([]) == ()
         for name in ("final_field_mean", "final_field_std", "field_entropy"):
-            assert name in common  # genuinely common across all three
+            assert name in common  # genuinely common across all four
 
     def test_a_each_set_covers_the_sorted_vocabulary(self, search_fixture: _SearchFixture) -> None:
         common = common_observable_names(search_fixture.result.evaluations)
@@ -219,7 +219,7 @@ class TestDeterminism:
         assert replay.discovery_id == search_fixture.result.discovery_id
         assert replay.as_dict(canonical=True) == before
         assert replay.observable_sets == search_fixture.result.observable_sets
-        assert search_fixture.store.run_count == 3
+        assert search_fixture.store.run_count == 4
 
     def test_c_fresh_store_bitwise_exact(self) -> None:
         def _run() -> dict:
@@ -237,7 +237,7 @@ class TestDeterminism:
 # ----------------------------------------------------------------------
 class TestLineagePreserved:
     def test_d_no_new_runs_and_no_observable_tables(self, search_fixture: _SearchFixture) -> None:
-        assert search_fixture.store.run_count == 3
+        assert search_fixture.store.run_count == 4
         tables = [
             row[0]
             for row in search_fixture.store._conn.execute(
@@ -263,13 +263,13 @@ class TestOneSetPerEvaluation:
     def test_e_aligned_with_evaluations(self, search_fixture: _SearchFixture) -> None:
         evaluations = search_fixture.result.evaluations
         observable_sets = search_fixture.result.observable_sets
-        assert len(observable_sets) == len(evaluations) == 3
+        assert len(observable_sets) == len(evaluations) == 4
         assert [s.composition_id for s in observable_sets] == [
             e.composition_id for e in evaluations
         ]
         assert [s.shape_id for s in observable_sets] == [e.shape_id for e in evaluations]
         assert [s.run_id for s in observable_sets] == [e.run_id for e in evaluations]
-        assert [s.status for s in observable_sets] == [EXECUTABLE] * 3
+        assert [s.status for s in observable_sets] == [EXECUTABLE] * 4
 
     def test_e_observable_set_lookup(self, search_fixture: _SearchFixture) -> None:
         first = search_fixture.result.evaluations[0]
@@ -382,7 +382,7 @@ class TestStage2Compatibility:
         assert isinstance(result, CompositionSearchResult)
         assert len(result.discovery_id) == 24
         assert result.evaluation(result.composition_ids[0]) is result.evaluations[0]
-        assert result.timing.n_executable == result.timing.n_evaluated == 3
+        assert result.timing.n_executable == result.timing.n_evaluated == 4
 
     def test_j_stage2_style_construction_without_sets_is_valid(self) -> None:
         timing = CompositionSearchTiming(
@@ -409,14 +409,14 @@ class TestStage2Compatibility:
 class TestTimingSplit:
     def test_k_phases_and_totals(self, search_fixture: _SearchFixture) -> None:
         timing = search_fixture.result.timing
-        assert timing.n_executable == 3
-        assert timing.n_evaluated == 3
+        assert timing.n_executable == 4
+        assert timing.n_evaluated == 4
         assert timing.evaluation_seconds > 0
         assert timing.observation_seconds >= 0
         assert timing.total_seconds == pytest.approx(
             timing.evaluation_seconds + timing.observation_seconds, abs=1e-3
         )
-        assert timing.mean_seconds == pytest.approx(timing.total_seconds / 3)
+        assert timing.mean_seconds == pytest.approx(timing.total_seconds / 4)
         assert set(timing.as_dict()) == {
             "n_executable",
             "n_evaluated",
@@ -446,7 +446,7 @@ class TestIdempotency:
         before = search_fixture.result.as_dict(canonical=True)
         search_fixture.searcher.search(_spec())
         search_fixture.searcher.search(_spec())
-        assert search_fixture.store.run_count == 3
+        assert search_fixture.store.run_count == 4
         assert search_fixture.result.as_dict(canonical=True) == before
 
 
@@ -579,15 +579,15 @@ class TestEmptyAndInvalid:
 @pytest.mark.slow
 def test_slow_real_search_over_repository_catalog() -> None:
     catalog = build_repository_catalog(generate_worlds=True)
-    assert len(catalog.executable()) == 3
+    assert len(catalog.executable()) == 4
     store = LineageStore(":memory:")
     searcher = CompositionSearcher(catalog, repository_executors(), store)
     result = searcher.search(_spec())
 
-    assert len(result.observable_sets) == 3
+    assert len(result.observable_sets) == 4
     by_id = {c.composition_id: c for c in catalog.executable()}
     common = common_observable_names(result.evaluations)
-    assert len(common) == 16
+    assert len(common) == 20
     for observable_set in result.observable_sets:
         world = by_id[observable_set.composition_id].generated_world
         assert world is not None
@@ -600,15 +600,15 @@ def test_slow_real_search_over_repository_catalog() -> None:
         assert record.composition_id == observable_set.composition_id
 
     timing = result.timing
-    assert timing.n_executable == timing.n_evaluated == 3
+    assert timing.n_executable == timing.n_evaluated == 4
     assert timing.evaluation_seconds > 0
     assert timing.observation_seconds > 0
     assert timing.total_seconds > timing.evaluation_seconds
-    assert store.run_count == 3
+    assert store.run_count == 4
 
     replay = searcher.search(_spec())
     assert replay.discovery_id == result.discovery_id
     assert replay.as_dict(canonical=True) == result.as_dict(canonical=True)
     assert replay.observable_sets == result.observable_sets
-    assert store.run_count == 3
+    assert store.run_count == 4
     store.close()

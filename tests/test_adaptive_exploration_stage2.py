@@ -2,17 +2,26 @@
 from __future__ import annotations
 
 import sys
+
 sys.path.insert(0, "src")
 
-from sim_alchemist.core.adaptive_exploration import AdaptiveExplorationSpec, adaptive_exploration_id_of
+from sim_alchemist.core.adaptive_exploration import (
+    AdaptiveExplorationSpec,
+    adaptive_exploration_id_of,
+)
 from sim_alchemist.core.adaptive_exploration_runner import execute_adaptive_exploration
+from sim_alchemist.core.adaptive_sweep import AdaptiveSignal
+
 
 def test_stage2_spec_to_execution_real_c_continuation():
     """A. spec -> execution; B. constrained subspace (freeze source_amplitude via spec); E. C only."""
     import yaml
-    from experiments.network_morphogenesis.experiment import build_network_metrics, run_network_world
+
+    from experiments.network_morphogenesis.experiment import (
+        build_network_metrics,
+        run_network_world,
+    )
     from sim_alchemist.core.world import WorldDefinition
-    from sim_alchemist.core.adaptive_sweep import AdaptiveSignal
 
     with open("worlds/adaptive_network.yaml") as f:
         d = yaml.safe_load(f)
@@ -26,7 +35,7 @@ def test_stage2_spec_to_execution_real_c_continuation():
     def observe(outcome):
         try:
             m = build_network_metrics(outcome.result)
-        except Exception:
+        except (AttributeError, KeyError, TypeError, ValueError):
             m = {}
         v = float(m.get("final_field_mean", 0.5))
         # Configured threshold 0.6 so ~0.5 yields CONTINUE (demonstrates continuation)
@@ -73,9 +82,14 @@ def test_stage2_invalid_spec_rejected():
     """C. invalid candidates rejected; F. bounded; I. budget positive."""
     # Unknown composition -> INVALID (no execution)
     spec_bad = AdaptiveExplorationSpec(composition_ids=("BAD",), budget=1)
-    from sim_alchemist.core.adaptive_exploration_runner import execute_adaptive_exploration
     # No mutation_space => no execution failure; status should reflect INVALID
-    result_bad = execute_adaptive_exploration(spec_bad, lambda a: ("id", None), lambda o: None, max_passes=1, seed=0)
+    result_bad = execute_adaptive_exploration(
+        spec_bad,
+        lambda a: ("id", None),
+        lambda o: AdaptiveSignal(name="missing", value=None, available=False),
+        max_passes=1,
+        seed=0,
+    )
     # Note: with mutation_space=None, evaluate_exploration_spec uses None; if catalog provided would be INVALID.
     # Here just assert result object exists and exploration_id is deterministic.
     assert result_bad.exploration_id == adaptive_exploration_id_of(spec_bad, seed=0)
@@ -83,7 +97,9 @@ def test_stage2_invalid_spec_rejected():
 
 def test_stage2_core_purity_no_optimizer():
     """P. no optimization; R. core purity."""
-    import inspect, sim_alchemist.core.adaptive_exploration_runner as mod
+    import inspect
+
+    import sim_alchemist.core.adaptive_exploration_runner as mod
     src = inspect.getsource(mod)
     for bad in ("scipy.optimize", "sklearn", "torch", "tensorflow", "Bayes", "genetic"):
         assert bad not in src, f"optimizer reference {bad} in runner"

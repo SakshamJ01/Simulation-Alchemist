@@ -89,11 +89,8 @@ def test_a_registry_covers_all_bound_executables() -> None:
     executable_ids = {
         c.composition_id for c in catalog.executable() if c.composition_id is not None
     }
-    # Task 3.0 Build Stage 1: D owns a binding entry with ``space=None`` ("no
-    # registered parameter sweep space", distinct from error/empty) so the
-    # cross-composition sweep layer can plan it baseline-only; the real gating
-    # MutationSpace lands in Build Stage 3.  The bound set therefore has one
-    # entry per executable composition, four total.
+    # Task 3.0 Build Stage 3: D owns a real gate-policy MutationSpace.  The
+    # bound set still has one entry per executable composition, four total.
     assert set(spaces) <= executable_ids
     assert len(spaces) == 4
     assert len(executable_ids) == 4
@@ -102,11 +99,10 @@ def test_a_registry_covers_all_bound_executables() -> None:
 def test_b_valid_space_where_defined() -> None:
     spaces = repository_parameter_spaces()
     with_space = [b for b in spaces.values() if b.has_space]
-    assert len(with_space) == 1
-    binding = with_space[0]
-    assert binding.space is not None
-    assert binding.space.variant_count == 3 * 3 * 3
-    assert binding.ref is not None
+    assert len(with_space) == 2
+    counts = sorted(b.space.variant_count for b in with_space if b.space is not None)
+    assert counts == [2 * 2, 3 * 3 * 3]
+    assert all(b.ref is not None for b in with_space)
 
 
 def test_c_none_where_no_legitimate_space() -> None:
@@ -136,12 +132,14 @@ def test_f_no_fake_shared_parameter_dimensions() -> None:
     shared = {p for b in spaces.values() if b.space is not None for p in (
         d.path for d in b.space.dimensions
     )}
-    # A / B declare no space at all; the only space present is the network one,
-    # so no parameter path is shared across two distinct compositions.
+    # A / B declare no space at all; C and D expose only their own local
+    # experiment-owned dimensions.
     assert shared == {
         "components.network.config.loss",
         "config.force_fmax",
         "config.source_amplitude",
+        "config.gate_threshold",
+        "config.gate_cooldown",
     }
 
 

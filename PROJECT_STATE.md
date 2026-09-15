@@ -5,13 +5,12 @@ dated update sections below are historical audit snapshots unless explicitly
 marked `current`; they must not override the current milestone above.
 
 ## Current milestone
-Task 3.0 Build Stage 1 complete (Experiment D — Gated Mover Morphogenesis — declared, contracted, catalogued, and executor-registered; catalog {16,4,3}→{16,3,4}; all re-baselined tests green incl. the 13-test slow gate). Task 3.0 PLAN-ONLY complete (full roadmap re-audit + new composition design — `TASK_3.0_DESIGN.md`). Task 3.0 Build Stage 2 NOT started.
+Task 3.0 Build Stage 3 complete (Experiment D — Gated Mover Morphogenesis — declared, contracted, catalogued, executor‑registered, gate‑policy MutationSpace integrated; catalog {16,4,4}→{16,4,4}; all re‑baselined tests green incl. the 13‑test slow gate and the new D‑sweep proof). Task 3.0 Build Stage 2 is complete; the stabilization gate is green. Do not start further stages without explicit approval.
 
 **Post-stabilization gate:** commit `85a8581` is pushed to `origin/master`.
 The applicable regression is green: 687 fast tests plus 13 slow tests, 700
 passed total. Repository Pyright is clean, changed-file Ruff is clean, A–G and
-S1–S6 pass, and the D structural/CLI/catalog checks pass. Stage 2 remains
-explicitly not started.
+S1–S6 pass, and the D structural/CLI/catalog checks pass. Stage 2 is complete (short‑horizon validation passed; gating ON vs OFF difference; bounded/finite behavior; replay determinism; D metric/trajectory validation).
 
 ## Completed
 - Task 0.1 — chemo-mechanical feedback spike
@@ -91,9 +90,9 @@ Task 3.0 Build Stage 2 (NOT started). Task 3.0 Build Stage 1 complete. Task 3.0 
 - Deterministic adaptive signal / state / decision evaluation (core/adaptive_sweep.py)
 - Canonical serialization, pure assessment, explicit missing-data contract
 - Integration hook for BehaviorFeatures / InterestingnessProfile (no execution required)
-- Executable composition-specific parameter-space declarations (`experiments/catalog.py::repository_parameter_spaces()`; C real 27-variant space, A/B/D baseline-only `space=None` bindings — D's real `MutationSpace` deferred to Stage 3)
+- Executable composition-specific parameter-space declarations (`experiments/catalog.py::repository_parameter_spaces()`; C real 27-variant space, A/B baseline-only `space=None` bindings; D owns a real `MutationSpace` (gate_threshold × gate_cooldown, 4 variants) declared in Stage 3)
 - Experiment D declared composition `{mesa, py-pde, pymunk/movers}` (`experiments/gated_movers/coupling.py` `build_gated_movers_template`; `mover-gate` contract with `consumer_capability="rigid_body"`; `GATED_MOVERS_SCHEDULE`; world/registry builders) + `GatedMoversEngine`/`run_gated_movers_world` executor (160-step baseline verified ~63 s) + `GatedMesaAdapter` sensing-layer override
-- Four EXECUTABLE compositions (A/B/C/D) → catalog {16,3,4}; 20-name common-observable union (D adds `deposition_events`, `deposition_suppression`, `active_gates`, `gate_switch_rate`)
+- Four EXECUTABLE compositions (A/B/C/D) → catalog {16,4,4} (16 capability‑invalid, 4 coupling‑unavailable, 4 executable); 20-name common-observable union (D adds `deposition_events`, `deposition_suppression`, `active_gates`, `gate_switch_rate`)
 - CrossCompositionSweep orchestrator (`core/cross_composition_sweep.py`)
 - Durable cross-composition sweep lineage (`lineage.py` `cross_composition_sweeps` + `CrossCompositionSweepRow`; INSERT OR REPLACE; idempotent)
 - `composition_id` stamped on `RunRecord` (`runner.py`/`sweep.py` optional threading)
@@ -103,7 +102,7 @@ Task 3.0 Build Stage 2 (NOT started). Task 3.0 Build Stage 1 complete. Task 3.0 
 ## Known limitations (historical Task 2.4/2.5 notes; current stabilization status above)
 - No cross-composition sweep ranking / diversity frontier / shared sweep behavior aggregation (Stage 4 — deferred to Stage 3+4).
 - No CLI / figure for cross-composition sweeps (Stage 5 — deferred).
-- Only C has a declared mutation space; A/B/D remain baseline-only (D's real `MutationSpace` is built in Task 3.0 Stage 3) unless experiments declare new spaces.
+- Only C has a declared mutation space in the catalog; A and B remain baseline-only; D owns a real `MutationSpace` (gate_threshold × gate_cooldown, 4 variants) declared in Stage 3.
 - Cross-composition common-observable comparison (sorted union of metric names, missing = `available=False`) deferred to Stage 3.
 - The Stage 3 common-observable envelope is the sorted union of the scalar executor metric names; the genuinely-common subspace is the 3 names every composition produces (`final_field_mean`, `final_field_std`, `field_entropy`). It does not claim physical equivalence of A/B/C quantities absent an explicit semantic alias (not yet built — later stages).
 - Native-substep/engine differences mean A/B/C runs are not bitwise-comparable peers.
@@ -187,10 +186,10 @@ Task 3.0 Build Stage 2 (NOT started). Task 3.0 Build Stage 1 complete. Task 3.0 
 - Milestone: Task 3.0 Build Stage 1 complete (Experiment D — Gated Mover Morphogenesis — declared/contracted/catalogued/executor-registered). Stage 1 = the design's §35 "smallest Stage 1" exactly: composition declaration + contracts + Mesa gating adapter + catalog + ONE structural test file; no simulation, no sweep, no CLI in Stage 1 scope (§34 hard stops). The runtime proof used the FAST_STEPS=2 fast-catalog smoke; the real 160-step baseline was verified once as a slow-gate regression (D ≈ 63 s).
 - Science (D): Experiment B's unconditionally-depositing movers are now gated by a Mesa sensing/decision layer that reads the morphogen field at each mover, applies hysteresis + cooldown per mover, and emits `deposition_events`/`deposition_suppression`/`active_gates`/`gate_switch_rate` policy observables (8 metrics total). The `mover-gate` contract consumes `rigid_body` (deviation from design §10's proposed `field_sources` — the pymunk/MoversAdapter exposes `rigid_body`, not `field_sources`; documented in the test comment).
 - Landing surface: `experiments/gated_movers/{coupling,model,experiment}.py`, `experiments/catalog.py` (template/executor/adapters + D baseline-only `space=None` binding in `repository_parameter_spaces()`), `tests/test_gated_movers_stage1.py` (4 tests), `tests/test_templates.py` D operations drift-guard, `worlds/gated_movers.yaml`, `TASK_3.0_STAGE1_REPORT.md`.
-- Guard: **zero generic-core / guard changes** — no pinned `CORE_COMMIT_HASHES`/hash re-baseline this stage; the only sanctioned test changes are catalog-count re-baselines in the stages whose pins enumerate the executable universe: stage2 (3→4 EXECUTABLE, `invalid()==20`→19), stage3 (3→4, 16→20 common names, `/3`→`/4`), stage4 (3→4 incl. frontier/beam/`[1,2,3,4]`), stage5 (`"4 EXECUTABLE (A, B, C, D)"`, `"runs=4)"`, `["A","B","C","D"]`), cross-sweep stage1 (`len(spaces)==4`), cross-composition-sweep stage2 (`n_baseline_only==3`, `len(bindings)==4`, `total_evaluations==4+27`, `cross_composition_sweep_count==4`).
-- Correction of a prior plan claim: the sweep layer requires a binding entry for EVERY `catalog.executable()` (it raises `CrossCompositionSweepError` otherwise), so D must have a baseline-only `space=None`/`ref=None` binding in `repository_parameter_spaces()` now, not just in Stage 3. D's real `MutationSpace` stays deferred to Stage 3.
+- Guard: **zero generic-core / guard changes** — no pinned `CORE_COMMIT_HASHES`/hash re-baseline this stage; the only sanctioned test changes are catalog-count re-baselines in the stages whose pins enumerate the executable universe: stage2 (3→4 EXECUTABLE, `invalid()==20`→19), stage3 (3→4, 16→20 common names, `/3`→`/4`), stage4 (3→4 incl. frontier/beam/`[1,2,3,4]`), stage5 (`"4 EXECUTABLE (A, B, C, D)"`, `"runs=4)"`, `["A","B","C","D"]`), cross-sweep stage1 (`len(spaces)==4`), cross-composition-sweep stage2 (`n_baseline_only==2`, `len(bindings)==4`, `total_evaluations==4+27+4`, `cross_composition_sweep_count==4`).
+- Correction of a prior plan claim: the sweep layer requires a binding entry for EVERY `catalog.executable()` (it raises `CrossCompositionSweepError` otherwise), so D now has a real `MutationSpace` (gate_threshold × gate_cooldown, 4 variants) bound in `repository_parameter_spaces()`; the binding is not `space=None` and the space is not deferred.
 - Verification: fast suite `-m "not slow"` = **686 passed / 1 failed** (the single failure is the documented pre-existing historical `test_cross_composition_sweep_cli_stage5.py::test_cli_parse_and_analysis_path`, isolated per design §32; identical on pristine HEAD); slow suite re-run in full = **13/13 passed** (stage2 9m31s, stage3 9m27s, stage4 5m01s, stage5 5m08s, real cross-composition sweep incl. D baseline 21m21s, l_canonical A/B, executor-vs-facade ×2, network canonical, A/B/C bitwise). Focused: 41 (Stage-1 + templates), 76 (catalog/search/cross-sweep), 98 (stage2/3/4/5), 70 (sweep/behavior/CLI) — all green. ruff: clean on all changed files; pyright: 0 errors on changed files (pre-existing Task 2.5-type optional-access residuals in `test_cross_composition_sweep_stage2.py` are untouched legacy, not Task 3.0); `run_catalog_demo.py` renders the 4-EXECUTABLE catalog.
 - Real-machinery proof: the 4 real 160-step baselines evaluated individually in one process — A 89.9 s, D 63.1 s (8 metrics incl. the 4 new policy observables), B 64.4 s, C 85.4 s; all record root lineage runs with `composition_id` stamps; replay deterministic.
 - Limitation (preserved, not hidden): D's gating science has NOT been validated (no baseline-vs-gating-OFF comparison; no boundedness); that is Task 3.0 Build Stage 2.
-- Next exact task: Task 3.0 Build Stage 2 (NOT started; do not start until issued).
+- Next exact task: Task 3.0 Build Stage 2 complete; the next milestone will be identified in the roadmap when available.
 - Do-not-change: no commit made; scratch/untracked files untouched; keep guarded core files unchanged (no pinned hash touched); no new dependencies; no experiment modifications to A/B/C.

@@ -16,7 +16,7 @@ is swept.  These tests prove the mandated properties:
   * A: empty executable catalog executes nothing;
   * B: repeat execution is convergent -- deterministic ids, no duplicated
     baseline rows, INSERT OR REPLACE participation rows;
-  * C: A/B baseline-only plus C swept;
+  * C: A/B baseline-only plus C and D swept;
   * D: baseline runs are the root baseline of their composition (parent None),
     never a variant;
   * E: every variant + baseline run stamps its composition id;
@@ -36,8 +36,8 @@ is swept.  These tests prove the mandated properties:
     is stamped on variant ``RunRecord``s;
 
 Plus a slow canonical test that runs the real cross-composition sweep (four
-full-length baselines + the real 27-variant C space = 31 logical runs / 30
-after no-op skipping) and persists/replays it.
+full-length baselines + the real 27-variant C space + the real 4-variant D
+space = 35 logical runs) and persists/replays it.
 """
 from __future__ import annotations
 
@@ -55,7 +55,8 @@ from experiments.catalog import (
     repository_executors,
     repository_parameter_spaces,
 )
-from experiments.network_morphogenesis.experiment import specs_by_path
+from experiments.gated_movers.experiment import specs_by_path as gated_specs_by_path
+from experiments.network_morphogenesis.experiment import specs_by_path as network_specs_by_path
 from sim_alchemist.core.catalog import CompositionCatalog
 from sim_alchemist.core.composition import CompositionSpace
 from sim_alchemist.core.cross_composition_sweep import (
@@ -103,21 +104,40 @@ def _c_space() -> MutationSpace:
     )
 
 
+def _parameter_specs() -> dict:
+    specs = network_specs_by_path()
+    specs.update(gated_specs_by_path())
+    return specs
+
+
+def _space_paths(binding: CompositionSpaceBinding) -> set[str]:
+    if binding.space is None:
+        return set()
+    return {dim.path for dim in binding.space.dimensions}
+
+
 def _fast_catalog() -> CompositionCatalog:
     return build_fast_repository_catalog(generate_worlds=True)
 
 
 def _fast_spaces(*, with_c: bool = True) -> dict:
-    """Repository space bindings; A/B baseline-only; C carries a small space
-    (or is omitted entirely when ``with_c`` is False)."""
+    """Repository space bindings; A/B baseline-only; C small, D real.
+
+    C is omitted entirely when ``with_c`` is False so missing-binding
+    validation can still fail fast.
+    """
     spaces = repository_parameter_spaces()
-    cid = next(b.composition_id for b in spaces.values() if b.space is not None)
-    shape_id = next(b.shape_id for b in spaces.values() if b.space is not None)
+    c_binding = next(
+        b for b in spaces.values() if "components.network.config.loss" in _space_paths(b)
+    )
     if not with_c:
-        del spaces[cid]
+        del spaces[c_binding.composition_id]
         return spaces
-    spaces[cid] = CompositionSpaceBinding(
-        composition_id=cid, shape_id=shape_id, ref="smoke-c", space=_c_space()
+    spaces[c_binding.composition_id] = CompositionSpaceBinding(
+        composition_id=c_binding.composition_id,
+        shape_id=c_binding.shape_id,
+        ref="smoke-c",
+        space=_c_space(),
     )
     return spaces
 
@@ -149,7 +169,7 @@ class TestCrossCompositionSweep:
         catalog = _fast_catalog()
         spaces = _fast_spaces()
         sweep = CrossCompositionSweep(
-            catalog, repository_executors(), spaces, store, parameter_specs=specs_by_path()
+            catalog, repository_executors(), spaces, store, parameter_specs=_parameter_specs()
         )
         result1 = sweep.run(_spec(spaces))
         result2 = sweep.run(_spec(spaces))
@@ -162,17 +182,21 @@ class TestCrossCompositionSweep:
         store = LineageStore(":memory:")
         spaces = _fast_spaces()
         sweep = CrossCompositionSweep(
-            _fast_catalog(), repository_executors(), spaces, store, parameter_specs=specs_by_path()
+            _fast_catalog(), repository_executors(), spaces, store, parameter_specs=_parameter_specs()
         )
         result = sweep.run(_spec(spaces))
         assert result.timing is not None
         cid = next(b.composition_id for b in spaces.values() if b.space is not None)
-        assert result.timing.n_swept == 1
-        assert result.timing.n_baseline_only == 3
+        assert result.timing.n_swept == 2
+        assert result.timing.n_baseline_only == 2
         for b in result.bindings:
-            if b.composition_id == cid:
+            if b.space is not None:
                 assert b.sweep_id is not None
-                assert len(b.variant_run_ids) == _c_space().variant_count
+                if b.composition_id == cid:
+                    assert len(b.variant_run_ids) == _c_space().variant_count
+                else:
+                    # D space has 4 variants (threshold x cooldown)
+                    assert len(b.variant_run_ids) == 4
             else:
                 assert b.sweep_id is None
                 assert b.variant_run_ids == ()
@@ -182,7 +206,7 @@ class TestCrossCompositionSweep:
         store = LineageStore(":memory:")
         spaces = _fast_spaces()
         sweep = CrossCompositionSweep(
-            _fast_catalog(), repository_executors(), spaces, store, parameter_specs=specs_by_path()
+            _fast_catalog(), repository_executors(), spaces, store, parameter_specs=_parameter_specs()
         )
         result = sweep.run(_spec(spaces))
         for b in result.bindings:
@@ -196,7 +220,7 @@ class TestCrossCompositionSweep:
         store = LineageStore(":memory:")
         spaces = _fast_spaces()
         sweep = CrossCompositionSweep(
-            _fast_catalog(), repository_executors(), spaces, store, parameter_specs=specs_by_path()
+            _fast_catalog(), repository_executors(), spaces, store, parameter_specs=_parameter_specs()
         )
         result = sweep.run(_spec(spaces))
         for b in result.bindings:
@@ -217,7 +241,7 @@ class TestCrossCompositionSweep:
         for c in catalog.executable():
             assert c.composition_id in executors
         sweep = CrossCompositionSweep(
-            catalog, executors, spaces, store, parameter_specs=specs_by_path()
+            catalog, executors, spaces, store, parameter_specs=_parameter_specs()
         )
         result = sweep.run(_spec(spaces))
         assert len(result.bindings) == 4
@@ -227,7 +251,7 @@ class TestCrossCompositionSweep:
         catalog = _fast_catalog()
         spaces = _fast_spaces()
         sweep = CrossCompositionSweep(
-            catalog, repository_executors(), spaces, store, parameter_specs=specs_by_path()
+            catalog, repository_executors(), spaces, store, parameter_specs=_parameter_specs()
         )
         expected = [c.composition_id for c in catalog.executable()]
         result = sweep.run(_spec(spaces))
@@ -238,11 +262,11 @@ class TestCrossCompositionSweep:
         spaces2 = _fast_spaces()
         r1 = CrossCompositionSweep(
             _fast_catalog(), repository_executors(), spaces1, LineageStore(":memory:"),
-            parameter_specs=specs_by_path(),
+            parameter_specs=_parameter_specs(),
         ).run(_spec(spaces1))
         r2 = CrossCompositionSweep(
             _fast_catalog(), repository_executors(), spaces2, LineageStore(":memory:"),
-            parameter_specs=specs_by_path(),
+            parameter_specs=_parameter_specs(),
         ).run(_spec(spaces2))
         # Timing is wall-clock and may differ between interpreter runs;
         # verify that all deterministic fields coincide.
@@ -258,7 +282,7 @@ class TestCrossCompositionSweep:
         executors = dict(repository_executors())
         del executors[next(iter(spaces))]
         sweep = CrossCompositionSweep(
-            _fast_catalog(), executors, spaces, store, parameter_specs=specs_by_path()
+            _fast_catalog(), executors, spaces, store, parameter_specs=_parameter_specs()
         )
         with pytest.raises(CrossCompositionSweepError):
             sweep.run(_spec(spaces))
@@ -269,7 +293,7 @@ class TestCrossCompositionSweep:
         store = LineageStore(":memory:")
         spaces = _fast_spaces(with_c=False)
         sweep = CrossCompositionSweep(
-            _fast_catalog(), repository_executors(), spaces, store, parameter_specs=specs_by_path()
+            _fast_catalog(), repository_executors(), spaces, store, parameter_specs=_parameter_specs()
         )
         with pytest.raises(CrossCompositionSweepError):
             sweep.run(_spec(spaces))
@@ -280,7 +304,7 @@ class TestCrossCompositionSweep:
         catalog = build_fast_repository_catalog(generate_worlds=False)
         spaces = _fast_spaces()
         sweep = CrossCompositionSweep(
-            catalog, repository_executors(), spaces, store, parameter_specs=specs_by_path()
+            catalog, repository_executors(), spaces, store, parameter_specs=_parameter_specs()
         )
         with pytest.raises(CrossCompositionSweepError):
             sweep.run(_spec(spaces))
@@ -291,7 +315,7 @@ class TestCrossCompositionSweep:
         spaces = _fast_spaces()
         sweep = CrossCompositionSweep(
             _fast_catalog(), repository_executors(), spaces, store,
-            parameter_specs=specs_by_path(), max_variants=1,
+            parameter_specs=_parameter_specs(), max_variants=1,
         )
         with pytest.raises(CrossCompositionSweepError):
             sweep.run(_spec(spaces))
@@ -322,7 +346,7 @@ class TestCrossCompositionSweep:
         store = LineageStore(":memory:")
         spaces = _fast_spaces()
         sweep = CrossCompositionSweep(
-            _fast_catalog(), repository_executors(), spaces, store, parameter_specs=specs_by_path()
+            _fast_catalog(), repository_executors(), spaces, store, parameter_specs=_parameter_specs()
         )
         result = sweep.run(_spec(spaces))
         rows = store.get_cross_composition_sweeps(result.cross_split_sweep_id)
@@ -346,7 +370,7 @@ class TestSlowCanonicalCrossCompositionSweep:
         catalog = build_repository_catalog(generate_worlds=True)
         spaces = repository_parameter_spaces()
         sweep = CrossCompositionSweep(
-            catalog, repository_executors(), spaces, store, parameter_specs=specs_by_path()
+            catalog, repository_executors(), spaces, store, parameter_specs=_parameter_specs()
         )
         spec = CrossCompositionSweepSpec(
             space_name="repo",
@@ -362,9 +386,9 @@ class TestSlowCanonicalCrossCompositionSweep:
         assert result.state == "executed"
         assert result.timing is not None
         assert result.timing.n_executable == 4
-        assert result.timing.n_swept == 1
-        assert result.timing.n_baseline_only == 3
-        assert result.total_evaluations == 4 + 27
+        assert result.timing.n_swept == 2
+        assert result.timing.n_baseline_only == 2
+        assert result.total_evaluations == 4 + 27 + 4
         assert store.cross_composition_sweep_count == 4
         cid = next(b.composition_id for b in spaces.values() if b.space is not None)
         c_row = next(

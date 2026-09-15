@@ -41,14 +41,21 @@ from experiments.gated_movers.coupling import (
     build_gated_movers_registry,
     build_gated_movers_template,
 )
-from experiments.gated_movers.experiment import run_gated_movers_world
+from experiments.gated_movers.experiment import (
+    run_gated_movers_world,
+)
+from experiments.gated_movers.experiment import (
+    specs_by_path as gated_specs_by_path,
+)
 from experiments.network_morphogenesis.coupling import (
     build_network_morphogenesis_registry,
     build_network_morphogenesis_template,
 )
 from experiments.network_morphogenesis.experiment import (
     run_network_world,
-    specs_by_path,
+)
+from experiments.network_morphogenesis.experiment import (
+    specs_by_path as network_specs_by_path,
 )
 from sim_alchemist.core.capabilities import SimulationEngine
 from sim_alchemist.core.catalog import CompositionCatalog
@@ -199,11 +206,35 @@ def _network_parameter_space() -> MutationSpace:
     and ``config.source_amplitude`` (0..1).  Value lists are modest
     exploration points strictly inside the declared valid bounds.
     """
-    specs = specs_by_path()
+    specs = network_specs_by_path()
     dims = (
         ParameterSweep("components.network.config.loss", (0.2, 0.5, 0.8)),
         ParameterSweep("config.force_fmax", (2.0, 5.0, 8.0)),
         ParameterSweep("config.source_amplitude", (0.2, 0.5, 0.8)),
+    )
+    for dim in dims:
+        spec = specs[dim.path]
+        for value in dim.values:
+            if not (spec.minimum <= value <= spec.maximum):
+                raise ValueError(
+                    f"value {value} for {dim.path} outside declared bounds "
+                    f"[{spec.minimum}, {spec.maximum}]"
+                )
+    return MutationSpace(dims)
+
+
+def _gated_movers_parameter_space() -> MutationSpace:
+    """The legitimate gate-policy parameter space of Experiment D.
+
+    Stage 3 keeps this deliberately small: threshold and cooldown are the
+    two fields directly consumed by the gate hysteresis rule.  The authored
+    ``source_amplitude`` spec is left out here because it changes deposition
+    strength, not the gate policy itself.
+    """
+    specs = gated_specs_by_path()
+    dims = (
+        ParameterSweep("config.gate_threshold", (0.25, 0.75)),
+        ParameterSweep("config.gate_cooldown", (0, 8)),
     )
     for dim in dims:
         spec = specs[dim.path]
@@ -228,20 +259,16 @@ def repository_parameter_spaces() -> dict[str, CompositionSpaceBinding]:
     free of any science: the core sees only opaque refs and the generic
     ``MutationSpace``.
 
-    Task 3.0 Build Stage 1 registers Experiment D with its **binding entry** but
-    no sweep space yet: ``CompositionSpaceBinding`` deliberately distinguishes
-    "no registered parameter space" (``space=None``/``ref=None``, baseline-only)
-    from an error or an empty space, and the cross-composition sweep layer
-    requires a binding entry for *every* EXECUTABLE composition.  D's three
-    gating dimensions are therefore authored now (PARAMETER_SPECS in
-    ``experiments.gated_movers.experiment``); the real ``MutationSpace`` lands
-    with the Task 3.0 Build Stage 3 sweep integration.
+    Task 3.0 Build Stage 3 promotes Experiment D from its Stage 1/2
+    baseline-only binding to a real, D-owned gate-policy ``MutationSpace``.
+    A/B remain baseline-only.  C keeps its original 27-variant network space.
     """
     a_template = build_morphogenesis_template()
     b_template = build_field_guided_movers_template()
     c_template = build_network_morphogenesis_template()
     d_template = build_gated_movers_template()
     c_space = _network_parameter_space()
+    d_space = _gated_movers_parameter_space()
     bindings = (
         CompositionSpaceBinding(
             composition_id=template_composition_id(a_template),
@@ -260,6 +287,8 @@ def repository_parameter_spaces() -> dict[str, CompositionSpaceBinding]:
         CompositionSpaceBinding(
             composition_id=template_composition_id(d_template),
             shape_id=d_template.shape.shape_id,
+            ref=parameter_space_ref(d_space),
+            space=d_space,
         ),
     )
     return {b.composition_id: b for b in bindings}

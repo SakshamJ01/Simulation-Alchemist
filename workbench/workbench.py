@@ -20,7 +20,7 @@ import copy as _copy
 import json
 import sys
 from dataclasses import replace as _replace
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Ensure the project root is on the path so `import experiments` works.
 PROJECT_ROOT = r"C:\Users\Saksham\Documents\simulation project"
@@ -31,15 +31,15 @@ if PROJECT_ROOT not in sys.path:
 # Backend helper – thin wrapper around the existing sim_alchemist package
 # ---------------------------------------------------------------------------
 
-_BACKEND_SESSIONS: Dict[str, Dict[str, Any]] = {}
+_BACKEND_SESSIONS: dict[str, dict[str, Any]] = {}
 
 
-def _discover_experiments() -> Dict[str, Dict[str, Any]]:
+def _discover_experiments() -> dict[str, dict[str, Any]]:
     """Return a mapping of template name -> experiment info from the catalog."""
     from experiments.catalog import build_repository_catalog
 
     cat = build_repository_catalog(generate_worlds=True)
-    experiments: Dict[str, Dict[str, Any]] = {}
+    experiments: dict[str, dict[str, Any]] = {}
     for c in cat.executable():
         name_map = {
             "morphogenesis": "Morphogenesis (A)",
@@ -63,10 +63,10 @@ def _discover_experiments() -> Dict[str, Dict[str, Any]]:
 
 def _run_simulation(
     exp_id: str,
-    params: Dict[str, Any],
+    params: dict[str, Any],
     max_steps: int,
     seed: int,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Run a simulation via the existing Alchemist executors and return state."""
     from experiments.catalog import build_repository_catalog, repository_executors
 
@@ -109,15 +109,14 @@ def _run_simulation(
     return {"session_id": session_id, "outcome": outcome}
 
 
-def _get_session(session_id: str) -> Optional[Dict[str, Any]]:
+def _get_session(session_id: str) -> dict[str, Any] | None:
     if session_id not in _BACKEND_SESSIONS:
         return None
     return _BACKEND_SESSIONS[session_id]
 
 
-def _parameter_spec_bounds(exp_id: str) -> Dict[str, Dict[str, Any]]:
+def _parameter_spec_bounds(exp_id: str) -> dict[str, dict[str, Any]]:
     """Return parameter bounds from ParameterSpec for the given experiment."""
-    from experiments.gated_movers.experiment import PARAMETER_SPECS
 
     if exp_id == "gated_movers":
         return {

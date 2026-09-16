@@ -346,6 +346,11 @@ The environment is managed by uv against Python 3.13:
 - `uv run python run_search.py --dim <path>:v1,v2,... --feature <obs>:<feature>:<weight>[:max|min] ... [--generations N] [--beam-width N]` — Task 1.9 guided beam search + discovery loop
 - `uv run python run_catalog_demo.py [--generate-worlds [--worlds-dir DIR]]` — current composition catalog demo (23 shapes, 16/3/4) + writes the 4 EXECUTABLE worlds
 - `uv run python run_composition_discovery.py [--steps N] [--seed N] [--profile {all,a,b}] [--no-figure]` — Task 2.4 canonical cross-composition discovery CLI (160-step default; writes `figures/discovery_quality_diversity.png`)
+- `uv run python run_composition_discovery.py [--steps N] [--seed N] [--profile {all,a,b}] [--no-figure]` — Task 2.4 canonical cross-composition discovery CLI (160-step default; writes `figures/discovery_quality_diversity.png`)
++ - `uv run python workbench/app.py` — start the browser-based Researcher Workbench (Flask on http://localhost:5000)
++   Then open http://localhost:5000 in a web browser to use the HTML UI.
++   The console fallback remains available via `uv run python workbench/workbench.py`.
+
 - `uv run pytest` — test suite wrapping the same scientific checks
 
 ## Key Development Commands

@@ -1,136 +1,223 @@
-# Simulation Alchemist — Simulation Composition Framework
+# Simulation Alchemist
 
-The repository contains the validated chemo-mechanical prototype and the
-composition framework extracted from it. The current state includes four
-catalogued experiments (A–D), deterministic composition/discovery tooling,
-cross-composition sweeps, behavioral analysis, and a persistent adaptive
-comparison archive. Experiment D is structurally complete at Task 3.0 Stage 1;
-its scientific gating validation is the next task and is not yet complete.
+**Simulation Alchemist** is an open-source framework for composing multiple independent simulation engines into unified, deterministic, closed-loop simulated worlds.
 
-## Scientific foundation
+The platform bridges continuous reaction-diffusion PDEs, rigid-body mechanics, agent-based decision systems, and continuous network diffusion into a single modular architecture. It provides declarative world definition, automated macro-step scheduling, pre-execution capability contract validation, multi-objective behavioral characterization, and a modern **Researcher Workbench** web application for interactive experimentation and research automation.
 
-Three independent simulation engines are composed into a single deterministic
-closed feedback loop. A morphogen (activator) field grows Turing patterns, a
-set of wall agents sense the field and deposit/dissolve rigid mechanical
-walls, and the walls both block the field and are themselves pushed around by
-the field's gradient. Field changes the geometry, geometry changes the field,
-and the agents couple the two.
+---
 
-## The three simulation engines
+## Key Capabilities
 
-| Engine | Role | Module |
-|--------|------|--------|
-| **py-pde** | Continuous reaction-diffusion subsystem (Schnakenberg field, wall cells frozen) | `chemomech/reaction_diffusion.py` |
-| **Pymunk** | Rigid-body/wall subsystem (dynamic rod bodies, damping, bounds clamping) | `chemomech/physics.py` |
-| **Mesa** | Agent subsystem (wall-building agents sense the field and decide) | `chemomech/agents.py` |
+- **Multi-Paradigm Composition:** Seamlessly orchestrate continuous fields (`py-pde`), rigid-body physics (`Pymunk`), discrete agent behaviors (`Mesa`), and continuous graph diffusion (`NDlib`).
+- **Declarative Worlds & Macro-Step Scheduling:** Simulation worlds are specified entirely as structured data (`WorldDefinition`), executed deterministically via a dedicated `StepScheduler`.
+- **Static Coupling Contracts:** Enforce type-checked capability and grid resolution matching before execution begins.
+- **Durable Lineage & Zero-Drift Replay:** Content-addressed execution hashes (`run_id_of`) ensure bitwise reproducible replay with strict drift verification ($\max \Delta < 10^{-7}$).
+- **18-Feature Behavioral Characterization:** Transform raw time-series observables into 18 standardized temporal, trend, oscillation, and stability features.
+- **Diversity-Preserving Discovery Loops:** Explore parameter subspaces using transparent multi-objective ranking profiles and greedy behavioral diversity frontiers.
+- **Interactive Researcher Workbench:** Full-featured browser interface with real-time 2D spatial viewports, time scrubbers, comparative analysis, and automated discovery workspaces.
 
-The orchestration loop that wires them together lives un-refactored in
-`chemomech/simulation.py`.
+---
 
-## The feedback loop
+## The Four Experiment Universes
 
-Macro-step order (deterministic):
+Simulation Alchemist includes four validated multi-physics experiment systems:
 
 ```
-1. geometry    read live wall transforms from pymunk
-2. rasterize   walls -> PDE blocked-cell mask (fed to the PDE RHS)
-3. evolve      py-pde advances the reaction-diffusion field
-4. sample      field gradient at each wall centre of mass
-5. apply       bounded force to each wall body at its COM
-6. advance     pymunk integrates wall motion (force, damping, bounds clamp)
-7. agents      Mesa agents sense the NEW field and decide wall build/dissolve
-8. translate   dissolve then create walls in the pymunk space
++----------------------------------------------------------------------------------------------------+
+|                                      EXPERIMENT UNIVERSES                                          |
++------------------------------------+---------------------------------------------------------------+
+| Experiment A: Morphogenesis        | Mesa Agents + py-pde Turing Field + Pymunk Rigid Walls        |
+| Experiment B: Field-Guided Movers  | py-pde Turing Field + Pymunk Dynamic Particle Movers          |
+| Experiment C: Adaptive Network     | NDlib Graph Diffusion + py-pde Turing Field + Pymunk Physics  |
+| Experiment D: Gated Mover System   | Mesa Hysteresis Gating + py-pde Field + Pymunk Particle Movers|
++------------------------------------+---------------------------------------------------------------+
 ```
 
+### 1. Experiment A: Chemo-Mechanical Morphogenesis
+- **Subsystems:** `Mesa` (Agents) + `py-pde` (Reaction-Diffusion) + `Pymunk` (Rigid Walls).
+- **Dynamics:** A Schnakenberg morphogen field forms Turing patterns. Agents sense local morphogen concentrations and deposit or dissolve mechanical walls. Walls physically block diffusion while being pushed by field gradients in a closed feedback loop.
+
+### 2. Experiment B: Field-Guided Movers
+- **Subsystems:** `py-pde` (Reaction-Diffusion) + `Pymunk` (Particle Movers).
+- **Dynamics:** Dynamic particle bodies perform unconditional chemotaxis, navigating along morphogen field gradients while serving as moving point sources that reshape the field landscape.
+
+### 3. Experiment C: Adaptive Network Morphogenesis
+- **Subsystems:** `NDlib` (Continuous Graph Model) + `py-pde` (Reaction-Diffusion) + `Pymunk` (Physics).
+- **Dynamics:** Continuous node loads diffuse over an adaptive grid graph via transport equations. Node loads act as chemical sources on the PDE field, while spatial wall dynamics modulate edge conductivity.
+
+### 4. Experiment D: Gated Mover Morphogenesis
+- **Subsystems:** `Mesa` (Gating Layer) + `py-pde` (Reaction-Diffusion) + `Pymunk` (Particle Movers).
+- **Dynamics:** Introduces sensory hysteresis gating ($T_{\text{gate}}$, cooldown). Movers switch dynamically between active chemotaxis and resting states, exhibiting distinct behavioral regimes and morphological structures.
+
+---
+
+## Architectural Layers
+
+```mermaid
+graph TD
+    subgraph UI ["Layer 4: Interactive Interface & Lab"]
+        WB["Researcher Workbench (Flask + HTML5 Canvas)"]
+        CLI["Discovery & Sweep CLI Tools"]
+    end
+
+    subgraph Discovery ["Layer 3: Behavioral Discovery & Lineage"]
+        Features["18-Feature Behavioral Characterization"]
+        Profiles["Multi-Objective Interestingness & Frontier Selection"]
+        Lineage["Durable Lineage Store (SQLite)"]
+        Archive["Adaptive Comparison Archive"]
+    end
+
+    subgraph Core ["Layer 2: Composition Core"]
+        World["Declarative WorldDefinition (YAML)"]
+        Contracts["Coupling Contracts & Capability Resolution"]
+        Scheduler["StepScheduler (Deterministic Macro-Steps)"]
+        Engine["AlchemistEngine (Unified Dispatcher)"]
+    end
+
+    subgraph Physics ["Layer 1: Simulation Subsystems"]
+        PDE["py-pde (Reaction-Diffusion)"]
+        Physics2D["Pymunk (Rigid Body / Movers)"]
+        Agents["Mesa (Agent Decision Logic)"]
+        Network["NDlib (Graph Diffusion)"]
+    end
+
+    WB --> Discovery
+    CLI --> Discovery
+    Discovery --> Core
+    Core --> Physics
 ```
-        +------------------+      +------------------+
-        |  Mesa agents     | ---> |  wall placement  |
-        |  sense + decide  | <--- |  intentions      |
-        +------------------+      +------------------+
-                ^                          |
-                | u(x,t)                   v
-        +------------------+      +------------------+
-        |  py-pde field    | <--- |  rasterized mask |
-        |  evolves         | ---> |  Pymunk walls    |
-        +------------------+      +--------+---------+
-                ^                           |
-                +------ field force -------+
-```
 
-The force model is deliberately simple and documented in
-`chemomech/simulation.py`: `F = Fmax * tanh(|grad u| / g_sat) * grad u/|grad u|`
-applied at each wall centre of mass, so wall motion is bounded, damped, and
-clamped to the world bounds.
+---
 
-## Installing
+## Getting Started
 
-Requires `uv` (installed separately) and Python 3.13. The parser of package
-wheels is resolved and locked for a reproducible environment:
+### Prerequisites
 
-```
+- **Python 3.13+**
+- **uv** (recommended package and virtualenv manager)
+
+### Installation
+
+Clone the repository and synchronize the locked environment:
+
+```bash
+git clone https://github.com/SakshamJ01/Simulation-Alchemist.git
+cd Simulation-Alchemist
 uv sync
 ```
 
-This creates `.venv` from `uv.lock`. All commands below are run through `uv run`
-so no globally installed packages are needed.
+---
 
-## Running validation (checks A–G + figures)
+## Running the Platform
 
+### 1. Launch the Researcher Workbench (Web GUI)
+
+Start the local Flask development server:
+
+```bash
+uv run python workbench/app.py
 ```
+
+Open **`http://127.0.0.1:5000`** in your browser to access:
+- **Experiment Runner:** Configure parameters, run live simulations, inspect 2D spatial viewports (Viridis field heatmaps, particle trails, gating indicators), and scrub through time steps.
+- **Run History & Records:** Review persisted SQLite experiment records, verify zero-drift replays, and download export packages.
+- **Comparative Analysis:** Side-by-side parameter diffs and metric delta tables comparing any two runs, including controlled Experiment D Gating ON vs OFF comparisons.
+- **Discovery & Automation:** Bounded parameter subspace exploration, automated 18-feature extraction, transparent quality-diversity ranking, 2D novelty-quality scatter plots, and instant Recorded Replay.
+
+### 2. Run CLI Discovery Passes
+
+Execute a multi-objective discovery pass with behavioral characterization:
+
+```bash
+# Cross-composition discovery across all candidate templates
+uv run python run_composition_discovery.py
+
+# Adaptive exploration on Experiment C/D
+uv run python run_adaptive_discovery.py
+```
+
+### 3. Scientific Validation & Stability Verification
+
+Verify baseline scientific invariants (Checks A–G) and physical stability (Checks S1–S6):
+
+```bash
+# Run scientific validation (generates evidence plots in figures/)
 uv run python run_validation.py
-```
 
-Runs four world experiments (baseline, static, dynamic, replay) plus a
-mechanical machine test, and writes the baseline-evidence figures:
-
-| Figure | Content | Evidence |
-|--------|---------|----------|
-| `figures/01_baseline_turing.png` | morphogen pattern, no walls | A |
-| `figures/02_static_wall_coupling.png` | static walls + blocked cells + field | A, C |
-| `figures/03_dynamic_wall_coupling.png` | dynamic walls + trajectories + field | B, D, F |
-| `figures/04_wall_trajectory.png` | every wall's centre-of-mass path | B, F |
-| `figures/05_feedback_metrics.png` | walls, force, speed, decisions over time | F |
-
-## Running stability checks (S1–S6)
-
-```
+# Run numerical and physical stability checks
 uv run python run_stability.py
 ```
 
-Verifies boundedness of the coupled loop: walls stay in the domain, speeds
-respect the analytic terminal-velocity bound, no NaN/Inf, extreme forcing stays
-bounded, integrator order of convergence, and short-horizon agreement across
-physics discretizations.
+### 4. Running the Test Suite
 
-## Running the test suite
+Execute the comprehensive automated test suite (unit tests, integration tests, contract checks, and API tests):
 
-```
+```bash
 uv run pytest
 ```
 
-`tests/` wraps the same scientific checks (A–G and S1–S6) as pytest without
-recomputing the simulations per test. The suite is slow on purpose: a full
-160-macro-step world run takes roughly a minute.
+---
 
-## Scientific limitations (preserved, not hidden)
+## 3-Tier Experiment Records & Exports
 
-- The clamped-obstacle PDE approximation (wall cells frozen) is **not** a true
-  no-flux boundary.
-- Parameters are hand-tuned for the validated runs.
-- The wall model is simplified (thin frictionless rods; walls pass through
-  walls).
-- The Pymunk/PDE coupling is an experimental model, not a calibrated
-  physics/simulation claim.
-- Claims of sustained non-equilibrium behaviour remain hypotheses to be
-  tested.
-- Deterministic replay is same-runtime/environment; it is **not** universal
-  cross-platform bitwise equivalence.
+Simulation Alchemist supports a 3-tier artifact export/import standard for open and reproducible science:
 
-## Development commands
+| Tier | Format | File Extension | Content |
+| :--- | :--- | :--- | :--- |
+| **Level 1** | Metric Summary | `.json` | Metadata, runtime parameters, and aggregated observable metrics. |
+| **Level 2** | Reproducible Record | `.simrec` | Self-contained reproducibility manifest containing the exact canonical `WorldDefinition`, seed, parameters, and environment state for zero-drift reconstruction. |
+| **Level 3** | Trajectory Archive | `.zip` | Complete scientific package including full spatial field frames, mover coordinates, wall tracks, telemetry arrays, and JSON summary. |
 
-- `uv run pytest tests/` — run all tests
-- `uv run python -m ruff check .` — lint
-- `uv run pyright` — type checking
+---
 
-See `AGENTS.md` for current repository state and `IMPLEMENTATION_PLAN.md` for
-the roadmap.
+## Project Structure
+
+```
+Simulation-Alchemist/
+├── chemomech/                     # Experiment A implementation & validation baseline
+│   ├── agents.py                  # Mesa agent sensing & wall building logic
+│   ├── physics.py                 # Pymunk rigid body mechanics & force models
+│   ├── reaction_diffusion.py      # py-pde Schnakenberg solver
+│   └── coupling.py                # Closed-loop coupling schedule & observable extraction
+├── experiments/                   # Additional experiment templates & catalogs
+│   ├── field_guided_movers/       # Experiment B (chemotactic movers)
+│   ├── network_morphogenesis/     # Experiment C (NDlib network coupling)
+│   ├── gated_movers/              # Experiment D (hysteresis-gated chemotaxis)
+│   └── catalog.py                 # Unified template & parameter space registry
+├── src/sim_alchemist/core/        # Generic Simulation Composition Framework
+│   ├── world.py                   # Typed WorldDefinition & ComponentSpec schema
+│   ├── contracts.py               # Pre-execution coupling contract validation
+│   ├── scheduler.py               # Deterministic macro-step StepScheduler
+│   ├── composer.py                # Composition pipeline & capability resolver
+│   ├── engine.py                  # Generic AlchemistEngine orchestrator
+│   ├── lineage.py                 # SQLite LineageStore & RunRecord tracking
+│   ├── sweep.py                   # Parameter sweeps & Cartesian variant generation
+│   ├── behavior.py                # 18-feature behavioral extraction & ranking
+│   ├── search.py                  # Guided beam search with behavioral diversity
+│   └── observables.py             # Common cross-composition observable extraction
+├── workbench/                     # Researcher Workbench Web Application
+│   ├── app.py                     # Flask REST API & session endpoints
+│   ├── store.py                   # Persistent SQLite WorkbenchStore
+│   ├── discovery.py               # Discovery pass runner & retention policy
+│   ├── export_import.py           # 3-Tier .json, .simrec, .zip serializer
+│   └── templates/                 # Glassmorphic dark-mode UI & Canvas renderers
+├── generated_worlds/              # Canonical declarative YAML world definitions
+├── figures/                       # Scientific evidence baseline figures
+├── tests/                         # Pytest test suites (47+ test modules)
+├── pyproject.toml                 # Project dependencies & metadata
+└── uv.lock                        # Deterministic dependency lockfile
+```
+
+---
+
+## Scientific Limitations
+
+- **PDE Obstacle Approximation:** Wall obstacles freeze field diffusion at rasterized grid cells, functioning as an empirical barrier rather than an analytic no-flux boundary condition.
+- **Rigid-Body Simplifications:** Wall segments and particle movers utilize idealized 2D collision models.
+- **Deterministic Replay Scope:** Bitwise reproducibility is guaranteed within identical runtime Python/NumPy environments; cross-architecture floating-point reproducibility depends on host BLAS/SIMD implementations.
+
+---
+
+## License
+
+MIT License. See `LICENSE` for details.

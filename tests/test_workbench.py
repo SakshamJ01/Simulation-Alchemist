@@ -22,11 +22,15 @@ def test_flask_import():
 
 
 def test_index_route(client):
-    """Verify root page loads with 200 status code."""
+    """Verify root page loads with 200 status code and Phase 1.5 UI elements."""
     res = client.get("/")
     assert res.status_code == 200
     html = res.get_data(as_text=True)
     assert "Simulation Alchemist" in html
+    assert "v1.5 Workstation" in html
+    assert "2D Spatial Viewport" in html
+    assert "Observable Metrics" in html
+    assert "sim-canvas" in html
 
 
 def test_run_d_gated_movers(client):
@@ -58,6 +62,7 @@ def test_run_d_gated_movers(client):
     export_data = json.loads(res_export.get_data(as_text=True))
     assert export_data["session_id"] == session_id
     assert "metrics" in export_data
+    assert "world_hash" in export_data
 
 
 def test_run_abc_experiments(client):
@@ -102,4 +107,5 @@ def test_comparison_route(client):
     assert "diff" in data
     assert "provenance" in data
     assert data["provenance"]["experiment"] == "gated_movers"
-
+    assert "on_run_id" in data["provenance"]
+    assert "off_run_id" in data["provenance"]

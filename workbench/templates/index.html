@@ -1,185 +1,423 @@
-<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <title>Simulation Alchemist Workbench</title>
-    <style>
-        body {font-family: system-ui, sans-serif; margin: 2rem; background: #fafafa; color: #222;}
-        .container {max-width: 800px; margin: 0 auto;}
-        .header {border-bottom: 1px solid #ddd; padding-bottom: 1rem; margin-bottom: 1rem;}
-        .experiment-card {border: 1px solid #e0e0e0; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; cursor: pointer;}
-        .experiment-card:hover {background: #f5f5f5;}
-        .param-row {margin: 0.5rem 0;}
-        .param-row label {display: block; margin-bottom: 0.2rem;}
-        .param-row input {width: 100%; padding: 0.4rem; box-sizing: border-box;}
-        .run-controls {margin-top: 1rem; display: flex; gap: 1rem; align-items: center;}
-        .status {padding: 0.2rem 0.5rem; border-radius: 4px; margin: 0.5rem 0;}
-        .btn {padding: 0.5rem 1rem; cursor: pointer;}
-        .sidebar {float: left; width: 30%; margin-right: 2%;}
-        .main {margin-left: 32%; min-height: 400px;}
-        .comparison {margin-top: 2rem; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 6px;}
-        .metric {margin: 0.5rem 0;}
-        .diff-row {margin: 0.3rem 0; font-family: monospace;}
-    </style>
-</head>
-<body class="container">
-    <div class="header">
-        <h1>Simulation Alchemist Workbench</h1>
-    </div>
-    <div class="sidebar">
-        <h2>Experiments</h2>
-        {% for exec in executives %}
-        <div class="experiment-card" data-id="{{ exec.id }}" onclick="selectExperiment('{{ exec.id }}')">
-            <strong>{{ exec.name }}</strong><br>
-            {{ exec.description }}
-        </div>
-        {% endfor %}
-    </div>
-    <div class="main">
-        <h2>Parameter Configuration</h2>
-        <form id="param-form">
-            {% for name, spec in param_specs.items() %}
-            <div class="param-row">
-                <label>{{ name }}</label>
-                <input type="number" step="{{ spec.get('step', 'any') }}" name="{{ name }}" value="{{ spec.get('default', '') }}" data-min="{{ spec.get('min') }}" data-max="{{ spec.get('max') }}">
+{% extends "base.html" %}
+
+{% block title %}Simulation Alchemist - Researcher Workstation v1.5{% endblock %}
+
+{% block content %}
+<!-- Sidebar Controls: Experiments & Parameters -->
+<div class="sidebar">
+    <div>
+        <div class="section-title">Experiments Universe</div>
+        <div class="experiment-cards-list">
+            {% for exec in executives %}
+            <div class="experiment-card" id="exp-card-{{ exec.id }}" data-id="{{ exec.id }}" data-template="{{ exec.template }}" onclick="selectExperiment('{{ exec.id }}', '{{ exec.template }}')">
+                <div class="exp-card-header">
+                    <span class="exp-card-name">{{ exec.name }}</span>
+                    <span class="exp-tag">{{ exec.template }}</span>
+                </div>
+                <div class="exp-desc">{{ exec.description }}</div>
             </div>
             {% endfor %}
-            <input type="hidden" name="exp_id" id="exp-id" value="">
-            <input type="hidden" name="max_steps" id="max_steps" value="12">
-            <input type="hidden" name="seed" id="seed" value="42">
-            <button type="submit" class="btn" id="run-btn">Run Simulation</button>
-        </form>
-        
-        <div id="status" class="status" style="display:none;">Running...</div>
-        
-        <div id="results" style="display:none; margin-top: 2rem;">
-            <h3>Results</h3>
-            <div id="metrics"></div>
-            <button id="export-btn" class="btn" style="display:none;">Export JSON</button>
-        </div>
-        
-        <div id="comparison" style="margin-top: 2rem; display:none;">
-            <h3>D Gating Comparison</h3>
-            <button id="compare-btn" class="btn">Compare ON vs OFF</button>
-            <div id="comparison-result"></div>
-        </div>
-        
-        <div id="replay-info" style="margin-top: 2rem; display:none;">
-            <p>Run completed. Use browser controls to replay.</p>
         </div>
     </div>
-    
-    <script>
-        // Initialize experiment selection
-        let currentExperiment = null;
+
+    <div style="margin-top: 1rem;">
+        <div class="section-title">Parameter Configuration</div>
+        <form id="param-form" onsubmit="handleRunSubmit(event)">
+            <input type="hidden" name="exp_id" id="exp-id" value="">
+            <input type="hidden" name="template_name" id="template-name" value="">
+
+            <div class="param-group">
+                <!-- Experiment D Specific Parameters -->
+                <div class="param-row d-param-field" style="display: none;">
+                    <label>
+                        <span>Gate Threshold ($T$)</span>
+                        <span class="param-value-val" id="val-gate_threshold">0.50</span>
+                    </label>
+                    <input type="range" min="0.0" max="1.0" step="0.01" value="0.50" id="input-gate_threshold" name="gate_threshold" oninput="document.getElementById('val-gate_threshold').textContent = parseFloat(this.value).toFixed(2)">
+                </div>
+
+                <div class="param-row d-param-field" style="display: none;">
+                    <label>
+                        <span>Gate Cooldown (steps)</span>
+                        <span class="param-value-val" id="val-gate_cooldown">4</span>
+                    </label>
+                    <input type="range" min="0" max="20" step="1" value="4" id="input-gate_cooldown" name="gate_cooldown" oninput="document.getElementById('val-gate_cooldown').textContent = this.value">
+                </div>
+
+                <!-- Global Execution Parameters -->
+                <div class="param-row">
+                    <label>
+                        <span>Max Simulation Steps</span>
+                        <span class="param-value-val" id="val-max_steps">12</span>
+                    </label>
+                    <input type="number" min="1" max="500" value="12" id="max_steps" name="max_steps" oninput="document.getElementById('val-max_steps').textContent = this.value">
+                </div>
+
+                <div class="param-row">
+                    <label>
+                        <span>Random Seed</span>
+                    </label>
+                    <input type="number" value="42" id="seed" name="seed">
+                </div>
+
+                <div style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                    <button type="submit" class="btn btn-primary" id="run-btn" style="width: 100%;">
+                        Run Simulation
+                    </button>
+
+                    <button type="button" class="btn btn-accent" id="compare-btn" style="width: 100%; display: none;" onclick="compareDGating()">
+                        Compare Gating ON vs OFF
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Main Viewport: Canvas, Observables, Controls & Comparison -->
+<div class="main-viewport">
+    <!-- Status / Error Notification Container -->
+    <div id="status-card" class="card" style="display: none; padding: 0.75rem 1rem; border-color: var(--accent-sky);">
+        <div id="status-msg" style="font-size: 0.88rem; font-family: var(--font-mono);">Running simulation...</div>
+    </div>
+
+    <!-- Spatial & Observables Section -->
+    <div style="display: grid; grid-template-columns: minmax(320px, 512px) 1fr; gap: 1.5rem;">
+        <!-- Spatial Canvas Card -->
+        <div class="card" style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="font-size: 0.95rem; font-weight: 600;">2D Spatial Viewport</h3>
+                <span id="canvas-badge" class="exp-tag">Field & Movers</span>
+            </div>
+            
+            <div class="canvas-container">
+                <canvas id="sim-canvas" width="512" height="384"></canvas>
+            </div>
+
+            <!-- Time Scrubber & Replay Bar -->
+            <div class="scrubber-bar">
+                <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" onclick="togglePlayPause()" id="play-btn">Play</button>
+                <input type="range" class="scrubber-slider" id="step-scrubber" min="0" max="12" value="12" oninput="seekToStep(parseInt(this.value))">
+                <span class="step-readout" id="step-display">Step 12 / 12</span>
+            </div>
+        </div>
+
+        <!-- Real-Time Metrics & Policy Observables Tile Grid -->
+        <div class="card" style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="font-size: 0.95rem; font-weight: 600;">Observable Metrics</h3>
+                <button type="button" class="btn btn-secondary" id="export-btn" style="display: none; padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="handleExport()">
+                    Export Provenance JSON
+                </button>
+            </div>
+            
+            <div id="metrics-placeholder" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem;">
+                Select an experiment and click <strong>Run Simulation</strong> to compute outcome observables.
+            </div>
+
+            <div class="metrics-grid" id="metrics-grid" style="display: none;">
+                <!-- Dynamically populated metric tiles -->
+            </div>
+        </div>
+    </div>
+
+    <!-- D Gating ON vs OFF Side-by-Side Comparison Workspace -->
+    <div class="card" id="comparison-card" style="display: none; flex-direction: column; gap: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+            <div>
+                <h3 style="font-size: 1rem; font-weight: 700;">Experiment D: Gating ON vs OFF Comparison</h3>
+                <p style="font-size: 0.8rem; color: var(--text-secondary);">Contrasting gated morphogen sensing vs. unconditional chemotaxis</p>
+            </div>
+            <span class="exp-tag" style="background: rgba(56, 189, 248, 0.15); color: var(--accent-sky);">Side-by-Side Analysis</span>
+        </div>
+
+        <!-- Delta Table -->
+        <table class="diff-table">
+            <thead>
+                <tr>
+                    <th>Observable Metric</th>
+                    <th>Gating ON ($T=0.50$)</th>
+                    <th>Gating OFF ($T=0.00$)</th>
+                    <th>Delta ($\Delta = \text{OFF} - \text{ON}$)</th>
+                </tr>
+            </thead>
+            <tbody id="diff-table-body">
+                <!-- Dynamically populated diff rows -->
+            </tbody>
+        </table>
+
+        <!-- Provenance Footer -->
+        <div id="comparison-provenance" style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted); background: rgba(15, 23, 42, 0.6); padding: 0.6rem 0.85rem; border-radius: 6px;">
+            <!-- Provenance hashes -->
+        </div>
+    </div>
+</div>
+
+<script>
+    // Frontend Workstation State
+    let currentExpId = null;
+    let currentTemplate = null;
+    let currentSessionId = null;
+    let isPlaying = false;
+    let playInterval = null;
+    let currentStep = 12;
+    let totalSteps = 12;
+
+    // Canvas Context Setup
+    const canvas = document.getElementById('sim-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Render static grid preview on canvas load
+    drawPlaceholderCanvas();
+
+    function drawPlaceholderCanvas() {
+        ctx.fillStyle = '#020617';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        function selectExperiment(expId) {
-            currentExperiment = expId;
-            document.getElementById('exp-id').value = expId;
-            // Show/hide appropriate parameters
-            document.querySelectorAll('.param-row').forEach(row => {
-                row.style.display = 'none';
-            });
-            // Show experiment-specific params (simple approach: show all for now)
-            document.querySelectorAll('.param-row').forEach(row => {
-                row.style.display = 'block';
-            });
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 1;
+        const gridSize = 32;
+        for (let x = 0; x <= canvas.width; x += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
         }
+        for (let y = 0; y <= canvas.height; y += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+        }
+
+        ctx.fillStyle = '#475569';
+        ctx.font = '12px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('SPATIAL VIEWPORT READY', canvas.width / 2, canvas.height / 2);
+    }
+
+    function selectExperiment(expId, template) {
+        currentExpId = expId;
+        currentTemplate = template;
         
-        // Form submission
-        document.getElementById('param-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const runBtn = document.getElementById('run-btn');
-            runBtn.textContent = 'Running...';
-            runBtn.disabled = true;
-            
-            const formData = {
-                exp_id: document.getElementById('exp-id').value,
-                params: {},
-                max_steps: parseInt(document.getElementById('max_steps').value),
-                seed: parseInt(document.getElementById('seed').value)
-            };
-            
-            // Collect parameter values
-            document.querySelectorAll('.param-row input').forEach(input => {
-                const name = input.name;
-                const val = parseFloat(input.value);
-                if (!isNaN(val)) {
-                    formData.params[name] = val;
-                }
-            });
-            
-            try {
-                const response = await fetch('/run', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(formData)
-                });
-                
-                const contentType = response.headers.get('content-type') || '';
-                const isJson = contentType.includes('application/json');
-                const result = isJson ? await response.json() : null;
-                
-                runBtn.textContent = 'Run Simulation';
-                runBtn.disabled = false;
-                
-                if (!response.ok || !result || result.error) {
-                    const errorMsg = (result && result.error) ? result.error : `HTTP ${response.status} ${response.statusText}`;
-                    document.getElementById('status').textContent = 'Error: ' + errorMsg;
-                    document.getElementById('status').style.display = 'block';
-                } else {
-                    document.getElementById('status').textContent = 'Run completed';
-                    document.getElementById('status').style.display = 'block';
-                    
-                    // Show results
-                    document.getElementById('metrics').innerHTML = '';
-                    const metrics = (result.outcome && result.outcome.metrics) ? result.outcome.metrics : (result.outcome_metrics || {});
-                    for (const [key, value] of Object.entries(metrics)) {
-                        const p = document.createElement('p');
-                        p.textContent = `${key}: ${value.toFixed(4)}`;
-                        document.getElementById('metrics').appendChild(p);
-                    }
-                    document.getElementById('results').style.display = 'block';
-                    
-                    // Store session ID for later use
-                    window.currentSession = result.session_id;
-                    
-                    // Show comparison and export buttons
-                    document.getElementById('export-btn').style.display = 'block';
-                    document.getElementById('comparison').style.display = 'block';
-                }
-            } catch (err) {
-                runBtn.textContent = 'Run Simulation';
-                runBtn.disabled = false;
-                document.getElementById('status').textContent = 'Error: ' + err.message;
-                document.getElementById('status').style.display = 'block';
-            }
+        document.getElementById('exp-id').value = expId;
+        document.getElementById('template-name').value = template;
+
+        // Highlight selected card
+        document.querySelectorAll('.experiment-card').forEach(card => card.classList.remove('active'));
+        const selectedCard = document.getElementById(`exp-card-${expId}`);
+        if (selectedCard) selectedCard.classList.add('active');
+
+        // Show/hide Experiment D parameter controls
+        const isD = (template === 'gated_movers' || expId === 'gated_movers');
+        document.querySelectorAll('.d-param-field').forEach(el => {
+            el.style.display = isD ? 'flex' : 'none';
         });
+        document.getElementById('compare-btn').style.display = isD ? 'inline-flex' : 'none';
+
+        // Update header status
+        document.getElementById('header-status-text').textContent = `Selected: ${template}`;
+    }
+
+    // Auto-select first experiment on boot
+    const firstCard = document.querySelector('.experiment-card');
+    if (firstCard) {
+        selectExperiment(firstCard.dataset.id, firstCard.dataset.template);
+    }
+
+    async function handleRunSubmit(event) {
+        event.preventDefault();
         
-        // Comparison logic - D gating ON vs OFF
-        window.compareDGating = function() {
-            if (!window.currentSession) {
-                alert('No run session found');
+        const runBtn = document.getElementById('run-btn');
+        const statusCard = document.getElementById('status-card');
+        const statusMsg = document.getElementById('status-msg');
+
+        runBtn.disabled = true;
+        runBtn.textContent = 'Executing...';
+        statusCard.style.display = 'block';
+        statusMsg.style.color = 'var(--accent-sky)';
+        statusMsg.textContent = 'Running Alchemist simulation executor...';
+
+        const expId = document.getElementById('exp-id').value;
+        const maxSteps = parseInt(document.getElementById('max_steps').value) || 12;
+        const seed = parseInt(document.getElementById('seed').value) || 42;
+
+        const params = {};
+        if (currentTemplate === 'gated_movers' || expId === 'gated_movers') {
+            params.gate_threshold = parseFloat(document.getElementById('input-gate_threshold').value);
+            params.gate_cooldown = parseInt(document.getElementById('input-gate_cooldown').value);
+        }
+
+        const payload = {
+            exp_id: expId,
+            max_steps: maxSteps,
+            seed: seed,
+            params: params
+        };
+
+        try {
+            const response = await fetch('/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+            runBtn.disabled = false;
+            runBtn.textContent = 'Run Simulation';
+
+            if (!response.ok || result.error) {
+                statusMsg.style.color = 'var(--status-error)';
+                statusMsg.textContent = 'Simulation Error: ' + (result.error || 'Execution failed');
                 return;
             }
-            fetch('/comparison?s1=' + window.currentSession + '&s2=' + window.currentSession + '_off', {
-                method: 'GET'
-            }).then(response => response.json()).then(data => {
-                const resultDiv = document.getElementById('comparison-result');
-                resultDiv.innerHTML = '';
-                for (const [key, val] of Object.entries(data.diff)) {
-                    const p = document.createElement('p');
-                    p.className = 'diff-row';
-                    p.textContent = `${key}: ON=${val.on.toFixed(4)}, OFF=${val.off.toFixed(4)}, Δ=${val.delta}`;
-                    resultDiv.appendChild(p);
-                }
-            });
-        };
+
+            // Success state handling
+            currentSessionId = result.session_id;
+            document.getElementById('header-session-info').innerHTML = `Session: <span style="color: var(--accent-sky);">${currentSessionId}</span>`;
+            
+            statusMsg.style.color = 'var(--status-success)';
+            statusMsg.textContent = `Run completed successfully (world_hash: ${result.outcome.world_hash.substring(0, 10)}...)`;
+
+            // Display metrics grid
+            renderMetrics(result.outcome.metrics);
+
+            // Update scrubber and canvas
+            totalSteps = maxSteps;
+            currentStep = maxSteps;
+            document.getElementById('step-scrubber').max = maxSteps;
+            document.getElementById('step-scrubber').value = maxSteps;
+            document.getElementById('step-display').textContent = `Step ${maxSteps} / ${maxSteps}`;
+            
+            drawSimulationCanvas(result.outcome.metrics);
+            
+            // Show export button
+            document.getElementById('export-btn').style.display = 'inline-flex';
+
+        } catch (err) {
+            runBtn.disabled = false;
+            runBtn.textContent = 'Run Simulation';
+            statusMsg.style.color = 'var(--status-error)';
+            statusMsg.textContent = 'Network/Execution Exception: ' + err.message;
+        }
+    }
+
+    function renderMetrics(metrics) {
+        document.getElementById('metrics-placeholder').style.display = 'none';
+        const grid = document.getElementById('metrics-grid');
+        grid.style.display = 'grid';
+        grid.innerHTML = '';
+
+        for (const [key, value] of Object.entries(metrics)) {
+            const tile = document.createElement('div');
+            tile.className = 'metric-tile';
+            const formattedVal = (typeof value === 'number') ? value.toFixed(4) : value;
+            tile.innerHTML = `
+                <div class="label">${key}</div>
+                <div class="val">${formattedVal}</div>
+            `;
+            grid.appendChild(tile);
+        }
+    }
+
+    function drawSimulationCanvas(metrics) {
+        ctx.fillStyle = '#020617';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Render synthetic field gradient background based on final_field_mean
+        const fieldMean = metrics.final_field_mean || 0.45;
+        const grad = ctx.createRadialGradient(
+            canvas.width / 2, canvas.height / 2, 20,
+            canvas.width / 2, canvas.height / 2, canvas.width / 1.5
+        );
+        grad.addColorStop(0, `rgba(56, 189, 248, ${Math.min(1.0, fieldMean * 1.5)})`);
+        grad.addColorStop(1, 'rgba(15, 23, 42, 0.9)');
+
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Render Movers / Wall positions if present
+        const nMovers = metrics.n_movers || metrics.wall_count || 6;
+        ctx.fillStyle = '#34d399';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+
+        for (let i = 0; i < nMovers; i++) {
+            const angle = (i / nMovers) * Math.PI * 2 + (currentStep * 0.1);
+            const radius = 100 + (i % 2 === 0 ? 20 : -20);
+            const cx = canvas.width / 2 + Math.cos(angle) * radius;
+            const cy = canvas.height / 2 + Math.sin(angle) * radius;
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
+    }
+
+    function seekToStep(step) {
+        currentStep = step;
+        document.getElementById('step-display').textContent = `Step ${step} / ${totalSteps}`;
+    }
+
+    function togglePlayPause() {
+        const btn = document.getElementById('play-btn');
+        if (isPlaying) {
+            clearInterval(playInterval);
+            isPlaying = false;
+            btn.textContent = 'Play';
+        } else {
+            isPlaying = true;
+            btn.textContent = 'Pause';
+            playInterval = setInterval(() => {
+                currentStep = (currentStep % totalSteps) + 1;
+                document.getElementById('step-scrubber').value = currentStep;
+                seekToStep(currentStep);
+            }, 300);
+        }
+    }
+
+    async function compareDGating() {
+        const compCard = document.getElementById('comparison-card');
+        compCard.style.display = 'flex';
         
-        // Export
-        document.getElementById('export-btn').addEventListener('click', () => {
-            window.location.href = '/export/' + window.currentSession;
-        });
-    </script>
-</body>
-</html>
+        const tbody = document.getElementById('diff-table-body');
+        tbody.innerHTML = '<tr><td colspan="4" style="color: var(--accent-sky);">Computing gating ON ($T=0.50$) vs OFF ($T=0.00$) simulation runs...</td></tr>';
+
+        try {
+            const response = await fetch('/comparison');
+            const data = await response.json();
+
+            if (!response.ok || data.error) {
+                tbody.innerHTML = `<tr><td colspan="4" style="color: var(--status-error);">Comparison Error: ${data.error || 'Failed'}</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            for (const [key, val] of Object.entries(data.diff)) {
+                const tr = document.createElement('tr');
+                const deltaClass = val.delta > 0 ? 'diff-positive' : (val.delta < 0 ? 'diff-negative' : '');
+                tr.innerHTML = `
+                    <td style="font-weight: 600;">${key}</td>
+                    <td>${val.on.toFixed(4)}</td>
+                    <td>${val.off.toFixed(4)}</td>
+                    <td class="${deltaClass}">${val.delta >= 0 ? '+' : ''}${val.delta.toFixed(4)}</td>
+                `;
+                tbody.appendChild(tr);
+            }
+
+            const prov = data.provenance || {};
+            document.getElementById('comparison-provenance').innerHTML = `
+                <strong>Provenance Trace:</strong> ON Run ID: <code>${prov.on_run_id || 'N/A'}</code> | OFF Run ID: <code>${prov.off_run_id || 'N/A'}</code> | Type: ${prov.comparison_type}
+            `;
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="4" style="color: var(--status-error);">Exception: ${err.message}</td></tr>`;
+        }
+    }
+
+    function handleExport() {
+        if (!currentSessionId) return;
+        window.location.href = '/export/' + currentSessionId;
+    }
+</script>
+{% endblock %}

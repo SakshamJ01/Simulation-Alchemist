@@ -281,7 +281,7 @@ def export_json(session_id: str) -> Any:
 
     tmp_dir = tempfile.gettempdir()
     tmp_path = os.path.join(tmp_dir, export_filename)
-    with open(tmp_path, "w") as f:
+    with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump({
             "session_id": session_id,
             "experiment": session["exp_id"],
@@ -289,9 +289,10 @@ def export_json(session_id: str) -> Any:
             "seed": session["seed"],
             "params": session["params"],
             "metrics": session["outcome"].metrics,
+            "world_hash": run_id_of(session["outcome"].world),
         }, f, indent=2)
 
-    return send_from_directory(tmp_dir, export_filename, as_attachment=True)
+    return send_from_directory(directory=tmp_dir, path=export_filename, as_attachment=True)
 
 
 def main() -> None:

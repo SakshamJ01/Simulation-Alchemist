@@ -111,6 +111,78 @@ def _get_session(session_id: str) -> dict[str, Any] | None:
     return _BACKEND_SESSIONS[session_id]
 
 
+import numpy as np
+
+
+def _serialize_trajectory(trajectory: Any) -> dict[str, Any]:
+    """Extract and serialize real trajectory frames for frontend visualization."""
+    if trajectory is None:
+        return {"available": False, "total_steps": 0, "field_frames": [], "movers": {}, "walls": {}}
+
+    u_snaps = getattr(trajectory, "u_snaps", [])
+    total_steps = len(u_snaps) if u_snaps else 0
+
+    field_frames: list[dict[str, Any]] = []
+    # If total_steps > 50, sample up to 30 snapshots uniformly; otherwise keep all
+    step_indices = list(range(total_steps))
+    if total_steps > 50:
+        step_stride = max(1, total_steps // 30)
+        sampled_indices = set(range(0, total_steps, step_stride))
+        sampled_indices.add(total_steps - 1)
+        step_indices = sorted(sampled_indices)
+
+    for idx in step_indices:
+        arr = u_snaps[idx]
+        if hasattr(arr, "tolist"):
+            min_val = float(np.min(arr))
+            max_val = float(np.max(arr))
+            field_frames.append({
+                "step": idx,
+                "shape": list(arr.shape),
+                "min": min_val,
+                "max": max_val,
+                "grid": [[round(float(v), 3) for v in row] for row in arr],
+            })
+
+    # Extract mover positions across steps (B & D)
+    positions_dict = getattr(trajectory, "positions", {})
+    movers_data: dict[str, list[list[float]]] = {}
+    for m_id, pts in positions_dict.items():
+        movers_data[str(m_id)] = [[round(float(x), 4), round(float(y), 4)] for (x, y) in pts]
+
+    # For Experiment A (walls)
+    wall_tracks = getattr(trajectory, "wall_tracks", {})
+    walls_data: dict[str, list[list[float]]] = {}
+    for w_id, pts in wall_tracks.items():
+        walls_data[str(w_id)] = [[round(float(coord), 4) for coord in pt] for pt in pts]
+
+    # Gating specifics (D)
+    active_gates = getattr(trajectory, "active_gates", [])
+    suppressed_gates = getattr(trajectory, "suppressed_gates", [])
+    gate_deposits = getattr(trajectory, "gate_deposits", [])
+    gate_switches = getattr(trajectory, "gate_switches", [])
+
+    # Dynamic metrics per step
+    speeds = [round(float(s), 5) for s in getattr(trajectory, "speeds", [])]
+    force_mags = [round(float(f), 5) for f in getattr(trajectory, "force_mags", [])]
+    gradient_mags = [round(float(g), 5) for g in getattr(trajectory, "gradient_mags", [])]
+
+    return {
+        "available": True,
+        "total_steps": total_steps,
+        "field_frames": field_frames,
+        "movers": movers_data,
+        "walls": walls_data,
+        "active_gates": [int(g) for g in active_gates],
+        "suppressed_gates": [int(g) for g in suppressed_gates],
+        "gate_deposits": [int(g) for g in gate_deposits],
+        "gate_switches": [int(g) for g in gate_switches],
+        "speeds": speeds,
+        "force_mags": force_mags,
+        "gradient_mags": gradient_mags,
+    }
+
+
 def _parameter_spec_bounds(exp_id: str) -> dict[str, dict[str, Any]]:
     """Return parameter bounds from ParameterSpec for the given experiment."""
     if exp_id == "gated_movers":
@@ -195,6 +267,7 @@ def run() -> Any:
         result = _run_simulation(candidate.composition_id, clamped_params, max_steps, seed)
         session_id = result["session_id"]
         outcome = result["outcome"]
+        serialized_traj = _serialize_trajectory(outcome.trajectory)
 
         return jsonify({
             "session_id": session_id,
@@ -203,6 +276,7 @@ def run() -> Any:
                 "world_hash": run_id_of(outcome.world),
             },
             "outcome_metrics": outcome.metrics,
+            "trajectory": serialized_traj,
         })
     except Exception as e:  # noqa: BLE001
         return jsonify({"error": str(e)}), 500
@@ -229,6 +303,8 @@ def comparison() -> Any:
     world_on = _replace(d_candidate.generated_world, max_steps=12)
     new_config = _copy.deepcopy(world_on.config)
     new_config["n_steps"] = 12
+    new_config["gate_threshold"] = 0.5
+    new_config["gate_cooldown"] = 4
     world_on_copy = _replace(world_on, max_steps=12, config=new_config)
 
     from experiments.catalog import repository_executors as _executors
@@ -240,6 +316,8 @@ def comparison() -> Any:
     world_off = _replace(d_candidate.generated_world, max_steps=12)
     new_config2 = _copy.deepcopy(world_off.config)
     new_config2["n_steps"] = 12
+    new_config2["gate_threshold"] = 0.0
+    new_config2["gate_cooldown"] = 0
     world_off_copy = _replace(world_off, max_steps=12, config=new_config2)
 
     outcome_off = exec_map[comp_id](world_off_copy)
@@ -250,7 +328,7 @@ def comparison() -> Any:
 
     diff: dict[str, Any] = {}
     all_keys = set(list(on_metrics.keys()) + list(off_metrics.keys()))
-    for key in all_keys:
+    for key in sorted(all_keys):
         on_val = on_metrics.get(key, 0)
         off_val = off_metrics.get(key, 0)
         delta = off_val - on_val
@@ -259,11 +337,13 @@ def comparison() -> Any:
     # Provenance: identify the compared runs
     return jsonify({
         "diff": diff,
+        "on_trajectory": _serialize_trajectory(outcome_on.trajectory),
+        "off_trajectory": _serialize_trajectory(outcome_off.trajectory),
         "provenance": {
             "on_run_id": run_id_of(outcome_on.world),
             "off_run_id": run_id_of(outcome_off.world),
-            "on_config": {"gate_threshold": 0.5, "max_steps": 12},
-            "off_config": {"gate_threshold": 0.0, "max_steps": 12},
+            "on_config": {"gate_threshold": 0.5, "gate_cooldown": 4, "max_steps": 12},
+            "off_config": {"gate_threshold": 0.0, "gate_cooldown": 0, "max_steps": 12},
             "experiment": d_candidate.template,
             "comparison_type": "gating_ON_vs_OFF",
         },

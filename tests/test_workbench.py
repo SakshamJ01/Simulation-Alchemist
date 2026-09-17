@@ -27,14 +27,13 @@ def test_index_route(client):
     assert res.status_code == 200
     html = res.get_data(as_text=True)
     assert "Simulation Alchemist" in html
-    assert "v1.5 Workstation" in html
     assert "2D Spatial Viewport" in html
     assert "Observable Metrics" in html
     assert "sim-canvas" in html
 
 
 def test_run_d_gated_movers(client):
-    """Verify /run executes D (gated_movers) with gate_threshold and gate_cooldown."""
+    """Verify /run executes D (gated_movers) with gate_threshold and returns real trajectory frames."""
     exps = _discover_experiments()
     d_info = exps.get("gated_movers")
     assert d_info is not None
@@ -55,6 +54,15 @@ def test_run_d_gated_movers(client):
     assert "world_hash" in data["outcome"]
     assert "active_gates" in data["outcome"]["metrics"]
 
+    # Trajectory observability assertions
+    assert "trajectory" in data
+    traj = data["trajectory"]
+    assert traj["available"] is True
+    assert traj["total_steps"] == 12
+    assert len(traj["field_frames"]) > 0
+    assert len(traj["movers"]) == 6
+    assert len(traj["active_gates"]) == 12
+
     # Verify export for this session
     session_id = data["session_id"]
     res_export = client.get(f"/export/{session_id}")
@@ -66,7 +74,7 @@ def test_run_d_gated_movers(client):
 
 
 def test_run_abc_experiments(client):
-    """Verify A, B, and C experiment runs execute successfully."""
+    """Verify A, B, and C experiment runs execute successfully with trajectory payloads."""
     exps = _discover_experiments()
     for exp_key in ["morphogenesis", "field_guided_movers", "adaptive_network"]:
         info = exps.get(exp_key)
@@ -79,6 +87,8 @@ def test_run_abc_experiments(client):
         assert "session_id" in data
         assert "outcome" in data
         assert "metrics" in data["outcome"]
+        assert "trajectory" in data
+        assert data["trajectory"]["available"] is True
 
 
 def test_run_invalid_requests(client):
@@ -99,7 +109,7 @@ def test_run_invalid_requests(client):
 
 
 def test_comparison_route(client):
-    """Verify /comparison returns ON vs OFF simulation results with provenance."""
+    """Verify /comparison returns distinct ON vs OFF simulation runs with real deltas and distinct provenance."""
     res = client.get("/comparison")
     assert res.status_code == 200
     assert "application/json" in res.content_type
@@ -107,5 +117,21 @@ def test_comparison_route(client):
     assert "diff" in data
     assert "provenance" in data
     assert data["provenance"]["experiment"] == "gated_movers"
-    assert "on_run_id" in data["provenance"]
-    assert "off_run_id" in data["provenance"]
+
+    # Distinct provenance run IDs
+    on_id = data["provenance"]["on_run_id"]
+    off_id = data["provenance"]["off_run_id"]
+    assert on_id != off_id, f"Expected distinct run IDs, got identical {on_id}"
+
+    # Real metric deltas between ON (gating active) and OFF (unconditional)
+    diff = data["diff"]
+    assert "deposition_events" in diff
+    assert "deposition_suppression" in diff
+    assert diff["deposition_events"]["on"] != diff["deposition_events"]["off"]
+    assert diff["deposition_suppression"]["on"] != diff["deposition_suppression"]["off"]
+
+    # Trajectory payloads for side-by-side visualization
+    assert "on_trajectory" in data
+    assert "off_trajectory" in data
+    assert data["on_trajectory"]["available"] is True
+    assert data["off_trajectory"]["available"] is True

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Simulation Alchemist - Researcher Workstation v1.5{% endblock %}
+{% block title %}Simulation Alchemist - Researcher Workstation v1.5.1{% endblock %}
 
 {% block content %}
 <!-- Sidebar Controls: Experiments & Parameters -->
@@ -82,7 +82,7 @@
     </div>
 
     <!-- Spatial & Observables Section -->
-    <div style="display: grid; grid-template-columns: minmax(320px, 512px) 1fr; gap: 1.5rem;">
+    <div style="display: grid; grid-template-columns: minmax(340px, 512px) 1fr; gap: 1.5rem;">
         <!-- Spatial Canvas Card -->
         <div class="card" style="display: flex; flex-direction: column; gap: 0.75rem;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -94,11 +94,40 @@
                 <canvas id="sim-canvas" width="512" height="384"></canvas>
             </div>
 
+            <!-- Canvas Legend -->
+            <div style="display: flex; gap: 0.8rem; font-size: 0.75rem; color: var(--text-secondary); background: rgba(15, 23, 42, 0.7); padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-color); flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 0.3rem;">
+                    <span style="display: inline-block; width: 10px; height: 10px; background: linear-gradient(to right, #440154, #21918c, #fde725); border-radius: 2px;"></span>
+                    <span>Field $u$ (Viridis)</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.3rem;">
+                    <span style="display: inline-block; width: 8px; height: 8px; background: #34d399; border-radius: 50%;"></span>
+                    <span>Mover & Trail</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.3rem;">
+                    <span style="display: inline-block; width: 8px; height: 8px; border: 2px solid #34d399; border-radius: 50%;"></span>
+                    <span>Gate Open</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.3rem;">
+                    <span style="display: inline-block; width: 8px; height: 8px; border: 2px solid #fbbf24; border-radius: 50%;"></span>
+                    <span>Gate Closed</span>
+                </div>
+            </div>
+
             <!-- Time Scrubber & Replay Bar -->
             <div class="scrubber-bar">
+                <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" onclick="stepBackward()">&lt;</button>
                 <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" onclick="togglePlayPause()" id="play-btn">Play</button>
-                <input type="range" class="scrubber-slider" id="step-scrubber" min="0" max="12" value="12" oninput="seekToStep(parseInt(this.value))">
-                <span class="step-readout" id="step-display">Step 12 / 12</span>
+                <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" onclick="stepForward()">&gt;</button>
+                <input type="range" class="scrubber-slider" id="step-scrubber" min="0" max="0" value="0" oninput="seekToStep(parseInt(this.value))">
+                <span class="step-readout" id="step-display">Step 0 / 0</span>
+            </div>
+
+            <!-- Live Step Status Telemetry -->
+            <div id="step-telemetry" style="display: none; font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-secondary); background: rgba(15, 23, 42, 0.4); padding: 0.4rem 0.6rem; border-radius: 6px;">
+                <span>Speed: <strong id="tel-speed" style="color: var(--accent-sky);">0.0000</strong></span> |
+                <span>Force: <strong id="tel-force" style="color: var(--accent-sky);">0.0000</strong></span> |
+                <span id="tel-gates-box">Active Gates: <strong id="tel-gates" style="color: var(--status-success);">0</strong></span>
             </div>
         </div>
 
@@ -126,9 +155,25 @@
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
             <div>
                 <h3 style="font-size: 1rem; font-weight: 700;">Experiment D: Gating ON vs OFF Comparison</h3>
-                <p style="font-size: 0.8rem; color: var(--text-secondary);">Contrasting gated morphogen sensing vs. unconditional chemotaxis</p>
+                <p style="font-size: 0.8rem; color: var(--text-secondary);">Controlled comparison: Hysteresis Gated Sensing ($T=0.50$) vs. Unconditional Chemotaxis ($T=0.00$)</p>
             </div>
-            <span class="exp-tag" style="background: rgba(56, 189, 248, 0.15); color: var(--accent-sky);">Side-by-Side Analysis</span>
+            <span class="exp-tag" style="background: rgba(56, 189, 248, 0.15); color: var(--accent-sky);">Controlled Run Comparison</span>
+        </div>
+
+        <!-- Side by side visual canvases for ON and OFF -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                <div style="font-size: 0.82rem; font-weight: 600; color: var(--status-success);">GATING ON ($T=0.50$, Cooldown=4)</div>
+                <div class="canvas-container" style="height: 220px; max-width: 100%;">
+                    <canvas id="canvas-on" width="320" height="220"></canvas>
+                </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                <div style="font-size: 0.82rem; font-weight: 600; color: var(--status-warning);">GATING OFF ($T=0.00$, Cooldown=0)</div>
+                <div class="canvas-container" style="height: 220px; max-width: 100%;">
+                    <canvas id="canvas-off" width="320" height="220"></canvas>
+                </div>
+            </div>
         </div>
 
         <!-- Delta Table -->
@@ -160,40 +205,53 @@
     let currentSessionId = null;
     let isPlaying = false;
     let playInterval = null;
-    let currentStep = 12;
-    let totalSteps = 12;
+    let currentStep = 0;
+    let totalRecordedSteps = 0;
+    let activeTrajectory = null;
 
     // Canvas Context Setup
     const canvas = document.getElementById('sim-canvas');
     const ctx = canvas.getContext('2d');
 
-    // Render static grid preview on canvas load
-    drawPlaceholderCanvas();
+    drawPlaceholderCanvas(ctx, canvas.width, canvas.height, 'SPATIAL VIEWPORT READY');
 
-    function drawPlaceholderCanvas() {
-        ctx.fillStyle = '#020617';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    function drawPlaceholderCanvas(context, w, h, text) {
+        context.fillStyle = '#020617';
+        context.fillRect(0, 0, w, h);
         
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 1;
+        context.strokeStyle = '#1e293b';
+        context.lineWidth = 1;
         const gridSize = 32;
-        for (let x = 0; x <= canvas.width; x += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, canvas.height);
-            ctx.stroke();
+        for (let x = 0; x <= w; x += gridSize) {
+            context.beginPath();
+            context.moveTo(x, 0);
+            context.lineTo(x, h);
+            context.stroke();
         }
-        for (let y = 0; y <= canvas.height; y += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(canvas.width, y);
-            ctx.stroke();
+        for (let y = 0; y <= h; y += gridSize) {
+            context.beginPath();
+            context.moveTo(0, y);
+            context.lineTo(w, y);
+            context.stroke();
         }
 
-        ctx.fillStyle = '#475569';
-        ctx.font = '12px "JetBrains Mono", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('SPATIAL VIEWPORT READY', canvas.width / 2, canvas.height / 2);
+        context.fillStyle = '#475569';
+        context.font = '12px "JetBrains Mono", monospace';
+        context.textAlign = 'center';
+        context.fillText(text, w / 2, h / 2);
+    }
+
+    // Viridis Colormap Function
+    function getViridisColor(val, minVal, maxVal) {
+        let t = 0.5;
+        if (maxVal > minVal) {
+            t = Math.max(0.0, Math.min(1.0, (val - minVal) / (maxVal - minVal)));
+        }
+        // Approximate Viridis palette
+        const r = Math.round(255 * Math.max(0, Math.min(1, 0.28 + 0.7 * t * Math.sin(t * Math.PI))));
+        const g = Math.round(255 * Math.max(0, Math.min(1, 0.05 + 0.9 * t)));
+        const b = Math.round(255 * Math.max(0, Math.min(1, 0.35 + 0.65 * (1 - t))));
+        return `rgb(${r}, ${g}, ${b})`;
     }
 
     function selectExperiment(expId, template) {
@@ -282,15 +340,20 @@
             // Display metrics grid
             renderMetrics(result.outcome.metrics);
 
-            // Update scrubber and canvas
-            totalSteps = maxSteps;
-            currentStep = maxSteps;
-            document.getElementById('step-scrubber').max = maxSteps;
-            document.getElementById('step-scrubber').value = maxSteps;
-            document.getElementById('step-display').textContent = `Step ${maxSteps} / ${maxSteps}`;
-            
-            drawSimulationCanvas(result.outcome.metrics);
-            
+            // Save trajectory and set up scrubber
+            activeTrajectory = result.trajectory || null;
+            if (activeTrajectory && activeTrajectory.available) {
+                totalRecordedSteps = activeTrajectory.total_steps;
+                currentStep = totalRecordedSteps > 0 ? totalRecordedSteps - 1 : 0;
+
+                const scrubber = document.getElementById('step-scrubber');
+                scrubber.max = totalRecordedSteps > 0 ? totalRecordedSteps - 1 : 0;
+                scrubber.value = currentStep;
+                
+                document.getElementById('step-telemetry').style.display = 'block';
+                seekToStep(currentStep);
+            }
+
             // Show export button
             document.getElementById('export-btn').style.display = 'inline-flex';
 
@@ -320,44 +383,143 @@
         }
     }
 
-    function drawSimulationCanvas(metrics) {
-        ctx.fillStyle = '#020617';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    function drawTrajectoryFrame(context, w, h, traj, stepIdx) {
+        if (!traj || !traj.available) {
+            drawPlaceholderCanvas(context, w, h, 'NO TRAJECTORY DATA');
+            return;
+        }
 
-        // Render synthetic field gradient background based on final_field_mean
-        const fieldMean = metrics.final_field_mean || 0.45;
-        const grad = ctx.createRadialGradient(
-            canvas.width / 2, canvas.height / 2, 20,
-            canvas.width / 2, canvas.height / 2, canvas.width / 1.5
-        );
-        grad.addColorStop(0, `rgba(56, 189, 248, ${Math.min(1.0, fieldMean * 1.5)})`);
-        grad.addColorStop(1, 'rgba(15, 23, 42, 0.9)');
+        // 1. Draw Field Heatmap Grid
+        const frames = traj.field_frames || [];
+        if (frames.length > 0) {
+            // Find closest frame to stepIdx
+            let frame = frames[0];
+            for (const f of frames) {
+                if (f.step <= stepIdx) frame = f;
+                else break;
+            }
 
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+            const grid = frame.grid;
+            const rows = grid.length;
+            const cols = grid[0].length;
+            const cellW = w / cols;
+            const cellH = h / rows;
 
-        // Render Movers / Wall positions if present
-        const nMovers = metrics.n_movers || metrics.wall_count || 6;
-        ctx.fillStyle = '#34d399';
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const val = grid[r][c];
+                    context.fillStyle = getViridisColor(val, frame.min, frame.max);
+                    context.fillRect(c * cellW, r * cellH, cellW + 0.5, cellH + 0.5);
+                }
+            }
+        } else {
+            context.fillStyle = '#020617';
+            context.fillRect(0, 0, w, h);
+        }
 
-        for (let i = 0; i < nMovers; i++) {
-            const angle = (i / nMovers) * Math.PI * 2 + (currentStep * 0.1);
-            const radius = 100 + (i % 2 === 0 ? 20 : -20);
-            const cx = canvas.width / 2 + Math.cos(angle) * radius;
-            const cy = canvas.height / 2 + Math.sin(angle) * radius;
+        // 2. Draw Mover Trails & Positions (Experiment B & D)
+        const movers = traj.movers || {};
+        const moverIds = Object.keys(movers);
 
-            ctx.beginPath();
-            ctx.arc(cx, cy, 6, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
+        for (const mId of moverIds) {
+            const path = movers[mId];
+            if (!path || path.length === 0) continue;
+
+            const maxIdx = Math.min(stepIdx, path.length - 1);
+            
+            // Draw Trail Polyline
+            context.beginPath();
+            context.strokeStyle = 'rgba(52, 211, 153, 0.4)';
+            context.lineWidth = 2;
+            for (let i = 0; i <= maxIdx; i++) {
+                const px = path[i][0] * w;
+                const py = path[i][1] * h;
+                if (i === 0) context.moveTo(px, py);
+                else context.lineTo(px, py);
+            }
+            context.stroke();
+
+            // Draw Current Position
+            const curPos = path[maxIdx];
+            const cx = curPos[0] * w;
+            const cy = curPos[1] * h;
+
+            // Gate Status (Experiment D)
+            const activeGates = traj.active_gates || [];
+            const isGateOpen = (activeGates.length > maxIdx && activeGates[maxIdx] > 0);
+
+            context.beginPath();
+            context.arc(cx, cy, 7, 0, Math.PI * 2);
+            context.fillStyle = '#34d399';
+            context.fill();
+            context.strokeStyle = isGateOpen ? '#34d399' : '#fbbf24';
+            context.lineWidth = 2.5;
+            context.stroke();
+
+            // Draw Velocity / Gradient direction vector if moving
+            if (maxIdx > 0) {
+                const prevPos = path[maxIdx - 1];
+                const dx = (curPos[0] - prevPos[0]) * w;
+                const dy = (curPos[1] - prevPos[1]) * h;
+                const dist = Math.hypot(dx, dy);
+                if (dist > 0.5) {
+                    const arrowLen = Math.min(24, Math.max(8, dist * 5));
+                    const nx = (dx / dist) * arrowLen;
+                    const ny = (dy / dist) * arrowLen;
+                    context.beginPath();
+                    context.strokeStyle = '#ffffff';
+                    context.lineWidth = 1.5;
+                    context.moveTo(cx, cy);
+                    context.lineTo(cx + nx, cy + ny);
+                    context.stroke();
+                }
+            }
+        }
+
+        // 3. Draw Walls (Experiment A)
+        const walls = traj.walls || {};
+        for (const wId of Object.keys(walls)) {
+            const track = walls[wId];
+            const idx = Math.min(stepIdx, track.length - 1);
+            if (track[idx]) {
+                const wx = track[idx][0] * w;
+                const wy = track[idx][1] * h;
+                context.fillStyle = '#f87171';
+                context.fillRect(wx - 4, wy - 4, 8, 8);
+            }
         }
     }
 
     function seekToStep(step) {
-        currentStep = step;
-        document.getElementById('step-display').textContent = `Step ${step} / ${totalSteps}`;
+        if (!activeTrajectory) return;
+        currentStep = Math.max(0, Math.min(totalRecordedSteps - 1, step));
+        
+        document.getElementById('step-display').textContent = `Step ${currentStep} / ${Math.max(0, totalRecordedSteps - 1)}`;
+        document.getElementById('step-scrubber').value = currentStep;
+
+        // Draw canvas frame
+        drawTrajectoryFrame(ctx, canvas.width, canvas.height, activeTrajectory, currentStep);
+
+        // Update live telemetry readout
+        if (activeTrajectory.speeds && activeTrajectory.speeds.length > currentStep) {
+            document.getElementById('tel-speed').textContent = activeTrajectory.speeds[currentStep].toFixed(4);
+        }
+        if (activeTrajectory.force_mags && activeTrajectory.force_mags.length > currentStep) {
+            document.getElementById('tel-force').textContent = activeTrajectory.force_mags[currentStep].toFixed(4);
+        }
+        if (activeTrajectory.active_gates && activeTrajectory.active_gates.length > currentStep) {
+            document.getElementById('tel-gates').textContent = activeTrajectory.active_gates[currentStep];
+        }
+    }
+
+    function stepForward() {
+        if (!activeTrajectory || totalRecordedSteps === 0) return;
+        seekToStep(Math.min(totalRecordedSteps - 1, currentStep + 1));
+    }
+
+    function stepBackward() {
+        if (!activeTrajectory || totalRecordedSteps === 0) return;
+        seekToStep(Math.max(0, currentStep - 1));
     }
 
     function togglePlayPause() {
@@ -367,13 +529,17 @@
             isPlaying = false;
             btn.textContent = 'Play';
         } else {
+            if (!activeTrajectory || totalRecordedSteps <= 1) return;
             isPlaying = true;
             btn.textContent = 'Pause';
             playInterval = setInterval(() => {
-                currentStep = (currentStep % totalSteps) + 1;
-                document.getElementById('step-scrubber').value = currentStep;
+                if (currentStep >= totalRecordedSteps - 1) {
+                    currentStep = 0;
+                } else {
+                    currentStep++;
+                }
                 seekToStep(currentStep);
-            }, 300);
+            }, 250);
         }
     }
 
@@ -397,18 +563,34 @@
             for (const [key, val] of Object.entries(data.diff)) {
                 const tr = document.createElement('tr');
                 const deltaClass = val.delta > 0 ? 'diff-positive' : (val.delta < 0 ? 'diff-negative' : '');
+                const formattedDelta = val.delta !== 0 ? (val.delta > 0 ? '+' : '') + val.delta.toFixed(4) : '0.0000';
                 tr.innerHTML = `
                     <td style="font-weight: 600;">${key}</td>
                     <td>${val.on.toFixed(4)}</td>
                     <td>${val.off.toFixed(4)}</td>
-                    <td class="${deltaClass}">${val.delta >= 0 ? '+' : ''}${val.delta.toFixed(4)}</td>
+                    <td class="${deltaClass}" style="font-weight: 700;">${formattedDelta}</td>
                 `;
                 tbody.appendChild(tr);
             }
 
+            // Draw ON and OFF comparison canvases
+            const canvasOn = document.getElementById('canvas-on');
+            const ctxOn = canvasOn.getContext('2d');
+            const canvasOff = document.getElementById('canvas-off');
+            const ctxOff = canvasOff.getContext('2d');
+
+            if (data.on_trajectory) {
+                const onSteps = data.on_trajectory.total_steps || 12;
+                drawTrajectoryFrame(ctxOn, canvasOn.width, canvasOn.height, data.on_trajectory, onSteps - 1);
+            }
+            if (data.off_trajectory) {
+                const offSteps = data.off_trajectory.total_steps || 12;
+                drawTrajectoryFrame(ctxOff, canvasOff.width, canvasOff.height, data.off_trajectory, offSteps - 1);
+            }
+
             const prov = data.provenance || {};
             document.getElementById('comparison-provenance').innerHTML = `
-                <strong>Provenance Trace:</strong> ON Run ID: <code>${prov.on_run_id || 'N/A'}</code> | OFF Run ID: <code>${prov.off_run_id || 'N/A'}</code> | Type: ${prov.comparison_type}
+                <strong>Provenance Trace:</strong> ON Run ID: <code>${prov.on_run_id || 'N/A'}</code> | OFF Run ID: <code>${prov.off_run_id || 'N/A'}</code> | Type: <code>${prov.comparison_type}</code>
             `;
         } catch (err) {
             tbody.innerHTML = `<tr><td colspan="4" style="color: var(--status-error);">Exception: ${err.message}</td></tr>`;

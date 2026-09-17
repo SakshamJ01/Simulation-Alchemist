@@ -1,16 +1,34 @@
 #!/usr/bin/env python3
-"""Simulation Alchemist Researcher Workbench - Flask application scaffold."""
+"""Simulation Alchemist Researcher Workbench - Phase 2 Trusted Experiment Lab."""
+
+from __future__ import annotations
 
 import copy as _copy
-import json
-import os
+import io
 import sys
+import time
+import uuid
 from dataclasses import replace as _replace
 from typing import Any
 
-from flask import Flask, jsonify, render_template, request, send_from_directory
+import numpy as np
+from flask import (
+    Flask,
+    Response,
+    jsonify,
+    render_template,
+    request,
+    send_file,
+)
 
 from sim_alchemist.core.lineage import run_id_of
+from workbench.export_import import (
+    export_reproducible_record,
+    export_result_json,
+    export_trajectory_archive,
+    import_reproducible_record,
+)
+from workbench.store import ExperimentRecord, WorkbenchStore
 
 # Ensure the project root is on the path so `import experiments` works.
 PROJECT_ROOT = r"C:\Users\Saksham\Documents\simulation project"
@@ -18,6 +36,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 app = Flask(__name__)
+store = WorkbenchStore()
 
 # ---------------------------------------------------------------------------
 # Backend helpers – thin wrapper around the existing sim_alchemist package
@@ -53,65 +72,6 @@ def _discover_experiments() -> dict[str, dict[str, Any]]:
             }.get(template, template),
         }
     return experiments
-
-
-def _run_simulation(
-    exp_id: str,
-    params: dict[str, Any],
-    max_steps: int,
-    seed: int,
-) -> dict[str, Any]:
-    """Run a simulation via the existing Alchemist executors and return state."""
-    from experiments.catalog import build_repository_catalog, repository_executors
-
-    cat = build_repository_catalog(generate_worlds=True)
-    executors = repository_executors()
-
-    # Find the candidate matching exp_id (composition_id hash or template name)
-    candidate = None
-    for c in cat.executable():
-        if c.composition_id == exp_id or c.template == exp_id:
-            candidate = c
-            break
-    if candidate is None:
-        raise ValueError(f"Unknown experiment id: {exp_id}")
-    if candidate.composition_id is None or candidate.generated_world is None:
-        raise ValueError("Candidate has no composition_id or generated world")
-
-    world = candidate.generated_world
-
-    world_copy = _replace(world, max_steps=max_steps)
-    new_config = _copy.deepcopy(world_copy.config)
-    new_config["n_steps"] = max_steps
-    for k, v in params.items():
-        new_config[k] = v
-    world_copy = _replace(world_copy, config=new_config)
-
-    # Run the executor
-    executor_fn = executors[candidate.composition_id]
-    outcome = executor_fn(world_copy)
-
-    # Persist a minimal session record
-    session_id = f"sess_{len(_BACKEND_SESSIONS) + 1}"
-    _BACKEND_SESSIONS[session_id] = {
-        "exp_id": exp_id,
-        "candidate": candidate,
-        "params": params,
-        "max_steps": max_steps,
-        "seed": seed,
-        "outcome": outcome,
-        "world": world_copy,
-    }
-    return {"session_id": session_id, "outcome": outcome}
-
-
-def _get_session(session_id: str) -> dict[str, Any] | None:
-    if session_id not in _BACKEND_SESSIONS:
-        return None
-    return _BACKEND_SESSIONS[session_id]
-
-
-import numpy as np
 
 
 def _serialize_trajectory(trajectory: Any) -> dict[str, Any]:
@@ -190,8 +150,120 @@ def _parameter_spec_bounds(exp_id: str) -> dict[str, dict[str, Any]]:
             "gate_threshold": {"min": 0.0, "max": 1.0, "step": 0.01, "default": 0.5},
             "gate_cooldown": {"min": 0, "max": 20, "step": 1, "default": 4},
         }
-    # For A/B/C, no extra params beyond what the experiment provides
     return {}
+
+
+def _run_simulation(
+    exp_id: str,
+    params: dict[str, Any],
+    max_steps: int,
+    seed: int,
+    *,
+    tags: list[str] | None = None,
+    notes: str = "",
+) -> dict[str, Any]:
+    """Run a simulation via the existing Alchemist executors, saving a durable ExperimentRecord."""
+    from experiments.catalog import build_repository_catalog, repository_executors
+
+    cat = build_repository_catalog(generate_worlds=True)
+    executors = repository_executors()
+
+    # Find the candidate matching exp_id (composition_id hash or template name)
+    candidate = None
+    for c in cat.executable():
+        if c.composition_id == exp_id or c.template == exp_id:
+            candidate = c
+            break
+    if candidate is None:
+        raise ValueError(f"Unknown experiment id: {exp_id}")
+    if candidate.composition_id is None or candidate.generated_world is None:
+        raise ValueError("Candidate has no composition_id or generated world")
+
+    world = candidate.generated_world
+
+    world_copy = _replace(world, max_steps=max_steps, seed=seed)
+    new_config = _copy.deepcopy(world_copy.config)
+    new_config["n_steps"] = max_steps
+    for k, v in params.items():
+        new_config[k] = v
+    world_copy = _replace(world_copy, config=new_config)
+
+    start_time = time.perf_counter()
+    executor_fn = executors[candidate.composition_id]
+    outcome = executor_fn(world_copy)
+    duration = time.perf_counter() - start_time
+
+    det_run_id = run_id_of(world_copy)
+    record_id = f"rec_{uuid.uuid4().hex[:12]}"
+    template_name = candidate.template or "unknown"
+    name_map = {
+        "morphogenesis": "Morphogenesis (A)",
+        "field_guided_movers": "Field-guided movers (B)",
+        "adaptive_network": "Adaptive network (C)",
+        "gated_movers": "Gated mover morphogenesis (D)",
+    }
+
+    serialized_traj = _serialize_trajectory(outcome.trajectory)
+
+    # Check numerical health
+    for k, v in outcome.metrics.items():
+        if np.isnan(v) or np.isinf(v):
+            error_msg = f"Numerical instability detected: metric '{k}' has non-finite value {v}"
+            record = ExperimentRecord(
+                record_id=record_id,
+                run_id=det_run_id,
+                composition_id=candidate.composition_id,
+                experiment_template=template_name,
+                experiment_name=name_map.get(template_name, template_name),
+                created_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                status="failed",
+                execution_time_seconds=duration,
+                seed=seed,
+                max_steps=max_steps,
+                parameters=params,
+                canonical_world=world_copy.as_dict(),
+                metrics=outcome.metrics,
+                tags=tags or [],
+                notes=notes,
+                error_message=error_msg,
+            )
+            store.save_record(record, trajectory=serialized_traj)
+            return {"record_id": record_id, "session_id": record_id, "outcome": outcome, "record": record}
+
+    record = ExperimentRecord(
+        record_id=record_id,
+        run_id=det_run_id,
+        composition_id=candidate.composition_id,
+        experiment_template=template_name,
+        experiment_name=name_map.get(template_name, template_name),
+        created_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        status="completed",
+        execution_time_seconds=duration,
+        seed=seed,
+        max_steps=max_steps,
+        parameters=params,
+        canonical_world=world_copy.as_dict(),
+        metrics=outcome.metrics,
+        tags=tags or [],
+        notes=notes,
+    )
+
+    store.save_record(record, trajectory=serialized_traj)
+
+    # Backward compatibility cache for legacy endpoints
+    session_id = record_id
+    _BACKEND_SESSIONS[session_id] = {
+        "exp_id": exp_id,
+        "candidate": candidate,
+        "params": params,
+        "max_steps": max_steps,
+        "seed": seed,
+        "outcome": outcome,
+        "world": world_copy,
+        "record": record,
+    }
+
+    return {"record_id": record_id, "session_id": session_id, "outcome": outcome, "record": record}
 
 
 # ---------------------------------------------------------------------------
@@ -230,6 +302,9 @@ def run() -> Any:
 
         max_steps = int(data.get("max_steps") or 12)
         seed = int(data.get("seed") or 42)
+        raw_tags = data.get("tags")
+        tags: list[str] = [str(t) for t in raw_tags] if isinstance(raw_tags, list) else ([str(raw_tags)] if isinstance(raw_tags, str) and raw_tags else [])
+        notes = str(data.get("notes") or "")
 
         from experiments.catalog import build_repository_catalog
         cat = build_repository_catalog(generate_worlds=True)
@@ -259,18 +334,31 @@ def run() -> Any:
             elif "default" in p_spec:
                 clamped_params[p_name] = float(p_spec["default"])
 
-        # Also preserve any raw params passed that weren't in specs
         for k, v in raw_params.items():
             if k not in clamped_params:
                 clamped_params[k] = v
 
-        result = _run_simulation(candidate.composition_id, clamped_params, max_steps, seed)
+        result = _run_simulation(
+            candidate.composition_id,
+            clamped_params,
+            max_steps,
+            seed,
+            tags=tags,
+            notes=notes,
+        )
+        record_id = result["record_id"]
         session_id = result["session_id"]
         outcome = result["outcome"]
+        record = result["record"]
         serialized_traj = _serialize_trajectory(outcome.trajectory)
 
         return jsonify({
+            "record_id": record_id,
             "session_id": session_id,
+            "run_id": record.run_id,
+            "composition_id": record.composition_id,
+            "status": record.status,
+            "execution_time_seconds": record.execution_time_seconds,
             "outcome": {
                 "metrics": outcome.metrics,
                 "world_hash": run_id_of(outcome.world),
@@ -282,9 +370,221 @@ def run() -> Any:
         return jsonify({"error": str(e)}), 500
 
 
+# ---------------------------------------------------------------------------
+# Phase 2 REST APIs: History, Records, Replay, Compare, Export, Import
+# ---------------------------------------------------------------------------
+
+@app.get("/api/history")
+def get_history() -> Any:
+    """Retrieve filtered experiment history from persistent store."""
+    template = request.args.get("template")
+    status = request.args.get("status")
+    tag = request.args.get("tag")
+    search_q = request.args.get("q")
+    limit = int(request.args.get("limit", 50))
+    offset = int(request.args.get("offset", 0))
+
+    records = store.list_records(
+        experiment_template=template,
+        status=status,
+        tag=tag,
+        search_query=search_q,
+        limit=limit,
+        offset=offset,
+    )
+    total = store.count_records(
+        experiment_template=template,
+        status=status,
+        tag=tag,
+    )
+
+    return jsonify({
+        "records": [r.as_dict() for r in records],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    })
+
+
+@app.get("/api/records/<record_id>")
+def get_record_details(record_id: str) -> Any:
+    """Fetch full details for an experiment record."""
+    record = store.get_record(record_id)
+    if record is None:
+        return jsonify({"error": f"Record {record_id} not found"}), 404
+    return jsonify(record.as_dict())
+
+
+@app.get("/api/records/<record_id>/trajectory")
+def get_record_trajectory(record_id: str) -> Any:
+    """Fetch trajectory frames for a stored record."""
+    traj = store.get_trajectory(record_id)
+    if traj is None:
+        return jsonify({"available": False, "error": f"No trajectory found for {record_id}"}), 404
+    return jsonify(traj)
+
+
+@app.patch("/api/records/<record_id>")
+def update_record(record_id: str) -> Any:
+    """Update notes or tags on an existing record."""
+    data = request.get_json(force=True, silent=True) or {}
+    notes = data.get("notes")
+    tags = data.get("tags")
+
+    updated = store.update_notes_and_tags(record_id, notes=notes, tags=tags)
+    if not updated:
+        return jsonify({"error": "Update failed or record not found"}), 404
+
+    record = store.get_record(record_id)
+    return jsonify({"success": True, "record": record.as_dict() if record else None})
+
+
+@app.delete("/api/records/<record_id>")
+def delete_record_route(record_id: str) -> Any:
+    """Delete an experiment record and its trajectory."""
+    deleted = store.delete_record(record_id)
+    if not deleted:
+        return jsonify({"error": "Record not found"}), 404
+    return jsonify({"success": True, "deleted_record_id": record_id})
+
+
+@app.post("/api/replay/<record_id>")
+def replay_record(record_id: str) -> Any:
+    """Deterministically re-run a stored experiment and verify zero metric drift."""
+    record = store.get_record(record_id)
+    if record is None:
+        return jsonify({"error": f"Record {record_id} not found"}), 404
+
+    try:
+        from experiments.catalog import repository_executors
+        from sim_alchemist.core.world import WorldDefinition
+
+        exec_map = repository_executors()
+        if record.composition_id not in exec_map:
+            return jsonify({"error": f"Executor not registered for composition {record.composition_id}"}), 400
+
+        # Reconstruct WorldDefinition
+        world = WorldDefinition.from_dict(record.canonical_world)
+        replayed_outcome = exec_map[record.composition_id](world)
+
+        original_metrics = record.metrics
+        replayed_metrics = replayed_outcome.metrics
+
+        # Compute max delta across float metrics
+        max_delta = 0.0
+        metric_deltas: dict[str, float] = {}
+        all_keys = set(list(original_metrics.keys()) + list(replayed_metrics.keys()))
+        for k in all_keys:
+            orig_v = float(original_metrics.get(k, 0.0))
+            rep_v = float(replayed_metrics.get(k, 0.0))
+            d = abs(rep_v - orig_v)
+            metric_deltas[k] = d
+            max_delta = max(max_delta, d)
+
+        replayed_run_id = run_id_of(world)
+        is_identical = (replayed_run_id == record.run_id) and (max_delta < 1e-7)
+
+        return jsonify({
+            "record_id": record_id,
+            "original_run_id": record.run_id,
+            "replayed_run_id": replayed_run_id,
+            "is_identical": is_identical,
+            "max_metric_delta": max_delta,
+            "original_metrics": original_metrics,
+            "replayed_metrics": replayed_metrics,
+            "metric_deltas": metric_deltas,
+            "trajectory": _serialize_trajectory(replayed_outcome.trajectory),
+        })
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"error": f"Replay failed: {e}"}), 500
+
+
+@app.post("/api/compare")
+def compare_runs() -> Any:
+    """Compare any two experiment records (or compute D ON vs OFF)."""
+    data = request.get_json(force=True, silent=True) or {}
+    record_id_a = data.get("record_id_a")
+    record_id_b = data.get("record_id_b")
+
+    if not record_id_a or not record_id_b:
+        return jsonify({"error": "Missing record_id_a or record_id_b"}), 400
+
+    rec_a = store.get_record(record_id_a)
+    rec_b = store.get_record(record_id_b)
+
+    if not rec_a:
+        return jsonify({"error": f"Record A ({record_id_a}) not found"}), 404
+    if not rec_b:
+        return jsonify({"error": f"Record B ({record_id_b}) not found"}), 404
+
+    traj_a = store.get_trajectory(record_id_a)
+    traj_b = store.get_trajectory(record_id_b)
+
+    # Compute parameter diffs
+    param_diffs: list[dict[str, Any]] = []
+    all_param_keys = sorted(set(list(rec_a.parameters.keys()) + list(rec_b.parameters.keys())))
+    for pk in all_param_keys:
+        va = rec_a.parameters.get(pk)
+        vb = rec_b.parameters.get(pk)
+        param_diffs.append({
+            "parameter": pk,
+            "val_a": va,
+            "val_b": vb,
+            "is_different": va != vb,
+        })
+
+    # Include seed & max_steps in param diff if different
+    if rec_a.seed != rec_b.seed:
+        param_diffs.append({"parameter": "seed", "val_a": rec_a.seed, "val_b": rec_b.seed, "is_different": True})
+    if rec_a.max_steps != rec_b.max_steps:
+        param_diffs.append({"parameter": "max_steps", "val_a": rec_a.max_steps, "val_b": rec_b.max_steps, "is_different": True})
+
+    # Compute metric deltas
+    metric_diffs: list[dict[str, Any]] = []
+    all_metric_keys = sorted(set(list(rec_a.metrics.keys()) + list(rec_b.metrics.keys())))
+    for mk in all_metric_keys:
+        in_a = mk in rec_a.metrics
+        in_b = mk in rec_b.metrics
+        ma = rec_a.metrics.get(mk)
+        mb = rec_b.metrics.get(mk)
+        delta = (mb - ma) if (ma is not None and mb is not None) else None
+        metric_diffs.append({
+            "metric": mk,
+            "val_a": ma,
+            "val_b": mb,
+            "delta": delta,
+            "available_in_both": in_a and in_b,
+        })
+
+    return jsonify({
+        "run_a": {
+            "record_id": rec_a.record_id,
+            "run_id": rec_a.run_id,
+            "experiment_name": rec_a.experiment_name,
+            "template": rec_a.experiment_template,
+            "parameters": rec_a.parameters,
+            "seed": rec_a.seed,
+            "max_steps": rec_a.max_steps,
+        },
+        "run_b": {
+            "record_id": rec_b.record_id,
+            "run_id": rec_b.run_id,
+            "experiment_name": rec_b.experiment_name,
+            "template": rec_b.experiment_template,
+            "parameters": rec_b.parameters,
+            "seed": rec_b.seed,
+            "max_steps": rec_b.max_steps,
+        },
+        "parameter_diffs": param_diffs,
+        "metric_diffs": metric_diffs,
+        "trajectory_a": traj_a,
+        "trajectory_b": traj_b,
+    })
+
+
 @app.get("/comparison")
 def comparison() -> Any:
-    """Compare D gating ON vs OFF using real simulation data."""
+    """Compare D gating ON vs OFF using real simulation data (Preserves Phase 1.5.1 behavior)."""
     from experiments.catalog import build_repository_catalog
 
     cat = build_repository_catalog(generate_worlds=True)
@@ -299,8 +599,8 @@ def comparison() -> Any:
 
     comp_id = d_candidate.composition_id
 
-    # Run with threshold ON (0.5) — gates open when field u >= threshold
-    world_on = _replace(d_candidate.generated_world, max_steps=12)
+    # Run with threshold ON (0.5)
+    world_on = _replace(d_candidate.generated_world, max_steps=12, seed=42)
     new_config = _copy.deepcopy(world_on.config)
     new_config["n_steps"] = 12
     new_config["gate_threshold"] = 0.5
@@ -312,8 +612,8 @@ def comparison() -> Any:
     exec_map = _executors()
     outcome_on = exec_map[comp_id](world_on_copy)
 
-    # Run with threshold OFF (0.0) — gates always open, no hysteresis
-    world_off = _replace(d_candidate.generated_world, max_steps=12)
+    # Run with threshold OFF (0.0)
+    world_off = _replace(d_candidate.generated_world, max_steps=12, seed=42)
     new_config2 = _copy.deepcopy(world_off.config)
     new_config2["n_steps"] = 12
     new_config2["gate_threshold"] = 0.0
@@ -334,12 +634,50 @@ def comparison() -> Any:
         delta = off_val - on_val
         diff[key] = {"on": on_val, "off": off_val, "delta": delta}
 
-    # Provenance: identify the compared runs
+    # Save to persistent store as well
+    rec_on = ExperimentRecord(
+        record_id=f"rec_d_on_{uuid.uuid4().hex[:8]}",
+        run_id=run_id_of(outcome_on.world),
+        composition_id=comp_id,
+        experiment_template="gated_movers",
+        experiment_name="Gated mover morphogenesis (D) [ON]",
+        created_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        status="completed",
+        execution_time_seconds=0.5,
+        seed=42,
+        max_steps=12,
+        parameters={"gate_threshold": 0.5, "gate_cooldown": 4},
+        canonical_world=world_on_copy.as_dict(),
+        metrics=outcome_on.metrics,
+        tags=["comparison", "gating_on"],
+    )
+    store.save_record(rec_on, _serialize_trajectory(outcome_on.trajectory))
+
+    rec_off = ExperimentRecord(
+        record_id=f"rec_d_off_{uuid.uuid4().hex[:8]}",
+        run_id=run_id_of(outcome_off.world),
+        composition_id=comp_id,
+        experiment_template="gated_movers",
+        experiment_name="Gated mover morphogenesis (D) [OFF]",
+        created_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        status="completed",
+        execution_time_seconds=0.5,
+        seed=42,
+        max_steps=12,
+        parameters={"gate_threshold": 0.0, "gate_cooldown": 0},
+        canonical_world=world_off_copy.as_dict(),
+        metrics=outcome_off.metrics,
+        tags=["comparison", "gating_off"],
+    )
+    store.save_record(rec_off, _serialize_trajectory(outcome_off.trajectory))
+
     return jsonify({
         "diff": diff,
         "on_trajectory": _serialize_trajectory(outcome_on.trajectory),
         "off_trajectory": _serialize_trajectory(outcome_off.trajectory),
         "provenance": {
+            "on_record_id": rec_on.record_id,
+            "off_record_id": rec_off.record_id,
             "on_run_id": run_id_of(outcome_on.world),
             "off_run_id": run_id_of(outcome_off.world),
             "on_config": {"gate_threshold": 0.5, "gate_cooldown": 4, "max_steps": 12},
@@ -350,29 +688,67 @@ def comparison() -> Any:
     })
 
 
-@app.get("/export/<session_id>")
-def export_json(session_id: str) -> Any:
-    session = _get_session(session_id)
-    if not session:
-        return jsonify({"error": "Session not found"}), 404
+@app.get("/export/<id_str>")
+def export_endpoint(id_str: str) -> Any:
+    """Three-tier export endpoint supporting Level 1, 2, and 3."""
+    level = int(request.args.get("level", 2))
+    record = store.get_record(id_str)
 
-    export_filename = f"sim_alch_run_{session_id}.json"
-    import tempfile
+    # Check fallback session cache
+    if record is None and id_str in _BACKEND_SESSIONS:
+        sess = _BACKEND_SESSIONS[id_str]
+        record = sess.get("record")
 
-    tmp_dir = tempfile.gettempdir()
-    tmp_path = os.path.join(tmp_dir, export_filename)
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        json.dump({
-            "session_id": session_id,
-            "experiment": session["exp_id"],
-            "max_steps": session["max_steps"],
-            "seed": session["seed"],
-            "params": session["params"],
-            "metrics": session["outcome"].metrics,
-            "world_hash": run_id_of(session["outcome"].world),
-        }, f, indent=2)
+    if record is None:
+        return jsonify({"error": f"Record {id_str} not found"}), 404
 
-    return send_from_directory(directory=tmp_dir, path=export_filename, as_attachment=True)
+    if level == 1:
+        content = export_result_json(record)
+        return Response(
+            content,
+            mimetype="application/json",
+            headers={"Content-Disposition": f"attachment;filename=sim_alch_result_{record.record_id}.json"},
+        )
+    if level == 3:
+        traj = store.get_trajectory(record.record_id)
+        zip_bytes = export_trajectory_archive(record, traj)
+        return send_file(
+            io.BytesIO(zip_bytes),
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name=f"sim_alch_archive_{record.record_id}.zip",
+        )
+
+    # Default Level 2: Reproducible Record
+    content = export_reproducible_record(record)
+    return Response(
+        content,
+        mimetype="application/json",
+        headers={"Content-Disposition": f"attachment;filename=sim_alch_record_{record.record_id}.simrec"},
+    )
+
+
+@app.post("/api/import")
+def import_record_route() -> Any:
+    """Import and validate a Level 2 reproducible experiment record (.simrec)."""
+    try:
+        raw_content = None
+        if "file" in request.files:
+            file_obj = request.files["file"]
+            raw_content = file_obj.read().decode("utf-8")
+        else:
+            raw_content = request.get_data(as_text=True)
+
+        if not raw_content:
+            return jsonify({"error": "No file or payload provided"}), 400
+
+        parsed = import_reproducible_record(raw_content)
+        return jsonify({
+            "valid": True,
+            "record_spec": parsed,
+        })
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"valid": False, "error": str(e)}), 400
 
 
 def main() -> None:

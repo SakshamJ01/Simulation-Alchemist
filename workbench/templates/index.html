@@ -1,582 +1,1016 @@
 {% extends "base.html" %}
 
-{% block title %}Simulation Alchemist - Researcher Workstation v1.5.1{% endblock %}
+{% block title %}Simulation Alchemist - Trusted Experiment Lab v2.0{% endblock %}
 
 {% block content %}
-<!-- Sidebar Controls: Experiments & Parameters -->
-<div class="sidebar">
-    <div>
-        <div class="section-title">Experiments Universe</div>
-        <div class="experiment-cards-list">
-            {% for exec in executives %}
-            <div class="experiment-card" id="exp-card-{{ exec.id }}" data-id="{{ exec.id }}" data-template="{{ exec.template }}" onclick="selectExperiment('{{ exec.id }}', '{{ exec.template }}')">
-                <div class="exp-card-header">
-                    <span class="exp-card-name">{{ exec.name }}</span>
-                    <span class="exp-tag">{{ exec.template }}</span>
+<!-- TAB 1: EXPERIMENT RUNNER -->
+<div id="tab-content-runner" style="display: flex; width: 100%;">
+    <!-- Sidebar Controls: Experiments & Parameters -->
+    <div class="sidebar">
+        <div>
+            <div class="section-title">Experiments Universe</div>
+            <div class="experiment-cards-list">
+                {% for exec in executives %}
+                <div class="experiment-card" id="exp-card-{{ exec.id }}" data-id="{{ exec.id }}" data-template="{{ exec.template }}" onclick="selectExperiment('{{ exec.id }}', '{{ exec.template }}')">
+                    <div class="exp-card-header">
+                        <span class="exp-card-name">{{ exec.name }}</span>
+                        <span class="exp-tag">{{ exec.template }}</span>
+                    </div>
+                    <div class="exp-desc">{{ exec.description }}</div>
                 </div>
-                <div class="exp-desc">{{ exec.description }}</div>
+                {% endfor %}
             </div>
-            {% endfor %}
+        </div>
+
+        <div style="margin-top: 0.5rem;">
+            <div class="section-title">Parameter Configuration</div>
+            <form id="param-form" onsubmit="handleRunSubmit(event)">
+                <input type="hidden" name="exp_id" id="exp-id" value="">
+                <input type="hidden" name="template_name" id="template-name" value="">
+
+                <div class="param-group">
+                    <!-- Experiment D Specific Parameters -->
+                    <div class="param-row d-param-field" style="display: none;">
+                        <label>
+                            <span>Gate Threshold ($T$)</span>
+                            <span class="param-value-val" id="val-gate_threshold">0.50</span>
+                        </label>
+                        <input type="range" min="0.0" max="1.0" step="0.01" value="0.50" id="input-gate_threshold" name="gate_threshold" oninput="document.getElementById('val-gate_threshold').textContent = parseFloat(this.value).toFixed(2)">
+                    </div>
+
+                    <div class="param-row d-param-field" style="display: none;">
+                        <label>
+                            <span>Gate Cooldown (steps)</span>
+                            <span class="param-value-val" id="val-gate_cooldown">4</span>
+                        </label>
+                        <input type="range" min="0" max="20" step="1" value="4" id="input-gate_cooldown" name="gate_cooldown" oninput="document.getElementById('val-gate_cooldown').textContent = this.value">
+                    </div>
+
+                    <!-- Global Execution Parameters -->
+                    <div class="param-row">
+                        <label>
+                            <span>Max Simulation Steps</span>
+                            <span class="param-value-val" id="val-max_steps">12</span>
+                        </label>
+                        <input type="number" min="1" max="500" value="12" id="max_steps" name="max_steps" oninput="document.getElementById('val-max_steps').textContent = this.value">
+                    </div>
+
+                    <div class="param-row">
+                        <label>
+                            <span>Random Seed</span>
+                        </label>
+                        <input type="number" value="42" id="seed" name="seed">
+                    </div>
+
+                    <div class="param-row">
+                        <label>
+                            <span>Tags (comma-separated)</span>
+                        </label>
+                        <input type="text" placeholder="e.g. baseline, test" id="tags-input" name="tags">
+                    </div>
+
+                    <div class="param-row">
+                        <label>
+                            <span>Experiment Notes</span>
+                        </label>
+                        <input type="text" placeholder="Optional notes..." id="notes-input" name="notes">
+                    </div>
+
+                    <div style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                        <button type="submit" class="btn btn-primary" id="run-btn" style="width: 100%;">
+                            Run Simulation
+                        </button>
+
+                        <button type="button" class="btn btn-accent" id="compare-btn" style="width: 100%; display: none;" onclick="compareDGating()">
+                            Compare Gating ON vs OFF
+                        </button>
+
+                        <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="openImportModal()">
+                            Import Record (.simrec)
+                        </button>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
 
-    <div style="margin-top: 1rem;">
-        <div class="section-title">Parameter Configuration</div>
-        <form id="param-form" onsubmit="handleRunSubmit(event)">
-            <input type="hidden" name="exp_id" id="exp-id" value="">
-            <input type="hidden" name="template_name" id="template-name" value="">
+    <!-- Main Viewport: Canvas, Observables, Controls & Comparison -->
+    <div class="main-viewport">
+        <!-- Status / Error Notification Container -->
+        <div id="status-card" class="card" style="display: none; padding: 0.75rem 1rem; border-color: var(--accent-sky);">
+            <div id="status-msg" style="font-size: 0.88rem; font-family: var(--font-mono);">Running simulation...</div>
+        </div>
 
-            <div class="param-group">
-                <!-- Experiment D Specific Parameters -->
-                <div class="param-row d-param-field" style="display: none;">
-                    <label>
-                        <span>Gate Threshold ($T$)</span>
-                        <span class="param-value-val" id="val-gate_threshold">0.50</span>
-                    </label>
-                    <input type="range" min="0.0" max="1.0" step="0.01" value="0.50" id="input-gate_threshold" name="gate_threshold" oninput="document.getElementById('val-gate_threshold').textContent = parseFloat(this.value).toFixed(2)">
+        <!-- Spatial & Observables Section -->
+        <div style="display: grid; grid-template-columns: minmax(340px, 512px) 1fr; gap: 1.5rem;">
+            <!-- Spatial Canvas Card -->
+            <div class="card" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="font-size: 0.95rem; font-weight: 600;">2D Spatial Viewport</h3>
+                    <span id="canvas-badge" class="exp-tag">Field & Movers</span>
+                </div>
+                
+                <div class="canvas-container">
+                    <canvas id="sim-canvas" width="512" height="384"></canvas>
                 </div>
 
-                <div class="param-row d-param-field" style="display: none;">
-                    <label>
-                        <span>Gate Cooldown (steps)</span>
-                        <span class="param-value-val" id="val-gate_cooldown">4</span>
-                    </label>
-                    <input type="range" min="0" max="20" step="1" value="4" id="input-gate_cooldown" name="gate_cooldown" oninput="document.getElementById('val-gate_cooldown').textContent = this.value">
+                <!-- Canvas Legend -->
+                <div style="display: flex; gap: 0.8rem; font-size: 0.75rem; color: var(--text-secondary); background: rgba(15, 23, 42, 0.7); padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-color); flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 0.3rem;">
+                        <span style="display: inline-block; width: 10px; height: 10px; background: linear-gradient(to right, #440154, #21918c, #fde725); border-radius: 2px;"></span>
+                        <span>Field $u$ (Viridis)</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.3rem;">
+                        <span style="display: inline-block; width: 8px; height: 8px; background: #34d399; border-radius: 50%;"></span>
+                        <span>Mover & Trail</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.3rem;">
+                        <span style="display: inline-block; width: 8px; height: 8px; border: 2px solid #34d399; border-radius: 50%;"></span>
+                        <span>Gate Open</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.3rem;">
+                        <span style="display: inline-block; width: 8px; height: 8px; border: 2px solid #fbbf24; border-radius: 50%;"></span>
+                        <span>Gate Closed</span>
+                    </div>
                 </div>
 
-                <!-- Global Execution Parameters -->
-                <div class="param-row">
-                    <label>
-                        <span>Max Simulation Steps</span>
-                        <span class="param-value-val" id="val-max_steps">12</span>
-                    </label>
-                    <input type="number" min="1" max="500" value="12" id="max_steps" name="max_steps" oninput="document.getElementById('val-max_steps').textContent = this.value">
+                <!-- Time Scrubber & Replay Bar -->
+                <div class="scrubber-bar">
+                    <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" onclick="stepBackward()">&lt;</button>
+                    <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" onclick="togglePlayPause()" id="play-btn">Play</button>
+                    <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" onclick="stepForward()">&gt;</button>
+                    <input type="range" class="scrubber-slider" id="step-scrubber" min="0" max="0" value="0" oninput="seekToStep(parseInt(this.value))">
+                    <span class="step-readout" id="step-display">Step 0 / 0</span>
                 </div>
 
-                <div class="param-row">
-                    <label>
-                        <span>Random Seed</span>
-                    </label>
-                    <input type="number" value="42" id="seed" name="seed">
-                </div>
-
-                <div style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
-                    <button type="submit" class="btn btn-primary" id="run-btn" style="width: 100%;">
-                        Run Simulation
-                    </button>
-
-                    <button type="button" class="btn btn-accent" id="compare-btn" style="width: 100%; display: none;" onclick="compareDGating()">
-                        Compare Gating ON vs OFF
-                    </button>
+                <!-- Live Step Status Telemetry -->
+                <div id="step-telemetry" style="display: none; font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-secondary); background: rgba(15, 23, 42, 0.4); padding: 0.4rem 0.6rem; border-radius: 6px;">
+                    <span>Speed: <strong id="tel-speed" style="color: var(--accent-sky);">0.0000</strong></span> |
+                    <span>Force: <strong id="tel-force" style="color: var(--accent-sky);">0.0000</strong></span> |
+                    <span id="tel-gates-box">Active Gates: <strong id="tel-gates" style="color: var(--status-success);">0</strong></span>
                 </div>
             </div>
-        </form>
+
+            <!-- Real-Time Metrics & Policy Observables Tile Grid -->
+            <div class="card" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="font-size: 0.95rem; font-weight: 600;">Observable Metrics</h3>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button type="button" class="btn btn-secondary" id="export-btn" style="display: none; padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="openExportMenu()">
+                            Export Record ▼
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Export Menu Popup -->
+                <div id="export-menu" style="display: none; background: #1e293b; border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem; flex-direction: column; gap: 0.3rem; margin-top: -0.5rem;">
+                    <button type="button" class="btn btn-secondary" style="font-size: 0.75rem; justify-content: flex-start;" onclick="downloadExport(1)">
+                        Level 1: Summary JSON (.json)
+                    </button>
+                    <button type="button" class="btn btn-primary" style="font-size: 0.75rem; justify-content: flex-start;" onclick="downloadExport(2)">
+                        Level 2: Reproducible Record (.simrec)
+                    </button>
+                    <button type="button" class="btn btn-secondary" style="font-size: 0.75rem; justify-content: flex-start;" onclick="downloadExport(3)">
+                        Level 3: Full Trajectory Archive (.zip)
+                    </button>
+                </div>
+                
+                <div id="metrics-placeholder" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem;">
+                    Select an experiment and click <strong>Run Simulation</strong> to compute outcome observables.
+                </div>
+
+                <div class="metrics-grid" id="metrics-grid" style="display: none;">
+                    <!-- Dynamically populated metric tiles -->
+                </div>
+
+                <div id="provenance-box" style="display: none; font-size: 0.75rem; font-family: var(--font-mono); color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
+                    Record ID: <span id="prov-record-id" style="color: var(--accent-sky);">None</span> |
+                    Run ID: <span id="prov-run-id" style="color: var(--accent-sky);">None</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- D Gating ON vs OFF Side-by-Side Comparison Workspace -->
+        <div class="card" id="comparison-card" style="display: none; flex-direction: column; gap: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+                <div>
+                    <h3 style="font-size: 1rem; font-weight: 700;">Experiment D: Gating ON vs OFF Comparison</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary);">Controlled comparison: Hysteresis Gated Sensing ($T=0.50$) vs. Unconditional Chemotaxis ($T=0.00$)</p>
+                </div>
+                <span class="exp-tag" style="background: rgba(56, 189, 248, 0.15); color: var(--accent-sky);">Controlled Run Comparison</span>
+            </div>
+
+            <!-- Side by side visual canvases for ON and OFF -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                    <div style="font-size: 0.82rem; font-weight: 600; color: var(--status-success);">GATING ON ($T=0.50$, Cooldown=4)</div>
+                    <div class="canvas-container" style="height: 220px; max-width: 100%;">
+                        <canvas id="canvas-on" width="320" height="220"></canvas>
+                    </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                    <div style="font-size: 0.82rem; font-weight: 600; color: var(--status-warning);">GATING OFF ($T=0.00$, Cooldown=0)</div>
+                    <div class="canvas-container" style="height: 220px; max-width: 100%;">
+                        <canvas id="canvas-off" width="320" height="220"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Delta Table -->
+            <table class="diff-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Gating ON (T=0.50)</th>
+                        <th>Gating OFF (T=0.00)</th>
+                        <th>Delta (OFF - ON)</th>
+                    </tr>
+                </thead>
+                <tbody id="comparison-tbody">
+                    <!-- Dynamic rows -->
+                </tbody>
+            </table>
+
+            <div id="comparison-provenance" style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); background: rgba(15, 23, 42, 0.5); padding: 0.5rem; border-radius: 4px;">
+                <strong>Provenance Trace:</strong> Verified isolated runs.
+            </div>
+        </div>
     </div>
 </div>
 
-<!-- Main Viewport: Canvas, Observables, Controls & Comparison -->
-<div class="main-viewport">
-    <!-- Status / Error Notification Container -->
-    <div id="status-card" class="card" style="display: none; padding: 0.75rem 1rem; border-color: var(--accent-sky);">
-        <div id="status-msg" style="font-size: 0.88rem; font-family: var(--font-mono);">Running simulation...</div>
+<!-- TAB 2: RUN HISTORY & RECORDS -->
+<div id="tab-content-history" style="display: none; width: 100%; padding: 1.5rem; flex-direction: column; gap: 1.25rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h2 style="font-size: 1.2rem; font-weight: 700;">Persistent Run History</h2>
+            <p style="font-size: 0.85rem; color: var(--text-secondary);">Durable SQLite records preserved across server restarts.</p>
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="loadHistory()">Refresh Records</button>
     </div>
 
-    <!-- Spatial & Observables Section -->
-    <div style="display: grid; grid-template-columns: minmax(340px, 512px) 1fr; gap: 1.5rem;">
-        <!-- Spatial Canvas Card -->
-        <div class="card" style="display: flex; flex-direction: column; gap: 0.75rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="font-size: 0.95rem; font-weight: 600;">2D Spatial Viewport</h3>
-                <span id="canvas-badge" class="exp-tag">Field & Movers</span>
-            </div>
-            
-            <div class="canvas-container">
-                <canvas id="sim-canvas" width="512" height="384"></canvas>
-            </div>
-
-            <!-- Canvas Legend -->
-            <div style="display: flex; gap: 0.8rem; font-size: 0.75rem; color: var(--text-secondary); background: rgba(15, 23, 42, 0.7); padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-color); flex-wrap: wrap;">
-                <div style="display: flex; align-items: center; gap: 0.3rem;">
-                    <span style="display: inline-block; width: 10px; height: 10px; background: linear-gradient(to right, #440154, #21918c, #fde725); border-radius: 2px;"></span>
-                    <span>Field $u$ (Viridis)</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 0.3rem;">
-                    <span style="display: inline-block; width: 8px; height: 8px; background: #34d399; border-radius: 50%;"></span>
-                    <span>Mover & Trail</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 0.3rem;">
-                    <span style="display: inline-block; width: 8px; height: 8px; border: 2px solid #34d399; border-radius: 50%;"></span>
-                    <span>Gate Open</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 0.3rem;">
-                    <span style="display: inline-block; width: 8px; height: 8px; border: 2px solid #fbbf24; border-radius: 50%;"></span>
-                    <span>Gate Closed</span>
-                </div>
-            </div>
-
-            <!-- Time Scrubber & Replay Bar -->
-            <div class="scrubber-bar">
-                <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" onclick="stepBackward()">&lt;</button>
-                <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" onclick="togglePlayPause()" id="play-btn">Play</button>
-                <button type="button" class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" onclick="stepForward()">&gt;</button>
-                <input type="range" class="scrubber-slider" id="step-scrubber" min="0" max="0" value="0" oninput="seekToStep(parseInt(this.value))">
-                <span class="step-readout" id="step-display">Step 0 / 0</span>
-            </div>
-
-            <!-- Live Step Status Telemetry -->
-            <div id="step-telemetry" style="display: none; font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-secondary); background: rgba(15, 23, 42, 0.4); padding: 0.4rem 0.6rem; border-radius: 6px;">
-                <span>Speed: <strong id="tel-speed" style="color: var(--accent-sky);">0.0000</strong></span> |
-                <span>Force: <strong id="tel-force" style="color: var(--accent-sky);">0.0000</strong></span> |
-                <span id="tel-gates-box">Active Gates: <strong id="tel-gates" style="color: var(--status-success);">0</strong></span>
-            </div>
+    <!-- Filter Bar -->
+    <div class="card" style="display: flex; gap: 1rem; align-items: center; padding: 0.75rem 1rem; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem;">
+            <label style="color: var(--text-muted);">Experiment:</label>
+            <select id="history-filter-template" onchange="loadHistory()" style="background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.3rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">
+                <option value="all">All Experiments</option>
+                <option value="morphogenesis">Morphogenesis (A)</option>
+                <option value="field_guided_movers">Field-guided movers (B)</option>
+                <option value="adaptive_network">Adaptive network (C)</option>
+                <option value="gated_movers">Gated movers (D)</option>
+            </select>
         </div>
 
-        <!-- Real-Time Metrics & Policy Observables Tile Grid -->
-        <div class="card" style="display: flex; flex-direction: column; gap: 0.75rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="font-size: 0.95rem; font-weight: 600;">Observable Metrics</h3>
-                <button type="button" class="btn btn-secondary" id="export-btn" style="display: none; padding: 0.25rem 0.6rem; font-size: 0.75rem;" onclick="handleExport()">
-                    Export Provenance JSON
-                </button>
-            </div>
-            
-            <div id="metrics-placeholder" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem;">
-                Select an experiment and click <strong>Run Simulation</strong> to compute outcome observables.
-            </div>
+        <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem;">
+            <label style="color: var(--text-muted);">Status:</label>
+            <select id="history-filter-status" onchange="loadHistory()" style="background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.3rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">
+                <option value="all">All Statuses</option>
+                <option value="completed">Completed</option>
+                <option value="failed">Failed</option>
+            </select>
+        </div>
 
-            <div class="metrics-grid" id="metrics-grid" style="display: none;">
-                <!-- Dynamically populated metric tiles -->
-            </div>
+        <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; flex: 1;">
+            <label style="color: var(--text-muted);">Search:</label>
+            <input type="text" id="history-search-q" placeholder="Search by run ID, notes, or tags..." onkeyup="if(event.key==='Enter') loadHistory()" style="background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.3rem 0.5rem; border-radius: 4px; font-size: 0.8rem; width: 100%;">
         </div>
     </div>
 
-    <!-- D Gating ON vs OFF Side-by-Side Comparison Workspace -->
-    <div class="card" id="comparison-card" style="display: none; flex-direction: column; gap: 1rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
-            <div>
-                <h3 style="font-size: 1rem; font-weight: 700;">Experiment D: Gating ON vs OFF Comparison</h3>
-                <p style="font-size: 0.8rem; color: var(--text-secondary);">Controlled comparison: Hysteresis Gated Sensing ($T=0.50$) vs. Unconditional Chemotaxis ($T=0.00$)</p>
-            </div>
-            <span class="exp-tag" style="background: rgba(56, 189, 248, 0.15); color: var(--accent-sky);">Controlled Run Comparison</span>
-        </div>
-
-        <!-- Side by side visual canvases for ON and OFF -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-            <div style="display: flex; flex-direction: column; gap: 0.4rem;">
-                <div style="font-size: 0.82rem; font-weight: 600; color: var(--status-success);">GATING ON ($T=0.50$, Cooldown=4)</div>
-                <div class="canvas-container" style="height: 220px; max-width: 100%;">
-                    <canvas id="canvas-on" width="320" height="220"></canvas>
-                </div>
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 0.4rem;">
-                <div style="font-size: 0.82rem; font-weight: 600; color: var(--status-warning);">GATING OFF ($T=0.00$, Cooldown=0)</div>
-                <div class="canvas-container" style="height: 220px; max-width: 100%;">
-                    <canvas id="canvas-off" width="320" height="220"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Delta Table -->
-        <table class="diff-table">
+    <!-- History Data Table -->
+    <div class="card" style="padding: 0; overflow-x: auto;">
+        <table class="diff-table" style="margin-top: 0;">
             <thead>
                 <tr>
-                    <th>Observable Metric</th>
-                    <th>Gating ON ($T=0.50$)</th>
-                    <th>Gating OFF ($T=0.00$)</th>
-                    <th>Delta ($\Delta = \text{OFF} - \text{ON}$)</th>
+                    <th>Timestamp</th>
+                    <th>Record ID</th>
+                    <th>Experiment</th>
+                    <th>Seed</th>
+                    <th>Steps</th>
+                    <th>Runtime</th>
+                    <th>Status</th>
+                    <th>Key Metrics</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
-            <tbody id="diff-table-body">
-                <!-- Dynamically populated diff rows -->
+            <tbody id="history-tbody">
+                <tr>
+                    <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 2rem;">Loading history records...</td>
+                </tr>
             </tbody>
         </table>
+    </div>
+</div>
 
-        <!-- Provenance Footer -->
-        <div id="comparison-provenance" style="font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted); background: rgba(15, 23, 42, 0.6); padding: 0.6rem 0.85rem; border-radius: 6px;">
-            <!-- Provenance hashes -->
+<!-- TAB 3: COMPARATIVE ANALYSIS -->
+<div id="tab-content-compare" style="display: none; width: 100%; padding: 1.5rem; flex-direction: column; gap: 1.25rem;">
+    <div>
+        <h2 style="font-size: 1.2rem; font-weight: 700;">Comparative Experiment Analysis</h2>
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">Select any two historical experiment records to compare parameter differences and metric deltas.</p>
+    </div>
+
+    <!-- Run Selection Cards -->
+    <div class="card" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 1.5rem; align-items: flex-end;">
+        <div class="param-row">
+            <label>Run A (Baseline / Reference)</label>
+            <select id="compare-select-a" style="background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.5rem; border-radius: 6px; font-family: var(--font-mono); font-size: 0.85rem;">
+                <option value="">Select Run A...</option>
+            </select>
+        </div>
+
+        <div class="param-row">
+            <label>Run B (Variant / Comparison)</label>
+            <select id="compare-select-b" style="background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.5rem; border-radius: 6px; font-family: var(--font-mono); font-size: 0.85rem;">
+                <option value="">Select Run B...</option>
+            </select>
+        </div>
+
+        <button type="button" class="btn btn-primary" onclick="executeArbitraryCompare()" style="height: 38px;">
+            Compare Selected Runs
+        </button>
+    </div>
+
+    <!-- Comparative Results Viewport -->
+    <div id="arbitrary-compare-results" style="display: none; flex-direction: column; gap: 1.5rem;">
+        <!-- Side by side Canvases -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+            <div class="card" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <div style="display: flex; justify-content: space-between;">
+                    <strong id="cmp-name-a" style="color: var(--accent-sky); font-size: 0.9rem;">Run A</strong>
+                    <span id="cmp-id-a" class="exp-tag">rec_...</span>
+                </div>
+                <div class="canvas-container" style="height: 260px; max-width: 100%;">
+                    <canvas id="canvas-arb-a" width="400" height="260"></canvas>
+                </div>
+            </div>
+
+            <div class="card" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <div style="display: flex; justify-content: space-between;">
+                    <strong id="cmp-name-b" style="color: var(--status-success); font-size: 0.9rem;">Run B</strong>
+                    <span id="cmp-id-b" class="exp-tag">rec_...</span>
+                </div>
+                <div class="canvas-container" style="height: 260px; max-width: 100%;">
+                    <canvas id="canvas-arb-b" width="400" height="260"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Parameter Diff Table -->
+        <div class="card">
+            <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem;">Parameter Differences</h3>
+            <table class="diff-table">
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Run A Value</th>
+                        <th>Run B Value</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="cmp-params-tbody">
+                    <!-- Dynamic Rows -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Metric Delta Table -->
+        <div class="card">
+            <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem;">Metric Divergences & Common Observables</h3>
+            <table class="diff-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Run A</th>
+                        <th>Run B</th>
+                        <th>Delta ($\Delta = B - A$)</th>
+                    </tr>
+                </thead>
+                <tbody id="cmp-metrics-tbody">
+                    <!-- Dynamic Rows -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Import Record (.simrec) -->
+<div id="import-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
+    <div class="card" style="width: 480px; max-width: 90%; background: #1e293b; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 1rem;">
+        <h3 style="font-size: 1.05rem; font-weight: 700;">Import Reproducible Record</h3>
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">Select a Level 2 <code>.simrec</code> or JSON experiment record to inspect and replay.</p>
+
+        <input type="file" id="import-file-input" accept=".simrec,.json" style="background: var(--bg-base); padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary);">
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+            <button type="button" class="btn btn-secondary" onclick="closeImportModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="submitImportFile()">Import & Validate</button>
         </div>
     </div>
 </div>
 
 <script>
-    // Frontend Workstation State
     let currentExpId = null;
     let currentTemplate = null;
-    let currentSessionId = null;
+    let currentRecordId = null;
+    let currentTrajectory = null;
+    let currentFrameIdx = 0;
+    let playbackInterval = null;
     let isPlaying = false;
-    let playInterval = null;
-    let currentStep = 0;
-    let totalRecordedSteps = 0;
-    let activeTrajectory = null;
-
-    // Canvas Context Setup
-    const canvas = document.getElementById('sim-canvas');
-    const ctx = canvas.getContext('2d');
-
-    drawPlaceholderCanvas(ctx, canvas.width, canvas.height, 'SPATIAL VIEWPORT READY');
-
-    function drawPlaceholderCanvas(context, w, h, text) {
-        context.fillStyle = '#020617';
-        context.fillRect(0, 0, w, h);
-        
-        context.strokeStyle = '#1e293b';
-        context.lineWidth = 1;
-        const gridSize = 32;
-        for (let x = 0; x <= w; x += gridSize) {
-            context.beginPath();
-            context.moveTo(x, 0);
-            context.lineTo(x, h);
-            context.stroke();
-        }
-        for (let y = 0; y <= h; y += gridSize) {
-            context.beginPath();
-            context.moveTo(0, y);
-            context.lineTo(w, y);
-            context.stroke();
-        }
-
-        context.fillStyle = '#475569';
-        context.font = '12px "JetBrains Mono", monospace';
-        context.textAlign = 'center';
-        context.fillText(text, w / 2, h / 2);
-    }
 
     // Viridis Colormap Function
-    function getViridisColor(val, minVal, maxVal) {
-        let t = 0.5;
-        if (maxVal > minVal) {
-            t = Math.max(0.0, Math.min(1.0, (val - minVal) / (maxVal - minVal)));
+    function getViridisColor(normVal) {
+        normVal = Math.max(0, Math.min(1, normVal));
+        const viridisMap = [
+            [68, 1, 84],
+            [72, 40, 120],
+            [62, 74, 137],
+            [49, 104, 142],
+            [38, 130, 142],
+            [31, 158, 137],
+            [53, 183, 121],
+            [108, 206, 89],
+            [180, 222, 44],
+            [253, 231, 37]
+        ];
+        const scaled = normVal * (viridisMap.length - 1);
+        const idx = Math.floor(scaled);
+        const frac = scaled - idx;
+        if (idx >= viridisMap.length - 1) {
+            const c = viridisMap[viridisMap.length - 1];
+            return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
         }
-        // Approximate Viridis palette
-        const r = Math.round(255 * Math.max(0, Math.min(1, 0.28 + 0.7 * t * Math.sin(t * Math.PI))));
-        const g = Math.round(255 * Math.max(0, Math.min(1, 0.05 + 0.9 * t)));
-        const b = Math.round(255 * Math.max(0, Math.min(1, 0.35 + 0.65 * (1 - t))));
+        const c1 = viridisMap[idx];
+        const c2 = viridisMap[idx + 1];
+        const r = Math.round(c1[0] + frac * (c2[0] - c1[0]));
+        const g = Math.round(c1[1] + frac * (c2[1] - c1[1]));
+        const b = Math.round(c1[2] + frac * (c2[2] - c1[2]));
         return `rgb(${r}, ${g}, ${b})`;
     }
 
-    function selectExperiment(expId, template) {
-        currentExpId = expId;
+    // Navigation Tabs Switcher
+    function switchMainTab(tabName) {
+        document.getElementById('tab-btn-runner').classList.remove('active');
+        document.getElementById('tab-btn-history').classList.remove('active');
+        document.getElementById('tab-btn-compare').classList.remove('active');
+
+        document.getElementById('tab-content-runner').style.display = 'none';
+        document.getElementById('tab-content-history').style.display = 'none';
+        document.getElementById('tab-content-compare').style.display = 'none';
+
+        if (tabName === 'runner') {
+            document.getElementById('tab-btn-runner').classList.add('active');
+            document.getElementById('tab-content-runner').style.display = 'flex';
+        } else if (tabName === 'history') {
+            document.getElementById('tab-btn-history').classList.add('active');
+            document.getElementById('tab-content-history').style.display = 'flex';
+            loadHistory();
+        } else if (tabName === 'compare') {
+            document.getElementById('tab-btn-compare').classList.add('active');
+            document.getElementById('tab-content-compare').style.display = 'flex';
+            populateCompareDropdowns();
+        }
+    }
+
+    function selectExperiment(id, template) {
+        currentExpId = id;
         currentTemplate = template;
-        
-        document.getElementById('exp-id').value = expId;
+        document.getElementById('exp-id').value = id;
         document.getElementById('template-name').value = template;
 
-        // Highlight selected card
-        document.querySelectorAll('.experiment-card').forEach(card => card.classList.remove('active'));
-        const selectedCard = document.getElementById(`exp-card-${expId}`);
-        if (selectedCard) selectedCard.classList.add('active');
+        document.querySelectorAll('.experiment-card').forEach(c => c.classList.remove('active'));
+        const card = document.getElementById('exp-card-' + id);
+        if (card) card.classList.add('active');
 
-        // Show/hide Experiment D parameter controls
-        const isD = (template === 'gated_movers' || expId === 'gated_movers');
-        document.querySelectorAll('.d-param-field').forEach(el => {
-            el.style.display = isD ? 'flex' : 'none';
-        });
-        document.getElementById('compare-btn').style.display = isD ? 'inline-flex' : 'none';
-
-        // Update header status
-        document.getElementById('header-status-text').textContent = `Selected: ${template}`;
-    }
-
-    // Auto-select first experiment on boot
-    const firstCard = document.querySelector('.experiment-card');
-    if (firstCard) {
-        selectExperiment(firstCard.dataset.id, firstCard.dataset.template);
-    }
-
-    async function handleRunSubmit(event) {
-        event.preventDefault();
-        
-        const runBtn = document.getElementById('run-btn');
-        const statusCard = document.getElementById('status-card');
-        const statusMsg = document.getElementById('status-msg');
-
-        runBtn.disabled = true;
-        runBtn.textContent = 'Executing...';
-        statusCard.style.display = 'block';
-        statusMsg.style.color = 'var(--accent-sky)';
-        statusMsg.textContent = 'Running Alchemist simulation executor...';
-
-        const expId = document.getElementById('exp-id').value;
-        const maxSteps = parseInt(document.getElementById('max_steps').value) || 12;
-        const seed = parseInt(document.getElementById('seed').value) || 42;
-
-        const params = {};
-        if (currentTemplate === 'gated_movers' || expId === 'gated_movers') {
-            params.gate_threshold = parseFloat(document.getElementById('input-gate_threshold').value);
-            params.gate_cooldown = parseInt(document.getElementById('input-gate_cooldown').value);
+        const dFields = document.querySelectorAll('.d-param-field');
+        const compareBtn = document.getElementById('compare-btn');
+        if (template === 'gated_movers') {
+            dFields.forEach(f => f.style.display = 'flex');
+            if (compareBtn) compareBtn.style.display = 'block';
+        } else {
+            dFields.forEach(f => f.style.display = 'none');
+            if (compareBtn) compareBtn.style.display = 'none';
         }
 
+        const badge = document.getElementById('canvas-badge');
+        if (badge) badge.textContent = template;
+    }
+
+    // Auto-select first card on load
+    document.addEventListener('DOMContentLoaded', () => {
+        const firstCard = document.querySelector('.experiment-card');
+        if (firstCard) {
+            selectExperiment(firstCard.dataset.id, firstCard.dataset.template);
+        }
+    });
+
+    async function handleRunSubmit(e) {
+        e.preventDefault();
+        if (!currentExpId) return;
+
+        const form = document.getElementById('param-form');
+        const formData = new FormData(form);
+
+        const params = {};
+        if (currentTemplate === 'gated_movers') {
+            params['gate_threshold'] = parseFloat(formData.get('gate_threshold') || 0.5);
+            params['gate_cooldown'] = parseInt(formData.get('gate_cooldown') || 4);
+        }
+
+        const maxSteps = parseInt(formData.get('max_steps') || 12);
+        const seed = parseInt(formData.get('seed') || 42);
+        const tagsRaw = formData.get('tags') || '';
+        const tags = tagsRaw.split(',').map(t => t.trim()).filter(t => t.length > 0);
+        const notes = formData.get('notes') || '';
+
         const payload = {
-            exp_id: expId,
+            exp_id: currentExpId,
+            params: params,
             max_steps: maxSteps,
             seed: seed,
-            params: params
+            tags: tags,
+            notes: notes,
         };
 
+        const statusCard = document.getElementById('status-card');
+        const statusMsg = document.getElementById('status-msg');
+        statusCard.style.display = 'block';
+        statusMsg.textContent = `Running simulation (${currentTemplate}, seed=${seed}, steps=${maxSteps})...`;
+        document.getElementById('header-status-text').textContent = 'Executing...';
+
         try {
-            const response = await fetch('/run', {
+            const resp = await fetch('/run', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             });
 
-            const result = await response.json();
-            runBtn.disabled = false;
-            runBtn.textContent = 'Run Simulation';
-
-            if (!response.ok || result.error) {
-                statusMsg.style.color = 'var(--status-error)';
-                statusMsg.textContent = 'Simulation Error: ' + (result.error || 'Execution failed');
-                return;
+            if (!resp.ok) {
+                const err = await resp.json();
+                throw new Error(err.error || 'Execution failed');
             }
 
-            // Success state handling
-            currentSessionId = result.session_id;
-            document.getElementById('header-session-info').innerHTML = `Session: <span style="color: var(--accent-sky);">${currentSessionId}</span>`;
-            
-            statusMsg.style.color = 'var(--status-success)';
-            statusMsg.textContent = `Run completed successfully (world_hash: ${result.outcome.world_hash.substring(0, 10)}...)`;
+            const data = await resp.json();
+            currentRecordId = data.record_id || data.session_id;
+            currentTrajectory = data.trajectory;
+            currentFrameIdx = 0;
 
-            // Display metrics grid
-            renderMetrics(result.outcome.metrics);
+            statusCard.style.display = 'none';
+            document.getElementById('header-status-text').textContent = 'Completed';
+            document.getElementById('header-record-label').textContent = currentRecordId;
 
-            // Save trajectory and set up scrubber
-            activeTrajectory = result.trajectory || null;
-            if (activeTrajectory && activeTrajectory.available) {
-                totalRecordedSteps = activeTrajectory.total_steps;
-                currentStep = totalRecordedSteps > 0 ? totalRecordedSteps - 1 : 0;
+            // Render Metrics
+            const metrics = (data.outcome && data.outcome.metrics) ? data.outcome.metrics : data.outcome_metrics;
+            renderMetrics(metrics);
 
-                const scrubber = document.getElementById('step-scrubber');
-                scrubber.max = totalRecordedSteps > 0 ? totalRecordedSteps - 1 : 0;
-                scrubber.value = currentStep;
-                
-                document.getElementById('step-telemetry').style.display = 'block';
-                seekToStep(currentStep);
-            }
-
-            // Show export button
+            // Display Provenance
+            document.getElementById('prov-record-id').textContent = currentRecordId;
+            document.getElementById('prov-run-id').textContent = data.run_id || (data.outcome && data.outcome.world_hash) || 'N/A';
+            document.getElementById('provenance-box').style.display = 'block';
             document.getElementById('export-btn').style.display = 'inline-flex';
 
+            // Setup Scrubber & Draw Canvas Frame 0
+            if (currentTrajectory && currentTrajectory.available) {
+                const totalSteps = currentTrajectory.total_steps || maxSteps;
+                const scrubber = document.getElementById('step-scrubber');
+                scrubber.max = totalSteps > 0 ? totalSteps - 1 : 0;
+                scrubber.value = 0;
+                document.getElementById('step-telemetry').style.display = 'flex';
+                drawFrame(0);
+            }
         } catch (err) {
-            runBtn.disabled = false;
-            runBtn.textContent = 'Run Simulation';
+            statusCard.style.display = 'block';
+            statusCard.style.borderColor = 'var(--status-error)';
             statusMsg.style.color = 'var(--status-error)';
-            statusMsg.textContent = 'Network/Execution Exception: ' + err.message;
+            statusMsg.textContent = 'Error: ' + err.message;
+            document.getElementById('header-status-text').textContent = 'Failed';
         }
     }
 
     function renderMetrics(metrics) {
-        document.getElementById('metrics-placeholder').style.display = 'none';
         const grid = document.getElementById('metrics-grid');
-        grid.style.display = 'grid';
+        const placeholder = document.getElementById('metrics-placeholder');
         grid.innerHTML = '';
+        placeholder.style.display = 'none';
+        grid.style.display = 'grid';
 
-        for (const [key, value] of Object.entries(metrics)) {
+        for (const [k, v] of Object.entries(metrics)) {
             const tile = document.createElement('div');
             tile.className = 'metric-tile';
-            const formattedVal = (typeof value === 'number') ? value.toFixed(4) : value;
             tile.innerHTML = `
-                <div class="label">${key}</div>
-                <div class="val">${formattedVal}</div>
+                <span class="metric-name">${k}</span>
+                <span class="metric-value">${typeof v === 'number' ? v.toFixed(4) : v}</span>
             `;
             grid.appendChild(tile);
         }
     }
 
-    function drawTrajectoryFrame(context, w, h, traj, stepIdx) {
-        if (!traj || !traj.available) {
-            drawPlaceholderCanvas(context, w, h, 'NO TRAJECTORY DATA');
-            return;
-        }
+    function drawFrame(frameIdx) {
+        if (!currentTrajectory) return;
+        const canvas = document.getElementById('sim-canvas');
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
 
-        // 1. Draw Field Heatmap Grid
-        const frames = traj.field_frames || [];
-        if (frames.length > 0) {
-            // Find closest frame to stepIdx
-            let frame = frames[0];
-            for (const f of frames) {
-                if (f.step <= stepIdx) frame = f;
-                else break;
+        drawTrajectoryFrame(ctx, w, h, currentTrajectory, frameIdx);
+
+        document.getElementById('step-scrubber').value = frameIdx;
+        const total = currentTrajectory.total_steps || 1;
+        document.getElementById('step-display').textContent = `Step ${frameIdx} / ${total - 1}`;
+
+        // Update telemetry
+        const speed = currentTrajectory.speeds && currentTrajectory.speeds[frameIdx] !== undefined ? currentTrajectory.speeds[frameIdx] : 0;
+        const force = currentTrajectory.force_mags && currentTrajectory.force_mags[frameIdx] !== undefined ? currentTrajectory.force_mags[frameIdx] : 0;
+        const gates = currentTrajectory.active_gates && currentTrajectory.active_gates[frameIdx] !== undefined ? currentTrajectory.active_gates[frameIdx] : 0;
+
+        document.getElementById('tel-speed').textContent = speed.toFixed(4);
+        document.getElementById('tel-force').textContent = force.toFixed(4);
+        document.getElementById('tel-gates').textContent = gates;
+    }
+
+    function drawTrajectoryFrame(ctx, w, h, traj, frameIdx) {
+        ctx.fillStyle = '#020617';
+        ctx.fillRect(0, 0, w, h);
+
+        if (!traj || !traj.available) return;
+
+        // 1. Draw Field Heatmap
+        if (traj.field_frames && traj.field_frames.length > 0) {
+            let fieldSnap = traj.field_frames.find(f => f.step === frameIdx);
+            if (!fieldSnap) {
+                fieldSnap = traj.field_frames[0];
             }
+            if (fieldSnap && fieldSnap.grid) {
+                const grid = fieldSnap.grid;
+                const rows = grid.length;
+                const cols = grid[0].length;
+                const cellW = w / cols;
+                const cellH = h / rows;
+                const minVal = fieldSnap.min;
+                const maxVal = fieldSnap.max;
+                const range = (maxVal - minVal) > 1e-5 ? (maxVal - minVal) : 1.0;
 
-            const grid = frame.grid;
-            const rows = grid.length;
-            const cols = grid[0].length;
-            const cellW = w / cols;
-            const cellH = h / rows;
-
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < cols; c++) {
-                    const val = grid[r][c];
-                    context.fillStyle = getViridisColor(val, frame.min, frame.max);
-                    context.fillRect(c * cellW, r * cellH, cellW + 0.5, cellH + 0.5);
-                }
-            }
-        } else {
-            context.fillStyle = '#020617';
-            context.fillRect(0, 0, w, h);
-        }
-
-        // 2. Draw Mover Trails & Positions (Experiment B & D)
-        const movers = traj.movers || {};
-        const moverIds = Object.keys(movers);
-
-        for (const mId of moverIds) {
-            const path = movers[mId];
-            if (!path || path.length === 0) continue;
-
-            const maxIdx = Math.min(stepIdx, path.length - 1);
-            
-            // Draw Trail Polyline
-            context.beginPath();
-            context.strokeStyle = 'rgba(52, 211, 153, 0.4)';
-            context.lineWidth = 2;
-            for (let i = 0; i <= maxIdx; i++) {
-                const px = path[i][0] * w;
-                const py = path[i][1] * h;
-                if (i === 0) context.moveTo(px, py);
-                else context.lineTo(px, py);
-            }
-            context.stroke();
-
-            // Draw Current Position
-            const curPos = path[maxIdx];
-            const cx = curPos[0] * w;
-            const cy = curPos[1] * h;
-
-            // Gate Status (Experiment D)
-            const activeGates = traj.active_gates || [];
-            const isGateOpen = (activeGates.length > maxIdx && activeGates[maxIdx] > 0);
-
-            context.beginPath();
-            context.arc(cx, cy, 7, 0, Math.PI * 2);
-            context.fillStyle = '#34d399';
-            context.fill();
-            context.strokeStyle = isGateOpen ? '#34d399' : '#fbbf24';
-            context.lineWidth = 2.5;
-            context.stroke();
-
-            // Draw Velocity / Gradient direction vector if moving
-            if (maxIdx > 0) {
-                const prevPos = path[maxIdx - 1];
-                const dx = (curPos[0] - prevPos[0]) * w;
-                const dy = (curPos[1] - prevPos[1]) * h;
-                const dist = Math.hypot(dx, dy);
-                if (dist > 0.5) {
-                    const arrowLen = Math.min(24, Math.max(8, dist * 5));
-                    const nx = (dx / dist) * arrowLen;
-                    const ny = (dy / dist) * arrowLen;
-                    context.beginPath();
-                    context.strokeStyle = '#ffffff';
-                    context.lineWidth = 1.5;
-                    context.moveTo(cx, cy);
-                    context.lineTo(cx + nx, cy + ny);
-                    context.stroke();
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        const val = grid[r][c];
+                        const norm = (val - minVal) / range;
+                        ctx.fillStyle = getViridisColor(norm);
+                        ctx.fillRect(c * cellW, r * cellH, cellW + 0.5, cellH + 0.5);
+                    }
                 }
             }
         }
 
-        // 3. Draw Walls (Experiment A)
-        const walls = traj.walls || {};
-        for (const wId of Object.keys(walls)) {
-            const track = walls[wId];
-            const idx = Math.min(stepIdx, track.length - 1);
-            if (track[idx]) {
-                const wx = track[idx][0] * w;
-                const wy = track[idx][1] * h;
-                context.fillStyle = '#f87171';
-                context.fillRect(wx - 4, wy - 4, 8, 8);
+        // 2. Draw Mover Trails and Positions
+        if (traj.movers) {
+            for (const [mId, path] of Object.entries(traj.movers)) {
+                if (!path || path.length === 0) continue;
+                const currentPtIdx = Math.min(frameIdx, path.length - 1);
+
+                // Draw trail history up to current step
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(52, 211, 153, 0.45)';
+                ctx.lineWidth = 2;
+                for (let i = 0; i <= currentPtIdx; i++) {
+                    const px = path[i][0] * w;
+                    const py = path[i][1] * h;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.stroke();
+
+                // Draw Current Mover Position
+                const curX = path[currentPtIdx][0] * w;
+                const curY = path[currentPtIdx][1] * h;
+
+                ctx.beginPath();
+                ctx.arc(curX, curY, 6, 0, Math.PI * 2);
+                ctx.fillStyle = '#34d399';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // Gating ring indicator (D)
+                if (traj.active_gates && traj.active_gates[currentPtIdx] !== undefined) {
+                    const isOpen = traj.active_gates[currentPtIdx] > 0;
+                    ctx.beginPath();
+                    ctx.arc(curX, curY, 10, 0, Math.PI * 2);
+                    ctx.strokeStyle = isOpen ? '#34d399' : '#fbbf24';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
             }
         }
     }
 
-    function seekToStep(step) {
-        if (!activeTrajectory) return;
-        currentStep = Math.max(0, Math.min(totalRecordedSteps - 1, step));
-        
-        document.getElementById('step-display').textContent = `Step ${currentStep} / ${Math.max(0, totalRecordedSteps - 1)}`;
-        document.getElementById('step-scrubber').value = currentStep;
-
-        // Draw canvas frame
-        drawTrajectoryFrame(ctx, canvas.width, canvas.height, activeTrajectory, currentStep);
-
-        // Update live telemetry readout
-        if (activeTrajectory.speeds && activeTrajectory.speeds.length > currentStep) {
-            document.getElementById('tel-speed').textContent = activeTrajectory.speeds[currentStep].toFixed(4);
+    function togglePlayPause() {
+        if (isPlaying) {
+            pausePlayback();
+        } else {
+            startPlayback();
         }
-        if (activeTrajectory.force_mags && activeTrajectory.force_mags.length > currentStep) {
-            document.getElementById('tel-force').textContent = activeTrajectory.force_mags[currentStep].toFixed(4);
-        }
-        if (activeTrajectory.active_gates && activeTrajectory.active_gates.length > currentStep) {
-            document.getElementById('tel-gates').textContent = activeTrajectory.active_gates[currentStep];
+    }
+
+    function startPlayback() {
+        if (!currentTrajectory || !currentTrajectory.available) return;
+        isPlaying = true;
+        document.getElementById('play-btn').textContent = 'Pause';
+        const total = currentTrajectory.total_steps || 12;
+
+        playbackInterval = setInterval(() => {
+            currentFrameIdx++;
+            if (currentFrameIdx >= total) {
+                currentFrameIdx = 0;
+            }
+            drawFrame(currentFrameIdx);
+        }, 200);
+    }
+
+    function pausePlayback() {
+        isPlaying = false;
+        document.getElementById('play-btn').textContent = 'Play';
+        if (playbackInterval) {
+            clearInterval(playbackInterval);
+            playbackInterval = null;
         }
     }
 
     function stepForward() {
-        if (!activeTrajectory || totalRecordedSteps === 0) return;
-        seekToStep(Math.min(totalRecordedSteps - 1, currentStep + 1));
-    }
-
-    function stepBackward() {
-        if (!activeTrajectory || totalRecordedSteps === 0) return;
-        seekToStep(Math.max(0, currentStep - 1));
-    }
-
-    function togglePlayPause() {
-        const btn = document.getElementById('play-btn');
-        if (isPlaying) {
-            clearInterval(playInterval);
-            isPlaying = false;
-            btn.textContent = 'Play';
-        } else {
-            if (!activeTrajectory || totalRecordedSteps <= 1) return;
-            isPlaying = true;
-            btn.textContent = 'Pause';
-            playInterval = setInterval(() => {
-                if (currentStep >= totalRecordedSteps - 1) {
-                    currentStep = 0;
-                } else {
-                    currentStep++;
-                }
-                seekToStep(currentStep);
-            }, 250);
+        pausePlayback();
+        if (!currentTrajectory) return;
+        const total = currentTrajectory.total_steps || 12;
+        if (currentFrameIdx < total - 1) {
+            currentFrameIdx++;
+            drawFrame(currentFrameIdx);
         }
     }
 
-    async function compareDGating() {
-        const compCard = document.getElementById('comparison-card');
-        compCard.style.display = 'flex';
-        
-        const tbody = document.getElementById('diff-table-body');
-        tbody.innerHTML = '<tr><td colspan="4" style="color: var(--accent-sky);">Computing gating ON ($T=0.50$) vs OFF ($T=0.00$) simulation runs...</td></tr>';
+    function stepBackward() {
+        pausePlayback();
+        if (currentFrameIdx > 0) {
+            currentFrameIdx--;
+            drawFrame(currentFrameIdx);
+        }
+    }
+
+    function seekToStep(step) {
+        pausePlayback();
+        currentFrameIdx = step;
+        drawFrame(currentFrameIdx);
+    }
+
+    // Export Tiers Logic
+    function openExportMenu() {
+        const menu = document.getElementById('export-menu');
+        menu.style.display = menu.style.display === 'none' ? 'flex' : 'none';
+    }
+
+    function downloadExport(level) {
+        if (!currentRecordId) return;
+        window.location.href = `/export/${currentRecordId}?level=${level}`;
+        document.getElementById('export-menu').style.display = 'none';
+    }
+
+    // Import Modal Logic
+    function openImportModal() {
+        document.getElementById('import-modal').style.display = 'flex';
+    }
+
+    function closeImportModal() {
+        document.getElementById('import-modal').style.display = 'none';
+    }
+
+    async function submitImportFile() {
+        const fileInput = document.getElementById('import-file-input');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert('Please select a .simrec file to import.');
+            return;
+        }
+        const file = fileInput.files[0];
+        const formData = new FormData();
+        formData.append('file', file);
 
         try {
-            const response = await fetch('/comparison');
-            const data = await response.json();
+            const resp = await fetch('/api/import', {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await resp.json();
+            if (!data.valid) {
+                throw new Error(data.error || 'Validation failed');
+            }
+            closeImportModal();
+            const spec = data.record_spec;
+            alert(`Record imported successfully!\nTemplate: ${spec.experiment_template}\nSeed: ${spec.seed}\nSteps: ${spec.max_steps}`);
+            
+            // Auto-load parameters into runner
+            selectExperiment(spec.composition_id, spec.experiment_template);
+            document.getElementById('max_steps').value = spec.max_steps;
+            document.getElementById('val-max_steps').textContent = spec.max_steps;
+            document.getElementById('seed').value = spec.seed;
+            if (spec.parameters.gate_threshold !== undefined) {
+                document.getElementById('input-gate_threshold').value = spec.parameters.gate_threshold;
+                document.getElementById('val-gate_threshold').textContent = spec.parameters.gate_threshold.toFixed(2);
+            }
+        } catch (err) {
+            alert('Import Error: ' + err.message);
+        }
+    }
 
-            if (!response.ok || data.error) {
-                tbody.innerHTML = `<tr><td colspan="4" style="color: var(--status-error);">Comparison Error: ${data.error || 'Failed'}</td></tr>`;
+    // Run History Operations
+    async function loadHistory() {
+        const tbody = document.getElementById('history-tbody');
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Loading records...</td></tr>';
+
+        const template = document.getElementById('history-filter-template').value;
+        const status = document.getElementById('history-filter-status').value;
+        const q = document.getElementById('history-search-q').value;
+
+        try {
+            const resp = await fetch(`/api/history?template=${template}&status=${status}&q=${encodeURIComponent(q)}`);
+            const data = await resp.json();
+            const records = data.records || [];
+
+            if (records.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No historical records found matching criteria.</td></tr>';
                 return;
             }
 
             tbody.innerHTML = '';
-            for (const [key, val] of Object.entries(data.diff)) {
+            for (const r of records) {
                 const tr = document.createElement('tr');
-                const deltaClass = val.delta > 0 ? 'diff-positive' : (val.delta < 0 ? 'diff-negative' : '');
-                const formattedDelta = val.delta !== 0 ? (val.delta > 0 ? '+' : '') + val.delta.toFixed(4) : '0.0000';
+                const timeStr = r.created_at ? r.created_at.replace('T', ' ').substring(0, 19) : 'N/A';
+                const metricsSummary = Object.entries(r.metrics || {}).slice(0, 2).map(([k, v]) => `${k}:${typeof v === 'number' ? v.toFixed(3) : v}`).join(', ');
+
                 tr.innerHTML = `
-                    <td style="font-weight: 600;">${key}</td>
-                    <td>${val.on.toFixed(4)}</td>
-                    <td>${val.off.toFixed(4)}</td>
-                    <td class="${deltaClass}" style="font-weight: 700;">${formattedDelta}</td>
+                    <td style="font-size: 0.75rem;">${timeStr}</td>
+                    <td><code>${r.record_id}</code></td>
+                    <td><strong>${r.experiment_name}</strong></td>
+                    <td>${r.seed}</td>
+                    <td>${r.max_steps}</td>
+                    <td>${r.execution_time_seconds ? r.execution_time_seconds.toFixed(2) + 's' : '0.0s'}</td>
+                    <td><span class="exp-tag" style="color: ${r.status === 'completed' ? 'var(--status-success)' : 'var(--status-error)'}">${r.status}</span></td>
+                    <td style="font-size: 0.75rem; color: var(--text-secondary);">${metricsSummary || 'None'}</td>
+                    <td>
+                        <button type="button" class="btn btn-secondary" style="padding: 0.2rem 0.45rem; font-size: 0.72rem;" onclick="verifyReplayHistory('${r.record_id}')">Replay</button>
+                        <button type="button" class="btn btn-secondary" style="padding: 0.2rem 0.45rem; font-size: 0.72rem;" onclick="window.location.href='/export/${r.record_id}?level=2'">Export</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            }
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="9" style="color: var(--status-error); padding: 1.5rem;">Failed to load history: ${err.message}</td></tr>`;
+        }
+    }
+
+    async function verifyReplayHistory(recordId) {
+        try {
+            const resp = await fetch(`/api/replay/${recordId}`, { method: 'POST' });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || 'Replay failed');
+
+            if (data.is_identical) {
+                alert(`Deterministic Replay Verified!\nRecord: ${recordId}\nZero Drift Confirmed (max delta: ${data.max_metric_delta.toExponential(2)})\nReplayed Run ID: ${data.replayed_run_id}`);
+            } else {
+                alert(`Replay Warning: Drift Detected!\nRecord: ${recordId}\nMax Metric Delta: ${data.max_metric_delta.toFixed(6)}`);
+            }
+        } catch (err) {
+            alert('Replay Exception: ' + err.message);
+        }
+    }
+
+    // Comparative Analysis Logic
+    async function populateCompareDropdowns() {
+        const selectA = document.getElementById('compare-select-a');
+        const selectB = document.getElementById('compare-select-b');
+        selectA.innerHTML = '<option value="">Select Run A...</option>';
+        selectB.innerHTML = '<option value="">Select Run B...</option>';
+
+        try {
+            const resp = await fetch('/api/history?limit=50');
+            const data = await resp.json();
+            for (const r of data.records || []) {
+                const optA = document.createElement('option');
+                optA.value = r.record_id;
+                optA.textContent = `${r.experiment_name} (Seed:${r.seed}, Steps:${r.max_steps}) - ${r.record_id}`;
+                selectA.appendChild(optA);
+
+                const optB = document.createElement('option');
+                optB.value = r.record_id;
+                optB.textContent = `${r.experiment_name} (Seed:${r.seed}, Steps:${r.max_steps}) - ${r.record_id}`;
+                selectB.appendChild(optB);
+            }
+        } catch (err) {
+            console.error('Failed to populate compare dropdowns:', err);
+        }
+    }
+
+    async function executeArbitraryCompare() {
+        const recA = document.getElementById('compare-select-a').value;
+        const recB = document.getElementById('compare-select-b').value;
+
+        if (!recA || !recB) {
+            alert('Please select both Run A and Run B.');
+            return;
+        }
+
+        try {
+            const resp = await fetch('/api/compare', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ record_id_a: recA, record_id_b: recB }),
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || 'Comparison failed');
+
+            document.getElementById('arbitrary-compare-results').style.display = 'flex';
+            document.getElementById('cmp-name-a').textContent = data.run_a.experiment_name;
+            document.getElementById('cmp-id-a').textContent = data.run_a.record_id;
+            document.getElementById('cmp-name-b').textContent = data.run_b.experiment_name;
+            document.getElementById('cmp-id-b').textContent = data.run_b.record_id;
+
+            // Parameter Diffs
+            const pTbody = document.getElementById('cmp-params-tbody');
+            pTbody.innerHTML = '';
+            for (const p of data.parameter_diffs || []) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${p.parameter}</strong></td>
+                    <td>${p.val_a !== null && p.val_a !== undefined ? p.val_a : 'N/A'}</td>
+                    <td>${p.val_b !== null && p.val_b !== undefined ? p.val_b : 'N/A'}</td>
+                    <td><span class="exp-tag" style="color: ${p.is_different ? 'var(--status-warning)' : 'var(--status-success)'}">${p.is_different ? 'DIFFERENT' : 'IDENTICAL'}</span></td>
+                `;
+                pTbody.appendChild(tr);
+            }
+
+            // Metric Deltas
+            const mTbody = document.getElementById('cmp-metrics-tbody');
+            mTbody.innerHTML = '';
+            for (const m of data.metric_diffs || []) {
+                const tr = document.createElement('tr');
+                const deltaStr = m.delta !== null ? (m.delta > 0 ? `+${m.delta.toFixed(4)}` : m.delta.toFixed(4)) : 'N/A';
+                const deltaClass = m.delta !== null ? (m.delta > 0 ? 'diff-positive' : (m.delta < 0 ? 'diff-negative' : '')) : '';
+                tr.innerHTML = `
+                    <td>${m.metric}</td>
+                    <td>${m.val_a !== null && m.val_a !== undefined ? m.val_a.toFixed(4) : 'N/A'}</td>
+                    <td>${m.val_b !== null && m.val_b !== undefined ? m.val_b.toFixed(4) : 'N/A'}</td>
+                    <td class="${deltaClass}">${deltaStr}</td>
+                `;
+                mTbody.appendChild(tr);
+            }
+
+            // Draw Canvases
+            const canvasA = document.getElementById('canvas-arb-a');
+            const ctxA = canvasA.getContext('2d');
+            if (data.trajectory_a) {
+                const stepsA = data.trajectory_a.total_steps || 12;
+                drawTrajectoryFrame(ctxA, canvasA.width, canvasA.height, data.trajectory_a, stepsA - 1);
+            }
+
+            const canvasB = document.getElementById('canvas-arb-b');
+            const ctxB = canvasB.getContext('2d');
+            if (data.trajectory_b) {
+                const stepsB = data.trajectory_b.total_steps || 12;
+                drawTrajectoryFrame(ctxB, canvasB.width, canvasB.height, data.trajectory_b, stepsB - 1);
+            }
+        } catch (err) {
+            alert('Compare Error: ' + err.message);
+        }
+    }
+
+    // Preserved Gating ON vs OFF Comparison (D)
+    async function compareDGating() {
+        const comparisonCard = document.getElementById('comparison-card');
+        comparisonCard.style.display = 'flex';
+        const tbody = document.getElementById('comparison-tbody');
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">Executing isolated ON & OFF simulation runs...</td></tr>';
+
+        try {
+            const resp = await fetch('/comparison');
+            if (!resp.ok) {
+                const err = await resp.json();
+                throw new Error(err.error || 'Failed to execute comparison');
+            }
+            const data = await resp.json();
+
+            tbody.innerHTML = '';
+            for (const [key, val] of Object.entries(data.diff || {})) {
+                const tr = document.createElement('tr');
+                const deltaVal = typeof val.delta === 'number' ? val.delta.toFixed(4) : val.delta;
+                const deltaClass = val.delta > 0 ? 'diff-positive' : (val.delta < 0 ? 'diff-negative' : '');
+                const sign = val.delta > 0 ? '+' : '';
+
+                tr.innerHTML = `
+                    <td><strong>${key}</strong></td>
+                    <td>${typeof val.on === 'number' ? val.on.toFixed(4) : val.on}</td>
+                    <td>${typeof val.off === 'number' ? val.off.toFixed(4) : val.off}</td>
+                    <td class="${deltaClass}">${sign}${deltaVal}</td>
                 `;
                 tbody.appendChild(tr);
             }
 
-            // Draw ON and OFF comparison canvases
             const canvasOn = document.getElementById('canvas-on');
-            const ctxOn = canvasOn.getContext('2d');
             const canvasOff = document.getElementById('canvas-off');
+            const ctxOn = canvasOn.getContext('2d');
             const ctxOff = canvasOff.getContext('2d');
 
             if (data.on_trajectory) {
@@ -590,16 +1024,11 @@
 
             const prov = data.provenance || {};
             document.getElementById('comparison-provenance').innerHTML = `
-                <strong>Provenance Trace:</strong> ON Run ID: <code>${prov.on_run_id || 'N/A'}</code> | OFF Run ID: <code>${prov.off_run_id || 'N/A'}</code> | Type: <code>${prov.comparison_type}</code>
+                <strong>Provenance Trace:</strong> ON Record: <code>${prov.on_record_id || 'N/A'}</code> (Run: <code>${prov.on_run_id || 'N/A'}</code>) | OFF Record: <code>${prov.off_record_id || 'N/A'}</code> (Run: <code>${prov.off_run_id || 'N/A'}</code>) | Type: <code>${prov.comparison_type}</code>
             `;
         } catch (err) {
             tbody.innerHTML = `<tr><td colspan="4" style="color: var(--status-error);">Exception: ${err.message}</td></tr>`;
         }
-    }
-
-    function handleExport() {
-        if (!currentSessionId) return;
-        window.location.href = '/export/' + currentSessionId;
     }
 </script>
 {% endblock %}

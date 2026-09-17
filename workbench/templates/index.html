@@ -392,6 +392,210 @@
     </div>
 </div>
 
+<!-- TAB 4: DISCOVERY & RESEARCH AUTOMATION -->
+<div id="tab-content-discovery" style="display: none; width: 100%;">
+    <!-- Left Sidebar: Subspace Configuration & Bounded Exploration -->
+    <div class="sidebar">
+        <div>
+            <div class="section-title">Target Composition</div>
+            <div class="param-row">
+                <select id="disc-template-select" style="background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.5rem; border-radius: 6px; width: 100%;" onchange="onDiscoveryTemplateChange()">
+                    <option value="gated_movers" selected>Experiment D: Gated Movers</option>
+                    <option value="adaptive_network">Experiment C: Adaptive Network</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="margin-top: 0.5rem;">
+            <div class="section-title">Parameter Subspace</div>
+            <div id="disc-params-container" class="param-group">
+                <!-- Dynamically rendered parameter inputs -->
+            </div>
+        </div>
+
+        <!-- Budget & Preview Banner -->
+        <div class="card" style="padding: 0.75rem; background: rgba(56, 189, 248, 0.05); border-color: rgba(56, 189, 248, 0.2);">
+            <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--accent-sky); margin-bottom: 0.25rem;">Bounded Evaluation Budget</div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.2rem;">
+                <span style="color: var(--text-secondary);">Candidates (K):</span>
+                <span id="disc-preview-count" style="font-family: var(--font-mono); font-weight: 700; color: var(--text-primary);">4</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+                <span style="color: var(--text-secondary);">Estimated Runtime:</span>
+                <span id="disc-preview-runtime" style="font-family: var(--font-mono); font-weight: 600; color: var(--status-success);">~36.8s</span>
+            </div>
+            <div id="disc-cap-warning" style="display: none; color: var(--status-error); font-size: 0.75rem; margin-top: 0.4rem; font-weight: 600;">
+                Cap Exceeded: Maximum allowed candidates is 50. Please reduce parameter values.
+            </div>
+        </div>
+
+        <!-- Global Execution Config -->
+        <div class="param-group">
+            <div class="param-row">
+                <label>
+                    <span>Macro Steps</span>
+                    <span class="param-value-val" id="disc-val-steps">12</span>
+                </label>
+                <input type="number" id="disc-max-steps" value="12" min="1" max="50" oninput="document.getElementById('disc-val-steps').textContent = this.value; updateDiscoveryPreview();">
+            </div>
+
+            <div class="param-row">
+                <label><span>Random Seed</span></label>
+                <input type="number" id="disc-seed" value="42">
+            </div>
+
+            <div class="param-row">
+                <label><span>Session Title</span></label>
+                <input type="text" id="disc-session-name" placeholder="Optional session title...">
+            </div>
+        </div>
+
+        <!-- Multi-Objective Selection & Profile -->
+        <div>
+            <div class="section-title">Multi-Objective Frontier</div>
+            <div class="param-group">
+                <div class="param-row">
+                    <label>
+                        <span>Quality Weight (qw)</span>
+                        <span class="param-value-val" id="disc-val-qw">0.70</span>
+                    </label>
+                    <input type="range" id="disc-qw" min="0.0" max="1.0" step="0.05" value="0.70" oninput="document.getElementById('disc-val-qw').textContent = parseFloat(this.value).toFixed(2)">
+                </div>
+
+                <div class="param-row">
+                    <label>
+                        <span>Diversity Weight (dw)</span>
+                        <span class="param-value-val" id="disc-val-dw">0.30</span>
+                    </label>
+                    <input type="range" id="disc-dw" min="0.0" max="1.0" step="0.05" value="0.30" oninput="document.getElementById('disc-val-dw').textContent = parseFloat(this.value).toFixed(2)">
+                </div>
+
+                <div class="param-row">
+                    <label><span>Frontier Beam Width</span></label>
+                    <input type="number" id="disc-beam-width" value="3" min="1" max="10">
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
+            <button type="button" class="btn btn-primary" id="disc-run-btn" style="width: 100%;" onclick="launchDiscoveryPass()">
+                Run Bounded Discovery
+            </button>
+            <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="openDiscoverySessionsModal()">
+                Saved Discovery Sessions
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Viewport: Behavioral Scatter Plot, Diversity Frontier & Population Table -->
+    <div class="main-viewport">
+        <!-- Notification / Progress Banner -->
+        <div id="disc-status-card" class="card" style="display: none; padding: 0.75rem 1rem; border-color: var(--accent-sky);">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span id="disc-status-text" style="font-size: 0.9rem; font-weight: 500;">Ready</span>
+                <span id="disc-status-sub" style="font-size: 0.8rem; color: var(--text-secondary);"></span>
+            </div>
+        </div>
+
+        <!-- Upper Section: Scatter Plot + Frontier Cards -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <!-- Behavioral Scatter Plot Canvas -->
+            <div class="card" style="display: flex; flex-direction: column;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <h3 style="font-size: 0.95rem; font-weight: 600;">Behavioral Feature Space</h3>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono);">Quality vs Novelty Distance</span>
+                </div>
+                <div class="canvas-container" style="height: 250px; background: #0b1329;">
+                    <canvas id="canvas-discovery-scatter" width="460" height="250"></canvas>
+                </div>
+                <div style="display: flex; gap: 1rem; font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.4rem;">
+                    <span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #38bdf8; margin-right: 4px;"></span> Frontier Candidate</span>
+                    <span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; margin-right: 4px;"></span> Regular Candidate</span>
+                    <span><span style="display: inline-block; width: 10px; height: 10px; background: #fbbf24; margin-right: 4px;"></span> Baseline Control</span>
+                </div>
+            </div>
+
+            <!-- Diversity Frontier Showcase -->
+            <div class="card" style="display: flex; flex-direction: column;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <h3 style="font-size: 0.95rem; font-weight: 600;">Diversity Frontier Regimes</h3>
+                    <span id="disc-frontier-badge" class="badge badge-success" style="font-size: 0.75rem;">0 Selected</span>
+                </div>
+                <div id="disc-frontier-cards" style="display: flex; flex-direction: column; gap: 0.6rem; overflow-y: auto; max-height: 270px; padding-right: 0.2rem;">
+                    <div style="font-size: 0.85rem; color: var(--text-muted); padding: 1rem; text-align: center;">
+                        Configure parameter subspace and click "Run Bounded Discovery" to identify diverse behavioral regimes.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lower Section: Ranked Candidate Population Table -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                <h3 style="font-size: 0.95rem; font-weight: 600;">Evaluated Candidate Population</h3>
+                <span id="disc-candidates-count" style="font-size: 0.8rem; color: var(--text-secondary); font-family: var(--font-mono);">0 Candidates</span>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table class="diff-table" id="disc-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">Rank</th>
+                            <th>Candidate ID</th>
+                            <th>Parameters</th>
+                            <th>Quality Score</th>
+                            <th>Novelty Dist</th>
+                            <th>Status</th>
+                            <th>Provenance</th>
+                            <th style="text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="disc-candidates-tbody">
+                        <tr>
+                            <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                                No discovery pass executed yet.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Saved Discovery Sessions -->
+<div id="discovery-sessions-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
+    <div class="card" style="width: 720px; max-width: 90%; background: #1e293b; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 1rem; max-height: 85vh;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="font-size: 1.05rem; font-weight: 700;">Saved Discovery Sessions</h3>
+            <button type="button" class="btn btn-secondary" style="padding: 0.2rem 0.5rem;" onclick="closeDiscoverySessionsModal()">&times;</button>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">Historical discovery exploration passes preserved in <code>workbench.db</code>.</p>
+
+        <div style="overflow-y: auto; max-height: 50vh;">
+            <table class="diff-table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Template</th>
+                        <th>Candidates</th>
+                        <th>Frontier</th>
+                        <th>Created</th>
+                        <th style="text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="disc-sessions-tbody">
+                    <!-- Dynamic sessions rows -->
+                </tbody>
+            </table>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
+            <button type="button" class="btn btn-secondary" onclick="closeDiscoverySessionsModal()">Close</button>
+        </div>
+    </div>
+</div>
+
 <!-- Modal: Import Record (.simrec) -->
 <div id="import-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
     <div class="card" style="width: 480px; max-width: 90%; background: #1e293b; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 1rem;">
@@ -451,10 +655,14 @@
         document.getElementById('tab-btn-runner').classList.remove('active');
         document.getElementById('tab-btn-history').classList.remove('active');
         document.getElementById('tab-btn-compare').classList.remove('active');
+        const discBtn = document.getElementById('tab-btn-discovery');
+        if (discBtn) discBtn.classList.remove('active');
 
         document.getElementById('tab-content-runner').style.display = 'none';
         document.getElementById('tab-content-history').style.display = 'none';
         document.getElementById('tab-content-compare').style.display = 'none';
+        const discContent = document.getElementById('tab-content-discovery');
+        if (discContent) discContent.style.display = 'none';
 
         if (tabName === 'runner') {
             document.getElementById('tab-btn-runner').classList.add('active');
@@ -467,6 +675,10 @@
             document.getElementById('tab-btn-compare').classList.add('active');
             document.getElementById('tab-content-compare').style.display = 'flex';
             populateCompareDropdowns();
+        } else if (tabName === 'discovery') {
+            if (discBtn) discBtn.classList.add('active');
+            if (discContent) discContent.style.display = 'flex';
+            initDiscoveryTab();
         }
     }
 
@@ -851,7 +1063,7 @@
                     <td><span class="exp-tag" style="color: ${r.status === 'completed' ? 'var(--status-success)' : 'var(--status-error)'}">${r.status}</span></td>
                     <td style="font-size: 0.75rem; color: var(--text-secondary);">${metricsSummary || 'None'}</td>
                     <td>
-                        <button type="button" class="btn btn-secondary" style="padding: 0.2rem 0.45rem; font-size: 0.72rem;" onclick="verifyReplayHistory('${r.record_id}')">Replay</button>
+                        <button type="button" class="btn btn-secondary" style="padding: 0.2rem 0.45rem; font-size: 0.72rem;" onclick="replayRecord('${r.record_id}')">Replay</button>
                         <button type="button" class="btn btn-secondary" style="padding: 0.2rem 0.45rem; font-size: 0.72rem;" onclick="window.location.href='/export/${r.record_id}?level=2'">Export</button>
                     </td>
                 `;
@@ -1028,6 +1240,711 @@
             `;
         } catch (err) {
             tbody.innerHTML = `<tr><td colspan="4" style="color: var(--status-error);">Exception: ${err.message}</td></tr>`;
+        }
+    }
+
+    // ==========================================
+    // PHASE 3: DISCOVERY & AUTOMATION LOGIC
+    // ==========================================
+    let currentDiscoverySpecs = {};
+    let currentDiscoveryCandidates = [];
+    let currentDiscoveryFrontier = [];
+    let discoveryInitialized = false;
+
+    async function initDiscoveryTab() {
+        if (!discoveryInitialized) {
+            discoveryInitialized = true;
+            await onDiscoveryTemplateChange();
+        }
+    }
+
+    async function onDiscoveryTemplateChange() {
+        const select = document.getElementById('disc-template-select');
+        const template = select.value;
+        const container = document.getElementById('disc-params-container');
+        container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.8rem;">Loading parameter specs...</div>';
+
+        try {
+            const res = await fetch(`/api/discovery/specs/${template}`);
+            const data = await res.json();
+            if (!data.success) {
+                container.innerHTML = `<div style="color: var(--status-error); font-size: 0.8rem;">Error: ${data.error}</div>`;
+                return;
+            }
+
+            currentDiscoverySpecs = data.specs;
+            container.innerHTML = '';
+
+            // Default sweeps map
+            const defaultsMap = {};
+            for (const d of data.default_sweeps || []) {
+                defaultsMap[d.path] = d.values.join(', ');
+            }
+
+            for (const [path, spec] of Object.entries(data.specs)) {
+                const row = document.createElement('div');
+                row.className = 'param-row';
+                const defaultVal = defaultsMap[path] || `${spec.minimum}, ${spec.maximum}`;
+                const isChecked = path in defaultsMap;
+
+                row.innerHTML = `
+                    <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+                        <input type="checkbox" class="disc-param-check" data-path="${path}" ${isChecked ? 'checked' : ''} onchange="updateDiscoveryPreview()">
+                        <span style="font-weight: 600;">${path}</span>
+                    </label>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted);">
+                        <span>${spec.description || 'Bounds'}: [${spec.minimum}, ${spec.maximum}]</span>
+                    </div>
+                    <input type="text" class="disc-param-values" data-path="${path}" value="${defaultVal}" style="background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.35rem 0.5rem; border-radius: 4px; font-family: var(--font-mono); font-size: 0.8rem;" oninput="updateDiscoveryPreview()">
+                `;
+                container.appendChild(row);
+            }
+
+            updateDiscoveryPreview();
+        } catch (err) {
+            container.innerHTML = `<div style="color: var(--status-error); font-size: 0.8rem;">Exception: ${err.message}</div>`;
+        }
+    }
+
+    function updateDiscoveryPreview() {
+        const checks = document.querySelectorAll('.disc-param-check');
+        let totalCount = 1;
+        let anyChecked = false;
+
+        checks.forEach(chk => {
+            if (chk.checked) {
+                anyChecked = true;
+                const path = chk.getAttribute('data-path');
+                const input = document.querySelector(`.disc-param-values[data-path="${path}"]`);
+                if (input) {
+                    const vals = input.value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                    totalCount *= Math.max(1, vals.length);
+                }
+            }
+        });
+
+        if (!anyChecked) totalCount = 0;
+
+        const countBadge = document.getElementById('disc-preview-count');
+        const runtimeBadge = document.getElementById('disc-preview-runtime');
+        const capWarning = document.getElementById('disc-cap-warning');
+        const runBtn = document.getElementById('disc-run-btn');
+
+        countBadge.textContent = totalCount;
+
+        const select = document.getElementById('disc-template-select');
+        const template = select ? select.value : 'gated_movers';
+        const steps = parseInt(document.getElementById('disc-max-steps').value || '12', 10);
+        const perStepRate = template === 'gated_movers' ? 0.75 : 0.15;
+        const estSec = (totalCount * (0.2 + perStepRate * steps)).toFixed(1);
+
+        runtimeBadge.textContent = `~${estSec}s`;
+
+        if (totalCount > 50) {
+            capWarning.style.display = 'block';
+            runBtn.disabled = true;
+            runBtn.style.opacity = '0.5';
+            runBtn.style.cursor = 'not-allowed';
+        } else if (totalCount === 0) {
+            capWarning.style.display = 'none';
+            runBtn.disabled = true;
+            runBtn.style.opacity = '0.5';
+            runBtn.style.cursor = 'not-allowed';
+        } else {
+            capWarning.style.display = 'none';
+            runBtn.disabled = false;
+            runBtn.style.opacity = '1';
+            runBtn.style.cursor = 'pointer';
+        }
+    }
+
+    async function launchDiscoveryPass() {
+        const runBtn = document.getElementById('disc-run-btn');
+        const statusCard = document.getElementById('disc-status-card');
+        const statusText = document.getElementById('disc-status-text');
+        const statusSub = document.getElementById('disc-status-sub');
+
+        const template = document.getElementById('disc-template-select').value;
+        const maxSteps = parseInt(document.getElementById('disc-max-steps').value || '12', 10);
+        const seed = parseInt(document.getElementById('disc-seed').value || '42', 10);
+        const sessionTitle = document.getElementById('disc-session-name').value.trim();
+        const qw = parseFloat(document.getElementById('disc-qw').value || '0.7');
+        const dw = parseFloat(document.getElementById('disc-dw').value || '0.3');
+        const beamWidth = parseInt(document.getElementById('disc-beam-width').value || '3', 10);
+
+        // Gather sweeps
+        const sweeps = [];
+        const checks = document.querySelectorAll('.disc-param-check');
+        checks.forEach(chk => {
+            if (chk.checked) {
+                const path = chk.getAttribute('data-path');
+                const input = document.querySelector(`.disc-param-values[data-path="${path}"]`);
+                if (input) {
+                    const rawVals = input.value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                    const parsedVals = rawVals.map(v => isNaN(Number(v)) ? v : Number(v));
+                    sweeps.push({ path: path, values: parsedVals });
+                }
+            }
+        });
+
+        runBtn.disabled = true;
+        runBtn.textContent = 'Exploring Parameter Subspace...';
+        statusCard.style.display = 'block';
+        statusText.innerHTML = '<span style="color: var(--accent-sky);">Running discovery exploration...</span>';
+        statusSub.textContent = 'Simulating variants sequentially with baseline control...';
+
+        try {
+            const payload = {
+                experiment_template: template,
+                sweeps: sweeps,
+                max_steps: maxSteps,
+                seed: seed,
+                session_name: sessionTitle,
+                beam_width: beamWidth,
+                quality_weight: qw,
+                diversity_weight: dw,
+            };
+
+            const res = await fetch('/api/discovery/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (!data.success) {
+                statusText.innerHTML = `<span style="color: var(--status-error);">Discovery Failed: ${data.error}</span>`;
+                statusSub.textContent = '';
+                return;
+            }
+
+            const result = data.result;
+            currentDiscoveryCandidates = result.candidates || [];
+            currentDiscoveryFrontier = result.frontier_candidates || [];
+
+            statusText.innerHTML = `<span style="color: var(--status-success);">Discovery Pass Completed! Session: <code>${result.session_id}</code></span>`;
+            statusSub.textContent = `${currentDiscoveryCandidates.length} candidates evaluated in ${result.total_runtime_seconds.toFixed(2)}s.`;
+
+            // Render Views
+            renderDiscoveryScatter(currentDiscoveryCandidates, currentDiscoveryFrontier);
+            renderFrontierCards(currentDiscoveryFrontier);
+            renderCandidatesTable(currentDiscoveryCandidates);
+
+        } catch (err) {
+            statusText.innerHTML = `<span style="color: var(--status-error);">Exception: ${err.message}</span>`;
+        } finally {
+            runBtn.disabled = false;
+            runBtn.textContent = 'Run Bounded Discovery';
+        }
+    }
+
+    function renderDiscoveryScatter(candidates, frontier) {
+        const canvas = document.getElementById('canvas-discovery-scatter');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // Background grid & axes
+        ctx.fillStyle = '#0b1329';
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1;
+        for (let x = 40; x < w - 20; x += 50) {
+            ctx.beginPath(); ctx.moveTo(x, 20); ctx.lineTo(x, h - 30); ctx.stroke();
+        }
+        for (let y = 20; y < h - 30; y += 40) {
+            ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(w - 20, y); ctx.stroke();
+        }
+
+        // Axis labels
+        ctx.fillStyle = '#64748b';
+        ctx.font = '10px monospace';
+        ctx.fillText('0.0 (Novelty Dist)', 40, h - 14);
+        ctx.fillText('Max Dist ->', w - 80, h - 14);
+
+        ctx.save();
+        ctx.translate(14, h / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText('Quality Score ->', -35, 0);
+        ctx.restore();
+
+        if (!candidates || candidates.length === 0) return;
+
+        let maxDist = 0.01;
+        candidates.forEach(c => {
+            if (c.diversity_distance > maxDist) maxDist = c.diversity_distance;
+        });
+
+        const plotX = (d) => 50 + ((w - 80) * (d / (maxDist || 1)));
+        const plotY = (q) => (h - 40) - ((h - 70) * Math.max(0, Math.min(1, q)));
+
+        // Plot regular candidates
+        candidates.forEach(c => {
+            if (!c.is_frontier && !c.is_baseline) {
+                const px = plotX(c.diversity_distance);
+                const py = plotY(c.score);
+                ctx.beginPath();
+                ctx.arc(px, py, 4, 0, 2 * Math.PI);
+                ctx.fillStyle = '#64748b';
+                ctx.fill();
+            }
+        });
+
+        // Plot frontier candidates
+        candidates.forEach(c => {
+            if (c.is_frontier && !c.is_baseline) {
+                const px = plotX(c.diversity_distance);
+                const py = plotY(c.score);
+                ctx.beginPath();
+                ctx.arc(px, py, 6, 0, 2 * Math.PI);
+                ctx.fillStyle = '#38bdf8';
+                ctx.shadowColor = '#38bdf8';
+                ctx.shadowBlur = 8;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        });
+
+        // Plot baseline control (square)
+        candidates.forEach(c => {
+            if (c.is_baseline) {
+                const px = plotX(c.diversity_distance);
+                const py = plotY(c.score);
+                ctx.fillStyle = '#fbbf24';
+                ctx.fillRect(px - 5, py - 5, 10, 10);
+            }
+        });
+    }
+
+    function renderFrontierCards(frontier) {
+        const container = document.getElementById('disc-frontier-cards');
+        const badge = document.getElementById('disc-frontier-badge');
+        badge.textContent = `${frontier.length} Selected`;
+        container.innerHTML = '';
+
+        if (!frontier || frontier.length === 0) {
+            container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem; padding: 1rem;">No frontier candidates selected.</div>';
+            return;
+        }
+
+        frontier.forEach((f, idx) => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.style.padding = '0.7rem';
+            card.style.background = 'rgba(56, 189, 248, 0.04)';
+            card.style.borderColor = 'rgba(56, 189, 248, 0.3)';
+
+            const paramsStr = Object.entries(f.parameters).map(([k, v]) => `${k.split('.').pop()}: ${v}`).join(', ');
+            const reasonBadge = f.selection_reason === 'highest_quality' ? 'badge-primary' : 'badge-success';
+
+            card.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                        <span style="font-weight: 700; color: var(--accent-sky);">#${idx + 1}</span>
+                        <span style="font-weight: 600; font-size: 0.9rem;">${f.candidate_id}</span>
+                        <span class="badge ${reasonBadge}" style="font-size: 0.7rem;">${f.selection_reason}</span>
+                    </div>
+                    <span style="font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700;">Score: ${f.score.toFixed(3)}</span>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.4rem;">
+                    Params: <code style="color: var(--text-primary);">${paramsStr}</code> | Novelty Dist: <code style="color: var(--accent-sky);">${f.diversity_distance.toFixed(3)}</code>
+                </div>
+                <div style="display: flex; gap: 0.4rem; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" onclick="replayDiscoveryCandidate('${f.record_id}')">Replay</button>
+                    <button type="button" class="btn btn-accent" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" onclick="compareWithBaseline('${f.record_id}')">Compare vs Base</button>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function renderCandidatesTable(candidates) {
+        const tbody = document.getElementById('disc-candidates-tbody');
+        const countSpan = document.getElementById('disc-candidates-count');
+        countSpan.textContent = `${candidates.length} Candidates`;
+        tbody.innerHTML = '';
+
+        if (!candidates || candidates.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No candidates available.</td></tr>';
+            return;
+        }
+
+        candidates.forEach(c => {
+            const tr = document.createElement('tr');
+            if (c.is_frontier) tr.style.background = 'rgba(56, 189, 248, 0.03)';
+
+            const paramsStr = Object.entries(c.parameters).map(([k, v]) => `${k.split('.').pop()}=${v}`).join(', ');
+            const frontierBadge = c.is_frontier ? `<span class="badge badge-success" style="font-size: 0.7rem;">Frontier</span>` : `<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>`;
+            const baseTag = c.is_baseline ? `<span class="badge badge-warning" style="font-size: 0.7rem; margin-left: 4px;">Baseline</span>` : '';
+
+            tr.innerHTML = `
+                <td><strong>${c.rank}</strong></td>
+                <td><code>${c.candidate_id}</code>${baseTag}</td>
+                <td><small style="font-family: var(--font-mono);">${paramsStr}</small></td>
+                <td><strong>${c.score.toFixed(3)}</strong></td>
+                <td><small style="font-family: var(--font-mono);">${c.diversity_distance.toFixed(3)}</small></td>
+                <td>${frontierBadge}</td>
+                <td><small style="font-family: var(--font-mono); color: var(--text-muted);">${c.run_id ? c.run_id.substring(0, 10) : 'N/A'}</small></td>
+                <td style="text-align: right; white-space: nowrap;">
+                    <button type="button" class="btn btn-secondary" style="padding: 0.2rem 0.4rem; font-size: 0.75rem;" onclick="toggleCandidateContrib('${c.candidate_id}')">Contribs</button>
+                    <button type="button" class="btn btn-secondary" style="padding: 0.2rem 0.4rem; font-size: 0.75rem;" onclick="replayDiscoveryCandidate('${c.record_id}')">Replay</button>
+                    <button type="button" class="btn btn-accent" style="padding: 0.2rem 0.4rem; font-size: 0.75rem;" onclick="compareWithBaseline('${c.record_id}')">Compare</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+
+            // Expandable Contribution Row
+            const trDetail = document.createElement('tr');
+            trDetail.id = `contrib-row-${c.candidate_id}`;
+            trDetail.style.display = 'none';
+            trDetail.style.background = '#151f33';
+
+            let contribRows = '';
+            for (const [feat, contrib] of Object.entries(c.contributions || {})) {
+                const norm = contrib.normalized !== null && contrib.normalized !== undefined ? contrib.normalized.toFixed(3) : 'N/A';
+                const raw = typeof contrib.raw === 'number' ? contrib.raw.toFixed(4) : contrib.raw;
+                contribRows += `
+                    <tr>
+                        <td style="padding: 0.2rem 0.5rem; font-size: 0.75rem;"><code>${feat}</code></td>
+                        <td style="padding: 0.2rem 0.5rem; font-size: 0.75rem; font-family: var(--font-mono);">${raw}</td>
+                        <td style="padding: 0.2rem 0.5rem; font-size: 0.75rem; font-family: var(--font-mono);">${norm}</td>
+                        <td style="padding: 0.2rem 0.5rem; font-size: 0.75rem; font-family: var(--font-mono);">${contrib.weight}</td>
+                        <td style="padding: 0.2rem 0.5rem; font-size: 0.75rem; font-family: var(--font-mono); font-weight: 700; color: var(--accent-sky);">${contrib.contribution.toFixed(4)}</td>
+                    </tr>
+                `;
+            }
+
+            trDetail.innerHTML = `
+                <td colspan="8" style="padding: 0.75rem 1rem;">
+                    <div style="font-size: 0.8rem; font-weight: 600; color: var(--accent-sky); margin-bottom: 0.3rem;">
+                        Exact Feature Contribution Breakdown (Score: ${c.score.toFixed(4)}):
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem;">
+                        <thead>
+                            <tr style="color: var(--text-muted); border-bottom: 1px solid var(--border-color);">
+                                <th style="text-align: left; padding: 0.2rem 0.5rem;">Feature</th>
+                                <th style="text-align: left; padding: 0.2rem 0.5rem;">Raw Value</th>
+                                <th style="text-align: left; padding: 0.2rem 0.5rem;">Normalized [0, 1]</th>
+                                <th style="text-align: left; padding: 0.2rem 0.5rem;">Weight</th>
+                                <th style="text-align: left; padding: 0.2rem 0.5rem;">Points Contributed</th>
+                            </tr>
+                        </thead>
+                        <tbody>${contribRows}</tbody>
+                    </table>
+                </td>
+            `;
+            tbody.appendChild(trDetail);
+        });
+    }
+
+    function toggleCandidateContrib(candId) {
+        const row = document.getElementById(`contrib-row-${candId}`);
+        if (!row) return;
+        row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+    }
+
+    async function replayRecord(recordId) {
+        switchMainTab('runner');
+
+        const statusCard = document.getElementById('status-card');
+        const statusMsg = document.getElementById('status-msg');
+        statusCard.style.display = 'block';
+        statusCard.style.borderColor = 'var(--accent-sky)';
+        statusMsg.innerHTML = `<span style="color: var(--accent-sky);">Fetching experiment record <code>${recordId}</code>...</span>`;
+        document.getElementById('header-status-text').textContent = 'Loading...';
+
+        try {
+            // 1. Fetch Record Details
+            const recordResp = await fetch(`/api/records/${recordId}`);
+            if (!recordResp.ok) {
+                const errData = await recordResp.json();
+                throw new Error(errData.error || `Record ${recordId} not found`);
+            }
+            const record = await recordResp.json();
+
+            // 2. Select Experiment Card
+            const template = record.experiment_template;
+            const compId = record.composition_id;
+            let targetCard = document.querySelector(`.experiment-card[data-template="${template}"]`) ||
+                             document.querySelector(`.experiment-card[data-id="${compId}"]`);
+            if (targetCard) {
+                selectExperiment(targetCard.dataset.id, targetCard.dataset.template);
+            } else {
+                selectExperiment(compId, template);
+            }
+
+            // 3. Restore Form Fields
+            if (record.max_steps !== undefined) {
+                const maxStepsEl = document.getElementById('max_steps');
+                if (maxStepsEl) maxStepsEl.value = record.max_steps;
+                const valMaxStepsEl = document.getElementById('val-max_steps');
+                if (valMaxStepsEl) valMaxStepsEl.textContent = record.max_steps;
+            }
+            if (record.seed !== undefined) {
+                const seedEl = document.getElementById('seed');
+                if (seedEl) seedEl.value = record.seed;
+            }
+            if (record.tags) {
+                const tagsEl = document.getElementById('tags-input');
+                if (tagsEl) tagsEl.value = Array.isArray(record.tags) ? record.tags.join(', ') : record.tags;
+            }
+            if (record.notes) {
+                const notesEl = document.getElementById('notes-input');
+                if (notesEl) notesEl.value = record.notes;
+            }
+
+            // Restore template parameters (e.g. Experiment D: gate_threshold, gate_cooldown)
+            const params = record.parameters || {};
+            const gateThresh = params['gate_threshold'] !== undefined ? params['gate_threshold'] : (params['config.gate_threshold'] !== undefined ? params['config.gate_threshold'] : params['physics.movers.gate_threshold']);
+            if (gateThresh !== undefined) {
+                const inputG = document.getElementById('input-gate_threshold');
+                const valG = document.getElementById('val-gate_threshold');
+                if (inputG) inputG.value = gateThresh;
+                if (valG) valG.textContent = typeof gateThresh === 'number' ? gateThresh.toFixed(2) : gateThresh;
+            }
+            const gateCd = params['gate_cooldown'] !== undefined ? params['gate_cooldown'] : (params['config.gate_cooldown'] !== undefined ? params['config.gate_cooldown'] : params['physics.movers.gate_cooldown']);
+            if (gateCd !== undefined) {
+                const inputCd = document.getElementById('input-gate_cooldown');
+                const valCd = document.getElementById('val-gate_cooldown');
+                if (inputCd) inputCd.value = gateCd;
+                if (valCd) valCd.textContent = gateCd;
+            }
+
+            // 4. Check if Trajectory is Available in store (Option A: Recorded Replay)
+            let traj = null;
+            try {
+                const trajResp = await fetch(`/api/records/${recordId}/trajectory`);
+                if (trajResp.ok) {
+                    traj = await trajResp.json();
+                }
+            } catch (e) {
+                traj = null;
+            }
+
+            if (traj && traj.available) {
+                // OPTION A: RECORDED REPLAY
+                currentRecordId = recordId;
+                currentTrajectory = traj;
+                currentFrameIdx = 0;
+
+                // Render Stored Metrics
+                renderMetrics(record.metrics || {});
+
+                // Set Provenance
+                document.getElementById('prov-record-id').textContent = recordId;
+                document.getElementById('prov-run-id').textContent = record.run_id;
+                document.getElementById('provenance-box').style.display = 'block';
+                document.getElementById('export-btn').style.display = 'inline-flex';
+
+                // Setup Scrubber & Draw Frame 0
+                const totalSteps = traj.total_steps || record.max_steps || 12;
+                const scrubber = document.getElementById('step-scrubber');
+                if (scrubber) {
+                    scrubber.max = totalSteps > 0 ? totalSteps - 1 : 0;
+                    scrubber.value = 0;
+                }
+                const tel = document.getElementById('step-telemetry');
+                if (tel) tel.style.display = 'flex';
+                drawFrame(0);
+
+                // UI Status Update
+                document.getElementById('header-status-text').textContent = 'Recorded Replay';
+                document.getElementById('header-record-label').textContent = recordId;
+                statusCard.style.display = 'block';
+                statusCard.style.borderColor = 'var(--accent-sky)';
+                statusMsg.innerHTML = `<span style="color: var(--accent-sky);"><strong>Recorded Replay Active:</strong> Playing back stored trajectory for record <code>${recordId}</code> (Run: <code>${record.run_id ? record.run_id.substring(0, 10) : 'N/A'}</code>). Zero re-computation.</span>`;
+            } else {
+                // OPTION B: DETERMINISTIC RE-RUN
+                statusCard.style.display = 'block';
+                statusCard.style.borderColor = 'var(--status-warning)';
+                statusMsg.innerHTML = `<span style="color: var(--status-warning);"><strong>Deterministic Re-run In Progress:</strong> Trajectory not stored. Executing canonical reproduction for record <code>${recordId}</code>...</span>`;
+                document.getElementById('header-status-text').textContent = 'Re-running...';
+
+                const replayResp = await fetch(`/api/replay/${recordId}`, { method: 'POST' });
+                const replayData = await replayResp.json();
+                if (!replayResp.ok) {
+                    throw new Error(replayData.error || 'Deterministic re-run failed');
+                }
+
+                currentRecordId = recordId;
+                currentTrajectory = replayData.trajectory;
+                currentFrameIdx = 0;
+
+                // Render Replayed Metrics
+                renderMetrics(replayData.replayed_metrics || record.metrics || {});
+
+                // Set Provenance
+                document.getElementById('prov-record-id').textContent = recordId;
+                document.getElementById('prov-run-id').textContent = `${replayData.replayed_run_id} (Δ: ${replayData.max_metric_delta.toExponential(2)})`;
+                document.getElementById('provenance-box').style.display = 'block';
+                document.getElementById('export-btn').style.display = 'inline-flex';
+
+                // Setup Scrubber & Draw Frame 0
+                if (currentTrajectory && currentTrajectory.available) {
+                    const totalSteps = currentTrajectory.total_steps || record.max_steps || 12;
+                    const scrubber = document.getElementById('step-scrubber');
+                    if (scrubber) {
+                        scrubber.max = totalSteps > 0 ? totalSteps - 1 : 0;
+                        scrubber.value = 0;
+                    }
+                    const tel = document.getElementById('step-telemetry');
+                    if (tel) tel.style.display = 'flex';
+                    drawFrame(0);
+                }
+
+                document.getElementById('header-status-text').textContent = 'Re-run Verified';
+                document.getElementById('header-record-label').textContent = recordId;
+                statusCard.style.display = 'block';
+                statusCard.style.borderColor = 'var(--status-success)';
+                statusMsg.innerHTML = `<span style="color: var(--status-success);"><strong>Deterministic Re-run Verified:</strong> Re-executed from canonical world. Zero metric drift confirmed (max &Delta;: ${replayData.max_metric_delta.toExponential(2)}). Replayed Run: <code>${replayData.replayed_run_id ? replayData.replayed_run_id.substring(0, 10) : 'N/A'}</code></span>`;
+            }
+        } catch (err) {
+            statusCard.style.display = 'block';
+            statusCard.style.borderColor = 'var(--status-error)';
+            statusMsg.style.color = 'var(--status-error)';
+            statusMsg.innerHTML = `<span style="color: var(--status-error);"><strong>Replay Error:</strong> ${err.message}</span>`;
+            document.getElementById('header-status-text').textContent = 'Replay Failed';
+        }
+    }
+
+    function replayDiscoveryCandidate(recordId) {
+        replayRecord(recordId);
+    }
+
+    async function loadArbitraryComparison(recA, recB) {
+        await populateCompareDropdowns();
+        const selectA = document.getElementById('compare-select-a');
+        const selectB = document.getElementById('compare-select-b');
+        if (selectA) selectA.value = recA;
+        if (selectB) selectB.value = recB;
+        executeArbitraryCompare();
+    }
+
+    function compareWithBaseline(recordId) {
+        if (!currentDiscoveryCandidates || currentDiscoveryCandidates.length === 0) return;
+        const baseline = currentDiscoveryCandidates.find(c => c.is_baseline) || currentDiscoveryCandidates[0];
+        switchMainTab('compare');
+        loadArbitraryComparison(baseline.record_id, recordId);
+    }
+
+    async function openDiscoverySessionsModal() {
+        const modal = document.getElementById('discovery-sessions-modal');
+        modal.style.display = 'flex';
+        const tbody = document.getElementById('disc-sessions-tbody');
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1rem;">Loading sessions...</td></tr>';
+
+        try {
+            const res = await fetch('/api/discovery/sessions');
+            const data = await res.json();
+            if (!data.success) {
+                tbody.innerHTML = `<tr><td colspan="6" style="color: var(--status-error); padding: 1rem;">Error: ${data.error}</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = '';
+            if (data.sessions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1rem;">No saved discovery sessions found.</td></tr>';
+                return;
+            }
+
+            data.sessions.forEach(s => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${s.name}</strong></td>
+                    <td><span class="exp-tag">${s.experiment_template}</span></td>
+                    <td>${s.candidate_count}</td>
+                    <td><span class="badge badge-success" style="font-size: 0.7rem;">${s.frontier_count}</span></td>
+                    <td><small style="color: var(--text-muted); font-family: var(--font-mono);">${s.created_at ? s.created_at.substring(0, 16).replace('T', ' ') : ''}</small></td>
+                    <td style="text-align: right; white-space: nowrap;">
+                        <button type="button" class="btn btn-primary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" onclick="loadSavedDiscoverySession('${s.session_id}')">Open</button>
+                        <button type="button" class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; color: var(--status-error);" onclick="deleteSavedDiscoverySession('${s.session_id}')">&times;</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="6" style="color: var(--status-error); padding: 1rem;">Exception: ${err.message}</td></tr>`;
+        }
+    }
+
+    function closeDiscoverySessionsModal() {
+        document.getElementById('discovery-sessions-modal').style.display = 'none';
+    }
+
+    async function loadSavedDiscoverySession(sessionId) {
+        closeDiscoverySessionsModal();
+        const statusCard = document.getElementById('disc-status-card');
+        const statusText = document.getElementById('disc-status-text');
+        const statusSub = document.getElementById('disc-status-sub');
+
+        statusCard.style.display = 'block';
+        statusText.innerHTML = `<span style="color: var(--accent-sky);">Loading Discovery Session: <code>${sessionId}</code>...</span>`;
+        statusSub.textContent = 'Restoring candidates and frontier regimes...';
+
+        try {
+            const res = await fetch(`/api/discovery/sessions/${sessionId}`);
+            const data = await res.json();
+            if (!data.success) {
+                statusText.innerHTML = `<span style="color: var(--status-error);">Failed: ${data.error}</span>`;
+                return;
+            }
+
+            const session = data.session;
+            const records = data.candidates || [];
+
+            // Reconstruct candidate list from records
+            const reconstructed = records.map((r, idx) => ({
+                candidate_id: `cand_${idx}`,
+                record_id: r.record_id,
+                run_id: r.run_id,
+                composition_id: r.composition_id,
+                experiment_template: r.experiment_template,
+                parameters: r.parameters,
+                seed: r.seed,
+                max_steps: r.max_steps,
+                metrics: r.metrics,
+                features: r.feature_snapshot ? r.feature_snapshot.features : {},
+                rank: idx + 1,
+                score: r.notes && r.notes.includes('Score: ') ? parseFloat(r.notes.split('Score: ')[1]) || 0.0 : 0.0,
+                contributions: {},
+                is_frontier: session.frontier_record_ids.includes(r.record_id),
+                diversity_distance: 0.0,
+                selection_reason: session.frontier_record_ids.includes(r.record_id) ? 'frontier' : 'regular',
+                is_baseline: r.tags && r.tags.includes('baseline'),
+                has_trajectory: r.trajectory_summary ? r.trajectory_summary.available : false,
+            }));
+
+            currentDiscoveryCandidates = reconstructed;
+            currentDiscoveryFrontier = reconstructed.filter(c => c.is_frontier);
+
+            statusText.innerHTML = `<span style="color: var(--status-success);">Session Loaded: <strong>${session.name}</strong></span>`;
+            statusSub.textContent = `${reconstructed.length} candidates loaded from persistent archive.`;
+
+            renderDiscoveryScatter(currentDiscoveryCandidates, currentDiscoveryFrontier);
+            renderFrontierCards(currentDiscoveryFrontier);
+            renderCandidatesTable(currentDiscoveryCandidates);
+
+        } catch (err) {
+            statusText.innerHTML = `<span style="color: var(--status-error);">Exception: ${err.message}</span>`;
+        }
+    }
+
+    async function deleteSavedDiscoverySession(sessionId) {
+        if (!confirm(`Delete discovery session ${sessionId}?`)) return;
+        try {
+            const res = await fetch(`/api/discovery/sessions/${sessionId}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) {
+                openDiscoverySessionsModal();
+            } else {
+                alert(`Delete failed: ${data.error}`);
+            }
+        } catch (err) {
+            alert(`Exception: ${err.message}`);
         }
     }
 </script>

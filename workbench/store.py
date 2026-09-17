@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Self
 
 __all__ = [
+    "DiscoverySessionRecord",
     "ExperimentRecord",
     "WorkbenchStore",
 ]
@@ -71,6 +72,44 @@ class ExperimentRecord:
             tags=list(data.get("tags") or []),
             notes=str(data.get("notes") or ""),
             error_message=data.get("error_message"),
+        )
+
+
+@dataclass(frozen=True)
+class DiscoverySessionRecord:
+    """Immutable record representing one completed discovery pass in the Researcher Workbench."""
+
+    session_id: str
+    name: str
+    experiment_template: str
+    composition_id: str
+    created_at: str
+    search_spec: dict[str, Any]
+    ranking_profile: dict[str, Any]
+    candidate_record_ids: list[str]
+    frontier_record_ids: list[str]
+    summary_metrics: dict[str, Any]
+    notes: str = ""
+
+    def as_dict(self) -> dict[str, Any]:
+        """Convert session record to a JSON-serializable dictionary."""
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        """Construct a DiscoverySessionRecord from a dictionary."""
+        return cls(
+            session_id=data["session_id"],
+            name=data["name"],
+            experiment_template=data["experiment_template"],
+            composition_id=data["composition_id"],
+            created_at=data.get("created_at") or _now_iso(),
+            search_spec=dict(data.get("search_spec") or {}),
+            ranking_profile=dict(data.get("ranking_profile") or {}),
+            candidate_record_ids=list(data.get("candidate_record_ids") or []),
+            frontier_record_ids=list(data.get("frontier_record_ids") or []),
+            summary_metrics=dict(data.get("summary_metrics") or {}),
+            notes=str(data.get("notes") or ""),
         )
 
 
@@ -153,10 +192,28 @@ class WorkbenchStore:
                 )
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS discovery_sessions (
+                    session_id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    experiment_template TEXT NOT NULL,
+                    composition_id TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    search_spec_json TEXT NOT NULL,
+                    ranking_profile_json TEXT NOT NULL,
+                    candidate_record_ids_json TEXT NOT NULL,
+                    frontier_record_ids_json TEXT NOT NULL,
+                    summary_metrics_json TEXT NOT NULL,
+                    notes TEXT NOT NULL DEFAULT ''
+                )
+                """
+            )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_exp_records_template ON experiment_records(experiment_template)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_exp_records_run_id ON experiment_records(run_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_exp_records_created_at ON experiment_records(created_at)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_exp_records_status ON experiment_records(status)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_discovery_sessions_created ON discovery_sessions(created_at DESC)")
 
     def save_record(
         self,
@@ -376,4 +433,106 @@ class WorkbenchStore:
             tags=json.loads(row["tags_json"]),
             notes=row["notes"] or "",
             error_message=row["error_message"],
+        )
+
+    # -----------------------------------------------------------------------
+    # Discovery Session Persistence
+    # -----------------------------------------------------------------------
+    def save_discovery_session(self, session: DiscoverySessionRecord) -> None:
+        """Persist a discovery session record to SQLite."""
+        with self._session() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO discovery_sessions (
+                    session_id,
+                    name,
+                    experiment_template,
+                    composition_id,
+                    created_at,
+                    search_spec_json,
+                    ranking_profile_json,
+                    candidate_record_ids_json,
+                    frontier_record_ids_json,
+                    summary_metrics_json,
+                    notes
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    session.session_id,
+                    session.name,
+                    session.experiment_template,
+                    session.composition_id,
+                    session.created_at,
+                    json.dumps(session.search_spec),
+                    json.dumps(session.ranking_profile),
+                    json.dumps(session.candidate_record_ids),
+                    json.dumps(session.frontier_record_ids),
+                    json.dumps(session.summary_metrics),
+                    session.notes,
+                ),
+            )
+
+    def get_discovery_session(self, session_id: str) -> DiscoverySessionRecord | None:
+        """Retrieve a discovery session by session_id."""
+        with self._session() as conn:
+            cursor = conn.execute(
+                "SELECT * FROM discovery_sessions WHERE session_id = ?",
+                (session_id,),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return None
+            return self._row_to_discovery_session(row)
+
+    def list_discovery_sessions(
+        self,
+        *,
+        experiment_template: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[DiscoverySessionRecord]:
+        """Query discovery session records with optional template filter and pagination."""
+        clauses: list[str] = []
+        params: list[Any] = []
+
+        if experiment_template and experiment_template != "all":
+            clauses.append("experiment_template = ?")
+            params.append(experiment_template)
+
+        where_str = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        query = f"""
+            SELECT * FROM discovery_sessions
+            {where_str}
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        """
+        params.extend([limit, offset])
+
+        with self._session() as conn:
+            cursor = conn.execute(query, params)
+            return [self._row_to_discovery_session(row) for row in cursor.fetchall()]
+
+    def delete_discovery_session(self, session_id: str) -> bool:
+        """Delete a discovery session record."""
+        with self._session() as conn:
+            cursor = conn.execute(
+                "DELETE FROM discovery_sessions WHERE session_id = ?",
+                (session_id,),
+            )
+            return cursor.rowcount > 0
+
+    def _row_to_discovery_session(self, row: sqlite3.Row) -> DiscoverySessionRecord:
+        """Convert a database row into a DiscoverySessionRecord dataclass."""
+        return DiscoverySessionRecord(
+            session_id=row["session_id"],
+            name=row["name"],
+            experiment_template=row["experiment_template"],
+            composition_id=row["composition_id"],
+            created_at=row["created_at"],
+            search_spec=json.loads(row["search_spec_json"]),
+            ranking_profile=json.loads(row["ranking_profile_json"]),
+            candidate_record_ids=json.loads(row["candidate_record_ids_json"]),
+            frontier_record_ids=json.loads(row["frontier_record_ids_json"]),
+            summary_metrics=json.loads(row["summary_metrics_json"]),
+            notes=row["notes"] or "",
         )

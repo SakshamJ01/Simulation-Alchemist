@@ -28,6 +28,12 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from sim_alchemist.core.lineage import run_id_of
+from workbench.discovery import (
+    estimate_discovery_runtime,
+    get_default_mutation_space,
+    get_experiment_parameter_specs,
+    run_discovery_pass,
+)
 from workbench.export_import import (
     export_reproducible_record,
     export_result_json,
@@ -750,6 +756,120 @@ def import_record_route() -> Any:
         })
     except Exception as e:  # noqa: BLE001
         return jsonify({"valid": False, "error": str(e)}), 400
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 Discovery & Automation Endpoints
+# ---------------------------------------------------------------------------
+@app.post("/api/discovery/run")
+def api_discovery_run() -> Any:
+    """Execute a bounded parameter discovery pass."""
+    data = request.get_json(force=True) or {}
+    template_name = str(data.get("experiment_template", "gated_movers"))
+    sweeps_data = data.get("sweeps")
+    max_steps = int(data.get("max_steps", 12))
+    seed = int(data.get("seed", 42))
+    beam_width = int(data.get("beam_width", 3))
+    quality_weight = float(data.get("quality_weight", 0.7))
+    diversity_weight = float(data.get("diversity_weight", 0.3))
+    session_name = str(data.get("session_name", ""))
+    notes = str(data.get("notes", ""))
+
+    try:
+        pass_result = run_discovery_pass(
+            template_name,
+            sweeps_data,
+            beam_width=beam_width,
+            quality_weight=quality_weight,
+            diversity_weight=diversity_weight,
+            max_steps=max_steps,
+            seed=seed,
+            session_name=session_name,
+            notes=notes,
+            store=store,
+        )
+        return jsonify({
+            "success": True,
+            "result": pass_result.as_dict(),
+        })
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"success": False, "error": f"Discovery pass failed: {e}"}), 500
+
+
+@app.get("/api/discovery/specs/<template_name>")
+def api_discovery_specs(template_name: str) -> Any:
+    """Retrieve declared ParameterSpecs and default MutationSpace for an experiment."""
+    try:
+        specs = get_experiment_parameter_specs(template_name)
+        specs_dict = {
+            k: {
+                "path": s.path,
+                "description": s.description,
+                "minimum": s.minimum,
+                "maximum": s.maximum,
+            }
+            for k, s in specs.items()
+        }
+        default_space = get_default_mutation_space(template_name)
+        default_sweeps = [d.to_dict() for d in default_space.dimensions]
+        runtime_est = estimate_discovery_runtime(template_name, default_space.variant_count, 12)
+        return jsonify({
+            "success": True,
+            "template": template_name,
+            "specs": specs_dict,
+            "default_sweeps": default_sweeps,
+            "default_variant_count": default_space.variant_count,
+            "estimated_runtime_seconds": runtime_est,
+        })
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"success": False, "error": str(e)}), 400
+
+
+@app.get("/api/discovery/sessions")
+def api_discovery_sessions() -> Any:
+    """List historical discovery sessions."""
+    try:
+        template = request.args.get("experiment_template")
+        limit = int(request.args.get("limit", 50))
+        offset = int(request.args.get("offset", 0))
+        sessions = store.list_discovery_sessions(experiment_template=template, limit=limit, offset=offset)
+        return jsonify({
+            "success": True,
+            "sessions": [s.as_dict() for s in sessions],
+        })
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.get("/api/discovery/sessions/<session_id>")
+def api_discovery_session_detail(session_id: str) -> Any:
+    """Retrieve full details and candidate records of a discovery session."""
+    session = store.get_discovery_session(session_id)
+    if session is None:
+        return jsonify({"success": False, "error": f"Session '{session_id}' not found"}), 404
+
+    candidate_records = []
+    for rid in session.candidate_record_ids:
+        rec = store.get_record(rid)
+        if rec is not None:
+            candidate_records.append(rec.as_dict())
+
+    return jsonify({
+        "success": True,
+        "session": session.as_dict(),
+        "candidates": candidate_records,
+    })
+
+
+@app.delete("/api/discovery/sessions/<session_id>")
+def api_discovery_session_delete(session_id: str) -> Any:
+    """Delete a discovery session."""
+    deleted = store.delete_discovery_session(session_id)
+    if not deleted:
+        return jsonify({"success": False, "error": f"Session '{session_id}' not found"}), 404
+    return jsonify({"success": True, "session_id": session_id})
 
 
 def main() -> None:

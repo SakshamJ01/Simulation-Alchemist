@@ -40,7 +40,12 @@ from workbench.export_import import (
     export_trajectory_archive,
     import_reproducible_record,
 )
+from workbench.reporting import (
+    generate_experiment_html_report,
+    generate_experiment_markdown_report,
+)
 from workbench.store import ExperimentRecord, WorkbenchStore
+
 
 app = Flask(__name__)
 store = WorkbenchStore()
@@ -870,6 +875,46 @@ def api_discovery_session_delete(session_id: str) -> Any:
     if not deleted:
         return jsonify({"success": False, "error": f"Session '{session_id}' not found"}), 404
     return jsonify({"success": True, "session_id": session_id})
+
+
+@app.get("/api/reports/experiment/<record_id>")
+def api_report_experiment_html(record_id: str) -> Any:
+    """Generate and return an HTML scientific report for an experiment record."""
+    record = store.get_record(record_id)
+    if record is None:
+        return jsonify({"success": False, "error": f"Record '{record_id}' not found"}), 404
+
+    comparison_record = None
+    baseline_id = request.args.get("compare_with")
+    if baseline_id:
+        comp_rec = store.get_record(baseline_id)
+        if comp_rec:
+            comparison_record = comp_rec.as_dict()
+
+    html_content = generate_experiment_html_report(record.as_dict(), comparison_record)
+    return Response(html_content, mimetype="text/html")
+
+
+@app.get("/api/reports/markdown/<record_id>")
+def api_report_experiment_markdown(record_id: str) -> Any:
+    """Generate and return raw Markdown scientific report for an experiment record."""
+    record = store.get_record(record_id)
+    if record is None:
+        return jsonify({"success": False, "error": f"Record '{record_id}' not found"}), 404
+
+    comparison_record = None
+    baseline_id = request.args.get("compare_with")
+    if baseline_id:
+        comp_rec = store.get_record(baseline_id)
+        if comp_rec:
+            comparison_record = comp_rec.as_dict()
+
+    md_content = generate_experiment_markdown_report(record.as_dict(), comparison_record)
+    return Response(
+        md_content,
+        mimetype="text/markdown",
+        headers={"Content-Disposition": f'attachment; filename="report_{record_id[:8]}.md"'},
+    )
 
 
 def main() -> None:

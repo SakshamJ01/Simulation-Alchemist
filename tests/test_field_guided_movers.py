@@ -256,6 +256,8 @@ def test_deterministic_replay_bitwise() -> None:
 # verify_adaptive_comparison (deterministic listing/filtering and integrity
 # audit from the stored row alone; never simulation, never analysis).  The
 # guard is RE-PINNED again per the documented extension path.
+# Phase 4 sanctioned extension: scheduler.py gains multi-rate scheduling and
+# sub-cycle step execution capabilities. The guard is RE-PINNED for scheduler.py.
 # ----------------------------------------------------------------------
 CORE_COMMIT_HASHES = {
     "__init__.py": "6A924E7EE03870DF0069EF0B83DA9F00FA7D183D422D30DD6A74800A12826571",
@@ -275,7 +277,7 @@ CORE_COMMIT_HASHES = {
     "observables.py": "B8A7D95240BADEF968E54D19099894CDC00195166F0954ECF7ABD99B7CE0C191",
     "registry.py": "CA14083FC66FDDCA1DCB59D30B643920299E86A65CBB84E746537D68CAF626D1",
     "runner.py": "2CAD867D9BCA12CF2342FB54908D70326945F69D24E980780761763CB1A2A5D7",
-    "scheduler.py": "B9BD0E78E3874B80B492466E7D323661A7556C0E23139B6FDB8A0D56AF5BCA65",
+    "scheduler.py": "7321F4B0DFAEA5A04E2F419237715C9B832B69B8B591E1EC832E4A9FC72BBC82",
     "search.py": "1B1A637D3FF186922C14433C86B613AE0C67849D0735D7ABDC4E01F183D04280",
     "state.py": "ADB33ADEDC4749288451D0648CE465476DA1C8877D5EDA798034F023B3CD8158",
     "sweep.py": "23A59E7C85FF25DCA3B8CED071D1496A8FEE84FA5CB94DCE2D4E55BD3142BFE0",

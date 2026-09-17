@@ -43,10 +43,12 @@ class StepOperation:
 
     ``name`` is a stable identifier resolved through an explicit registry;
     ``handler`` is the callable invoked, receiving the macro timestep ``dt``.
+    ``subcycles`` is an optional integer (default 1) for multi-rate stepping.
     """
 
     name: str
     handler: Callable[[float], None]
+    subcycles: int = 1
 
 
 class StepSchedule:
@@ -61,10 +63,17 @@ class StepSchedule:
 
     def __init__(
         self,
-        operations: list[str],
+        operations: list[str] | list[tuple[str, int]],
         registry: dict[str, Callable[[float], None]],
     ) -> None:
-        unknown = [name for name in operations if name not in registry]
+        op_tuples: list[tuple[str, int]] = []
+        for item in operations:
+            if isinstance(item, tuple):
+                op_tuples.append(item)
+            else:
+                op_tuples.append((item, 1))
+
+        unknown = [name for name, _ in op_tuples if name not in registry]
         if unknown:
             available = ", ".join(sorted(registry)) or "(none registered)"
             raise KeyError(
@@ -72,9 +81,10 @@ class StepSchedule:
                 f"Available operations: {available}"
             )
         self.operations: tuple[StepOperation, ...] = tuple(
-            StepOperation(name=name, handler=registry[name]) for name in operations
+            StepOperation(name=name, handler=registry[name], subcycles=subcycles)
+            for name, subcycles in op_tuples
         )
-        self.schedule_names: tuple[str, ...] = tuple(operations)
+        self.schedule_names: tuple[str, ...] = tuple(name for name, _ in op_tuples)
 
     def __len__(self) -> int:
         return len(self.operations)
@@ -155,10 +165,16 @@ class StepScheduler:
             self.on_step(self.clock.current_time, dt, self.clock.step_count)
         for op in self.schedule.operations:
             self.trace.record(self.clock.current_time, self.clock.step_count, op.name)
-            op.handler(dt)
+            if op.subcycles > 1:
+                sub_dt = dt / op.subcycles
+                for _ in range(op.subcycles):
+                    op.handler(sub_dt)
+            else:
+                op.handler(dt)
 
     def run(self) -> ExecutionTrace:
         """Run the full macro-step loop until the clock is finished."""
         while not self.is_finished:
             self.macro_step()
         return self.trace
+

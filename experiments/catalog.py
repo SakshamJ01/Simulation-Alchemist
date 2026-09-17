@@ -292,3 +292,68 @@ def repository_parameter_spaces() -> dict[str, CompositionSpaceBinding]:
         ),
     )
     return {b.composition_id: b for b in bindings}
+
+
+def build_repository_plugins() -> list[Any]:
+    """Return conforming ExperimentPlugin instances for experiments A, B, C, D."""
+    from sim_alchemist.core.plugins import GenericExperimentPlugin, PluginMetadata
+
+    a_template = build_morphogenesis_template()
+    b_template = build_field_guided_movers_template()
+    c_template = build_network_morphogenesis_template()
+    d_template = build_gated_movers_template()
+
+    plugin_a = GenericExperimentPlugin(
+        metadata=PluginMetadata(
+            name="morphogenesis",
+            version="1.0.0",
+            description="Chemo-mechanical Morphogenesis (Mesa agents + py-pde field + Pymunk rigid walls)",
+            capabilities=("reaction_diffusion", "rigid_body", "agent_sensing"),
+            tags=("experiment_a", "turing", "walls"),
+        ),
+        coupling_template=a_template,
+        executor=run_morphogenesis_world,
+    )
+
+    plugin_b = GenericExperimentPlugin(
+        metadata=PluginMetadata(
+            name="field_guided_movers",
+            version="1.0.0",
+            description="Field-Guided Movers (py-pde field + Pymunk particle movers with unconditional chemotaxis)",
+            capabilities=("reaction_diffusion", "rigid_body"),
+            tags=("experiment_b", "chemotaxis", "movers"),
+        ),
+        coupling_template=b_template,
+        executor=run_field_guided_movers_world,
+    )
+
+    plugin_c = GenericExperimentPlugin(
+        metadata=PluginMetadata(
+            name="adaptive_network",
+            version="1.0.0",
+            description="Adaptive Network Morphogenesis (NDlib graph diffusion + py-pde field + Pymunk physics)",
+            capabilities=("reaction_diffusion", "rigid_body", "network_diffusion"),
+            tags=("experiment_c", "network", "ndlib"),
+        ),
+        coupling_template=c_template,
+        executor=run_network_world,
+        parameter_specs=tuple(network_specs_by_path().values()),
+        default_mutation_space=_network_parameter_space(),
+    )
+
+    plugin_d = GenericExperimentPlugin(
+        metadata=PluginMetadata(
+            name="gated_movers",
+            version="1.0.0",
+            description="Gated Mover Morphogenesis (Mesa hysteresis gating + py-pde field + Pymunk particle movers)",
+            capabilities=("reaction_diffusion", "rigid_body", "agent_sensing", "mover_gating"),
+            tags=("experiment_d", "gating", "hysteresis", "movers"),
+        ),
+        coupling_template=d_template,
+        executor=run_gated_movers_world,
+        parameter_specs=tuple(gated_specs_by_path().values()),
+        default_mutation_space=_gated_movers_parameter_space(),
+    )
+
+    return [plugin_a, plugin_b, plugin_c, plugin_d]
+

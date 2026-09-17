@@ -5,12 +5,10 @@ dated update sections below are historical audit snapshots unless explicitly
 marked `current`; they must not override the current milestone above.
 
 ## Current milestone
-Task 3.0 Build Stage 3 complete (Experiment D — Gated Mover Morphogenesis — declared, contracted, catalogued, executor‑registered, gate‑policy MutationSpace integrated; catalog {16,4,4}→{16,4,4}; all re‑baselined tests green incl. the 13‑test slow gate and the new D‑sweep proof). Task 3.0 Build Stage 2 is complete; the stabilization gate is green. Do not start further stages without explicit approval.
+Phase 4: General Simulation Platform complete (Slices 4.1–4.6 complete: PluginRegistry, Generalized Simulation Protocols, Declarative Composition Graph & Mermaid visualization, Multi-rate step scheduling, Deterministic Checkpoint/Restart, Long-horizon Stress Validation L1–L5 passed, Scientific Markdown/HTML reporting & Workbench endpoints). All suites green (Validation A–G, Stability S1–S6, Stress L1–L5, Phase 4 23/23 tests, Pyright 0 errors, Ruff clean).
 
-**Post-stabilization gate:** commit `85a8581` is pushed to `origin/master`.
-The applicable regression is green: 687 fast tests plus 13 slow tests, 700
-passed total. Repository Pyright is clean, changed-file Ruff is clean, A–G and
-S1–S6 pass, and the D structural/CLI/catalog checks pass. Stage 2 is complete (short‑horizon validation passed; gating ON vs OFF difference; bounded/finite behavior; replay determinism; D metric/trajectory validation).
+**Post-stabilization gate:** Phase 4 completed cleanly on master branch.
+All validations pass: A–G, S1–S6, L1–L5, Pyright 0 errors, Ruff clean, full reproducibility preserved.
 
 ## Completed
 - Task 0.1 — chemo-mechanical feedback spike
@@ -41,6 +39,12 @@ S1–S6 pass, and the D structural/CLI/catalog checks pass. Stage 2 is complete 
 - Task 2.5 Build Stage 3 — cross-composition common-observable aggregation (`core/cross_composition_behavior.py`; pure projection; 19 tests; vocabulary from pool; baseline/variant preserved; no execution/ranking/frontier/CLI)
 - Task 2.9 — persistent adaptive-comparison archive: Stage 1 (`adaptive_comparison_archive` table + idempotent `record_adaptive_comparison` + `get_adaptive_comparison`), Stage 2 (read-only consumption + deterministic `verify_adaptive_comparison` audit/replay + explicit feature linkage), Stage 3 (OUTCOME-B `feature_linkage_of` evidence-grounded resolver + strict read-only archive CLI `run_adaptive_comparison_archive.py` + hard-evidence audit + 46 archive tests)
 - Task 3.0 Build Stage 1 — Experiment D "Gated Mover Morphogenesis" (`{mesa, py-pde, pymunk/movers}`): composition declaration + `mover-gate`/contracts + Mesa sensing-layer adapter override + catalog/executor/space-binding registration + ONE structural test file (`tests/test_gated_movers_stage1.py`); converts the last `COUPLING_UNAVAILABLE` discovery target → EXECUTABLE ({16,4,3}→{16,3,4}); sanctioned count re-baselines across stage2/3/4/5 + sweep tests; fast-catalog runtime proof (FAST_STEPS=2) + full slow gate (incl. real 160-step D baseline, verified ~63 s); zero generic-core/guard changes (no pinned hashes touched)
+- Phase 1 — Researcher Workbench (`workbench/`, Flask web app, live visualization, interactive execution, parameter controls)
+- Phase 1.5 — High-Fidelity Visualization (`workbench/static/workbench.js`, field snapshots, mover trajectories, agent inspection)
+- Phase 1.5.1 — Observability Checkpoint (state serialization, trajectory playback, multi-engine telemetry)
+- Phase 2 — Trusted Experiment Lab (`workbench/export_import.py`, lineage store migration, verified experiment replay & bundle export/import)
+- Phase 3 — Discovery & Research Automation (`workbench/discovery.py`, automated parameter sweeps, multi-objective frontier selection, zero-drift candidate replay)
+- Phase 4 — General Simulation Platform (`src/sim_alchemist/core/plugins.py`, `interfaces.py`, `graph.py`, `checkpoint.py`, `reporting.py`, `run_stress_validation.py`; Slices 4.1–4.6)
 
 ## Current experiments
 - A — Chemo-Mechanical Morphogenesis (Mesa + py-pde + Pymunk)

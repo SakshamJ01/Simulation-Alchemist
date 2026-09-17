@@ -41,22 +41,23 @@ def _discover_experiments() -> dict[str, dict[str, Any]]:
     cat = build_repository_catalog(generate_worlds=True)
     experiments: dict[str, dict[str, Any]] = {}
     for c in cat.executable():
+        tmpl = c.template or ""
         name_map = {
             "morphogenesis": "Morphogenesis (A)",
             "field_guided_movers": "Field-guided movers (B)",
             "adaptive_network": "Adaptive network (C)",
             "gated_movers": "Gated mover morphogenesis (D)",
         }
-        experiments[c.template] = {
+        experiments[tmpl] = {
             "id": c.composition_id,
-            "name": name_map.get(c.template, c.template),
-            "template": c.template,
+            "name": name_map.get(tmpl, tmpl),
+            "template": tmpl,
             "description": {
                 "morphogenesis": "Mesa agents + py-pde field + Pymunk walls",
                 "field_guided_movers": "py-pde field + Pymunk movers (unconditional chemotaxis)",
                 "adaptive_network": "NDlib network + py-pde + Pymunk",
                 "gated_movers": "Mesa gating layer + py-pde + Pymunk movers",
-            }.get(c.template, c.template),
+            }.get(tmpl, tmpl),
         }
     return experiments
 
@@ -85,6 +86,8 @@ def _run_simulation(
     # Build the world – use the candidate's generated world as base,
     # then override max_steps / config if needed.
     world = candidate.generated_world
+    if world is None:
+        raise ValueError(f"No generated world for candidate: {exp_id}")
 
     # Apply short-step overrides (WorldDefinition is a frozen dataclass,
     # so use replace instead of model_copy).
@@ -93,7 +96,8 @@ def _run_simulation(
     world_copy = _replace(world, max_steps=max_steps, config=new_config)
 
     # Run the executor
-    outcome = executors[candidate.composition_id](world_copy)
+    cid = candidate.composition_id or ""
+    outcome = executors[cid](world_copy)
 
     # Persist a minimal session record
     session_id = f"sess_{len(_BACKEND_SESSIONS) + 1}"
@@ -254,7 +258,7 @@ def main() -> None:
     except KeyboardInterrupt:
         print("\nWorkbench interrupted by user.")
         sys.exit(1)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"\nError: {e}")
         import traceback
         traceback.print_exc()

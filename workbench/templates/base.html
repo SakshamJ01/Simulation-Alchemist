@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Simulation Alchemist Workbench</title>
+    <style>
+        body {font-family: system-ui, sans-serif; margin: 2rem; background: #fafafa; color: #222;}
+        .container {max-width: 800px; margin: 0 auto;}
+        .header {border-bottom: 1px solid #ddd; padding-bottom: 1rem; margin-bottom: 1rem;}
+        .experiment-card {border: 1px solid #e0e0e0; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; cursor: pointer;}
+        .experiment-card:hover {background: #f5f5f5;}
+        .param-row {margin: 0.5rem 0;}
+        .param-row label {display: block; margin-bottom: 0.2rem;}
+        .param-row input {width: 100%; padding: 0.4rem; box-sizing: border-box;}
+        .run-controls {margin-top: 1rem; display: flex; gap: 1rem; align-items: center;}
+        .status {padding: 0.2rem 0.5rem; border-radius: 4px; margin: 0.5rem 0;}
+        .btn {padding: 0.5rem 1rem; cursor: pointer;}
+        .sidebar {float: left; width: 30%; margin-right: 2%;}
+        .main {margin-left: 32%; min-height: 400px;}
+        .comparison {margin-top: 2rem; padding: 1rem; border: 1px solid #e0e0e0; border-radius: 6px;}
+        .metric {margin: 0.5rem 0;}
+    </style>
+</head>
+<body class="container">
+    <div class="header">
+        <h1>Simulation Alchemist Workbench</h1>
+    </div>
+    <div class="sidebar">
+        <h2>Experiments</h2>
+        {% for exp in executives %}
+        <div class="experiment-card" data-id="{{ exp.id }}" onclick="selectExperiment('{{ exp.id }}')">
+            <strong>{{ exp.name }}</strong><br>
+            {{ exp.description }}
+        </div>
+        {% endfor %}
+    </div>
+    <div class="main">
+        <h2>Parameter Configuration</h2>
+        <form id="param-form">
+            {% for name, spec in param_specs.items() %}
+            <div class="param-row">
+                <label>{{ name }}</label>
+                <input type="number" step="{{ spec.get('step', 'any') }}" name="{{ name }}" value="{{ spec.get('default', '') }}" data-min="{{ spec.get('min') }}" data-max="{{ spec.get('max') }}">
+            </div>
+            {% endfor %}
+            <input type="hidden" name="exp_id" id="exp-id">
+            <input type="hidden" name="max_steps" id="max_steps" value="12">
+            <input type="hidden" name="seed" id="seed" value="42">
+            <button type="submit" class="btn" id="run-btn">Run Simulation</button>
+        </form>
+        
+        <div id="status" class="status" style="display:none;">Running...</div>
+        
+        <div id="results" style="display:none; margin-top: 2rem;">
+            <h3>Results</h3>
+            <div id="metrics"></div>
+            <button id="export-btn" class="btn" style="display:none;">Export JSON</button>
+        </div>
+        
+        <div id="comparison" style="margin-top: 2rem; display:none;">
+            <h3>D Gating Comparison</h3>
+            <button id="compare-btn" class="btn">Compare ON vs OFF</button>
+            <div id="comparison-result"></div>
+        </div>
+        
+        <div id="replay-info" style="margin-top: 2rem; display:none;">
+            <p>Run completed. Use browser controls to replay.</p>
+        </div>
+    </div>
+    
+    <script>
+        // Initialize experiment selection
+        let currentExperiment = null;
+        
+        function selectExperiment(expId) {
+            currentExperiment = expId;
+            document.getElementById('exp-id').value = expId;
+            // Show/hide appropriate parameters
+            document.querySelectorAll('.param-row').forEach(row => {
+                row.style.display = 'none';
+            });
+            // Show experiment-specific params (simple approach: show all for now)
+            document.querySelectorAll('.param-row').forEach(row => {
+                row.style.display = 'block';
+            });
+        }
+        
+        // Form submission
+        document.getElementById('param-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const runBtn = document.getElementById('run-btn');
+            runBtn.textContent = 'Running...';
+            runBtn.disabled = true;
+            
+            const formData = {
+                exp_id: document.getElementById('exp-id').value,
+                params: {},
+                max_steps: parseInt(document.getElementById('max_steps').value),
+                seed: parseInt(document.getElementById('seed').value)
+            };
+            
+            // Collect parameter values
+            document.querySelectorAll('.param-row input').forEach(input => {
+                const name = input.name;
+                const val = parseFloat(input.value);
+                if (!isNaN(val)) {
+                    formData.params[name] = val;
+                }
+            });
+            
+            try {
+                const response = await fetch('/run', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(formData)
+                });
+                const result = await response.json();
+                runBtn.textContent = 'Run Simulation';
+                runBtn.disabled = false;
+                
+                if (result.error) {
+                    document.getElementById('status').textContent = 'Error: ' + result.error;
+                    document.getElementById('status').style.display = 'block';
+                } else {
+                    document.getElementById('status').textContent = 'Run completed';
+                    document.getElementById('status').style.display = 'block';
+                    
+                    // Show results
+                    document.getElementById('metrics').innerHTML = '';
+                    const metrics = result.outcome_metrics;
+                    for (const [key, value] of Object.entries(metrics)) {
+                        const p = document.createElement('p');
+                        p.textContent = `${key}: ${value.toFixed(4)}`;
+                        document.getElementById('metrics').appendChild(p);
+                    }
+                    document.getElementById('results').style.display = 'block';
+                    
+                    // Store session ID for later use
+                    window.currentSession = result.session_id;
+                    
+                    // Show comparison and export buttons
+                    document.getElementById('export-btn').style.display = 'block';
+                    document.getElementById('comparison').style.display = 'block';
+                }
+            } catch (err) {
+                runBtn.textContent = 'Run Simulation';
+                runBtn.disabled = false;
+                document.getElementById('status').textContent = 'Error: ' + err.message;
+                document.getElementById('status').style.display = 'block';
+            }
+        });
+        
+        // Comparison logic - D gating ON vs OFF
+        window.compareDGating = function() {
+            if (!window.currentSession) {
+                alert('No run session found');
+                return;
+            }
+            fetch('/comparison?s1=' + window.currentSession + '&s2=' + window.currentSession + '_off', {
+                method: 'GET'
+            }).then(response => response.json()).then(data => {
+                const resultDiv = document.getElementById('comparison-result');
+                resultDiv.innerHTML = '';
+                for (const [key, val] of Object.entries(data.diff)) {
+                    const p = document.createElement('p');
+                    p.textContent = `${key}: ON=${val.on.toFixed(4)}, OFF=${val.off.toFixed(4)}, Δ=${val.delta}`;
+                    resultDiv.appendChild(p);
+                }
+            });
+        };
+        
+        // Export
+        document.getElementById('export-btn').addEventListener('click', () => {
+            window.location.href = '/export/' + window.currentSession;
+        });
+    </script>
+</body>
+</html>

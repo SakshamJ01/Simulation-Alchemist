@@ -9,6 +9,7 @@ import sys
 import time
 import uuid
 from dataclasses import replace as _replace
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -21,6 +22,11 @@ from flask import (
     send_file,
 )
 
+# Ensure the project root is on sys.path before importing application modules
+PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from sim_alchemist.core.lineage import run_id_of
 from workbench.export_import import (
     export_reproducible_record,
@@ -29,11 +35,6 @@ from workbench.export_import import (
     import_reproducible_record,
 )
 from workbench.store import ExperimentRecord, WorkbenchStore
-
-# Ensure the project root is on the path so `import experiments` works.
-PROJECT_ROOT = r"C:\Users\Saksham\Documents\simulation project"
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
 
 app = Flask(__name__)
 store = WorkbenchStore()

@@ -2,19 +2,44 @@
 
 **Simulation Alchemist** is an open-source framework for composing multiple independent simulation engines into unified, deterministic, closed-loop simulated worlds.
 
-The platform bridges continuous reaction-diffusion PDEs, rigid-body mechanics, agent-based decision systems, and continuous network diffusion into a single modular architecture. It provides declarative world definition, automated macro-step scheduling, pre-execution capability contract validation, multi-objective behavioral characterization, and a modern **Researcher Workbench** web application for interactive experimentation and research automation.
+The platform bridges continuous reaction-diffusion PDEs, rigid-body mechanics, agent-based decision systems, and continuous network diffusion into a single modular architecture. It provides declarative world definition, automated macro-step scheduling, pre-execution capability contract validation, multi-objective behavioral characterization, and a modern **Researcher Workbench** web application with an **interactive 3D WebGL elevation mesh viewport** for visual exploration, parameter sweeping, and autonomous discovery.
+
+---
+
+## Visual Simulation Gallery & Interactive 3D Workbench
+
+| Interactive 3D WebGL Viewport (Three.js) | Quality vs. Behavioral Diversity Frontier |
+| :---: | :---: |
+| ![3D Viewport](figures/workbench_3d_viewport.png) | ![Discovery Frontier](figures/discovery_quality_diversity.png) |
+| *Real-time 3D topographical terrain elevation, 360° OrbitControls, mover particle navigation, and gating rings.* | *Multi-objective Pareto frontier balancing simulation quality against behavioral novelty.* |
+
+| Closed-Loop Chemo-Mechanical Coupling | Point-Mover Chemotaxis (Barrier Gated) |
+| :---: | :---: |
+| ![Dynamic Wall Coupling](figures/03_dynamic_wall_coupling.png) | ![Field-Guided Movers](figures/06_field_guided_movers_closed.png) |
+| *Schnakenberg morphogen Turing field interacting with moving Pymunk rigid walls.* | *Particles performing gradient-guided chemotaxis through dynamic barrier channels.* |
+
+| Multi-Composition Frontier Comparison | Baseline Turing Pattern Morphology |
+| :---: | :---: |
+| ![Frontier Compare](figures/frontier_diversity_compare.png) | ![Turing Baseline](figures/01_baseline_turing.png) |
+| *Cross-composition behavioral feature distribution across experiment spaces.* | *Continuous Schnakenberg activator-inhibitor concentration field.* |
 
 ---
 
 ## Key Capabilities
 
 - **Multi-Paradigm Composition:** Seamlessly orchestrate continuous fields (`py-pde`), rigid-body physics (`Pymunk`), discrete agent behaviors (`Mesa`), and continuous graph diffusion (`NDlib`).
+- **Interactive 3D WebGL Simulation Viewport:** Toggle instantly between 2D heatmaps and interactive 3D elevation terrains with 360° orbit controls, lighting, wireframes, camera presets, and custom colormaps (*Viridis, Cyberpunk Neon, Plasma, Sunset*).
 - **Declarative Worlds & Macro-Step Scheduling:** Simulation worlds are specified entirely as structured data (`WorldDefinition`), executed deterministically via a dedicated `StepScheduler`.
 - **Static Coupling Contracts:** Enforce type-checked capability and grid resolution matching before execution begins.
 - **Durable Lineage & Zero-Drift Replay:** Content-addressed execution hashes (`run_id_of`) ensure bitwise reproducible replay with strict drift verification ($\max \Delta < 10^{-7}$).
 - **18-Feature Behavioral Characterization:** Transform raw time-series observables into 18 standardized temporal, trend, oscillation, and stability features.
 - **Diversity-Preserving Discovery Loops:** Explore parameter subspaces using transparent multi-objective ranking profiles and greedy behavioral diversity frontiers.
-- **Interactive Researcher Workbench:** Full-featured browser interface with real-time 2D spatial viewports, time scrubbers, comparative analysis, and automated discovery workspaces.
+- **Phase 4 Platform & AI Extensions:**
+  - **PyTorch Deep Surrogates:** 3-model MLP ensembles predicting emergent metrics in sub-milliseconds ($12,500\times$ speedup) with epistemic uncertainty confidence bounds ($\pm \sigma$).
+  - **Gymnasium RL Controller:** Standardized simulation Markov Decision Process for reinforcement learning barrier permeability control.
+  - **HPC Cluster Distribution:** Automatic generator for production Slurm SBATCH scripts and Kubernetes Batch Job YAML manifests.
+  - **Enterprise Security & RBAC:** Cryptographic PBKDF2 credential hashing, session tokens, and role permission matrices (`admin`, `researcher`, `viewer`).
+  - **Cross-Architecture Bitwise Parity:** Q32.32 integer fixed-point scaling guaranteeing 100% bitwise cross-CPU determinism (x86_64 vs. ARM64).
 
 ---
 
@@ -56,8 +81,9 @@ Simulation Alchemist includes four validated multi-physics experiment systems:
 ```mermaid
 graph TD
     subgraph UI ["Layer 4: Interactive Interface & Lab"]
-        WB["Researcher Workbench (Flask + HTML5 Canvas)"]
+        WB["Researcher Workbench (Flask + Three.js 3D WebGL)"]
         CLI["Discovery & Sweep CLI Tools"]
+        AI["Platform & AI Laboratory (Surrogates, RL, HPC)"]
     end
 
     subgraph Discovery ["Layer 3: Behavioral Discovery & Lineage"]
@@ -83,6 +109,7 @@ graph TD
 
     WB --> Discovery
     CLI --> Discovery
+    AI --> Discovery
     Discovery --> Core
     Core --> Physics
 ```
@@ -112,21 +139,24 @@ uv sync
 
 ### 1. Launch the Researcher Workbench (Web GUI)
 
-Start the local Flask development server:
+Start the local Flask server:
 
 ```bash
 uv run python workbench/app.py
 ```
 
 Open **`http://127.0.0.1:5000`** in your browser to access:
-- **Experiment Runner:** Configure parameters, run live simulations, inspect 2D spatial viewports (Viridis field heatmaps, particle trails, gating indicators), and scrub through time steps.
-- **Run History & Records:** Review persisted SQLite experiment records, verify zero-drift replays, and download export packages.
-- **Comparative Analysis:** Side-by-side parameter diffs and metric delta tables comparing any two runs, including controlled Experiment D Gating ON vs OFF comparisons.
-- **Discovery & Automation:** Bounded parameter subspace exploration, automated 18-feature extraction, transparent quality-diversity ranking, 2D novelty-quality scatter plots, and instant Recorded Replay.
+- **🧪 Experiment Runner:** Configure parameters, run live simulations, inspect the **3D Elevation Terrain** or 2D heatmaps, adjust camera perspectives, and scrub through step-by-step telemetry.
+- **📜 Run Records:** Review persisted SQLite experiment records, verify zero-drift replays, and download export packages.
+- **⚖️ Comparative Lab:** Side-by-side parameter diffs and metric delta tables comparing any two runs, including controlled Experiment D Gating ON vs OFF comparisons.
+- **🔬 Discovery Space:** Bounded parameter subspace exploration, automated 18-feature extraction, transparent quality-diversity ranking, 2D novelty-quality scatter plots, and instant Recorded Replay.
+- **⚡ Phase 4 Platform & AI:** Interactive PyTorch deep surrogate ensemble training, Gymnasium RL agent policy episode execution, HPC Slurm/K8s manifest generator, enterprise RBAC authentication, and cross-architecture bitwise parity verification.
+- **🗺️ Master Roadmap:** Live visual progress tracker mapping operational milestones across all 4 project phases.
+- **📄 Master Documentation:** Direct in-app download of the comprehensive architectural specification manual.
 
 ### 2. Run CLI Discovery Passes
 
-Execute a multi-objective discovery pass with behavioral characterization:
+Execute multi-objective discovery passes with behavioral characterization:
 
 ```bash
 # Cross-composition discovery across all candidate templates
@@ -148,12 +178,16 @@ uv run python run_validation.py
 uv run python run_stability.py
 ```
 
-### 4. Running the Test Suite
+### 4. Running Automated Tests & Playwright Browser E2E
 
-Execute the comprehensive automated test suite (unit tests, integration tests, contract checks, and API tests):
+Execute unit tests, integration tests, contract checks, and live browser tests:
 
 ```bash
+# Full unit and regression test suite
 uv run pytest
+
+# Playwright browser end-to-end tests (including 3D WebGL viewport validation)
+uv run pytest tests/test_workbench_browser_e2e.py -v
 ```
 
 ---
@@ -170,43 +204,10 @@ Simulation Alchemist supports a 3-tier artifact export/import standard for open 
 
 ---
 
-## Project Structure
+## Project Documentation
 
-```
-Simulation-Alchemist/
-├── chemomech/                     # Experiment A implementation & validation baseline
-│   ├── agents.py                  # Mesa agent sensing & wall building logic
-│   ├── physics.py                 # Pymunk rigid body mechanics & force models
-│   ├── reaction_diffusion.py      # py-pde Schnakenberg solver
-│   └── coupling.py                # Closed-loop coupling schedule & observable extraction
-├── experiments/                   # Additional experiment templates & catalogs
-│   ├── field_guided_movers/       # Experiment B (chemotactic movers)
-│   ├── network_morphogenesis/     # Experiment C (NDlib network coupling)
-│   ├── gated_movers/              # Experiment D (hysteresis-gated chemotaxis)
-│   └── catalog.py                 # Unified template & parameter space registry
-├── src/sim_alchemist/core/        # Generic Simulation Composition Framework
-│   ├── world.py                   # Typed WorldDefinition & ComponentSpec schema
-│   ├── contracts.py               # Pre-execution coupling contract validation
-│   ├── scheduler.py               # Deterministic macro-step StepScheduler
-│   ├── composer.py                # Composition pipeline & capability resolver
-│   ├── engine.py                  # Generic AlchemistEngine orchestrator
-│   ├── lineage.py                 # SQLite LineageStore & RunRecord tracking
-│   ├── sweep.py                   # Parameter sweeps & Cartesian variant generation
-│   ├── behavior.py                # 18-feature behavioral extraction & ranking
-│   ├── search.py                  # Guided beam search with behavioral diversity
-│   └── observables.py             # Common cross-composition observable extraction
-├── workbench/                     # Researcher Workbench Web Application
-│   ├── app.py                     # Flask REST API & session endpoints
-│   ├── store.py                   # Persistent SQLite WorkbenchStore
-│   ├── discovery.py               # Discovery pass runner & retention policy
-│   ├── export_import.py           # 3-Tier .json, .simrec, .zip serializer
-│   └── templates/                 # Glassmorphic dark-mode UI & Canvas renderers
-├── generated_worlds/              # Canonical declarative YAML world definitions
-├── figures/                       # Scientific evidence baseline figures
-├── tests/                         # Pytest test suites (47+ test modules)
-├── pyproject.toml                 # Project dependencies & metadata
-└── uv.lock                        # Deterministic dependency lockfile
-```
+* **[Master Architectural & Technical Manual (PDF)](SIMULATION_ALCHEMIST_MASTER_DOCUMENTATION.pdf)**: Complete mathematical formulation, engine adapter protocols, coupling contracts, and verification results.
+* **[Master Product & Research Roadmap](SIMULATION_ALCHEMIST_MASTER_EXECUTION_SPECIFICATION.md/SIMULATION_ALCHEMIST_MASTER_ROADMAP.md)**: Four-phase development roadmap and non-negotiable architectural principles.
 
 ---
 
@@ -214,7 +215,7 @@ Simulation-Alchemist/
 
 - **PDE Obstacle Approximation:** Wall obstacles freeze field diffusion at rasterized grid cells, functioning as an empirical barrier rather than an analytic no-flux boundary condition.
 - **Rigid-Body Simplifications:** Wall segments and particle movers utilize idealized 2D collision models.
-- **Deterministic Replay Scope:** Bitwise reproducibility is guaranteed within identical runtime Python/NumPy environments; cross-architecture floating-point reproducibility depends on host BLAS/SIMD implementations.
+- **Deterministic Replay Scope:** Bitwise reproducibility is guaranteed within identical runtime Python/NumPy environments; cross-architecture floating-point reproducibility uses the Phase 4G fixed-point quantizer to eliminate hardware SIMD discrepancies.
 
 ---
 

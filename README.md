@@ -8,20 +8,20 @@ The platform bridges continuous reaction-diffusion PDEs, rigid-body mechanics, a
 
 ## Visual Simulation Gallery & Interactive 3D Workbench
 
-| Interactive 3D WebGL Viewport (Three.js) | Quality vs. Behavioral Diversity Frontier |
+| Interactive 3D WebGL Viewport (Three.js) | Experiment E: Fluid Active Matter & 3D Vectors |
 | :---: | :---: |
-| ![3D Viewport](figures/workbench_3d_viewport.png) | ![Discovery Frontier](figures/discovery_quality_diversity.png) |
-| *Real-time 3D topographical terrain elevation, 360° OrbitControls, mover particle navigation, and gating rings.* | *Multi-objective Pareto frontier balancing simulation quality against behavioral novelty.* |
+| ![3D Viewport](figures/workbench_3d_viewport.png) | ![Fluid Active Matter 3D](figures/fluid_active_matter_3d_e2e.png) |
+| *Real-time 3D topographical terrain elevation, 360° OrbitControls, mover particle navigation, and gating rings.* | *Continuous-discrete bio-fluid coupling with 3D Navier-Stokes flow vector fields and active swimmers.* |
 
-| Closed-Loop Chemo-Mechanical Coupling | Point-Mover Chemotaxis (Barrier Gated) |
+| Quality vs. Behavioral Diversity Frontier | Closed-Loop Chemo-Mechanical Coupling |
 | :---: | :---: |
-| ![Dynamic Wall Coupling](figures/03_dynamic_wall_coupling.png) | ![Field-Guided Movers](figures/06_field_guided_movers_closed.png) |
-| *Schnakenberg morphogen Turing field interacting with moving Pymunk rigid walls.* | *Particles performing gradient-guided chemotaxis through dynamic barrier channels.* |
+| ![Discovery Frontier](figures/discovery_quality_diversity.png) | ![Dynamic Wall Coupling](figures/03_dynamic_wall_coupling.png) |
+| *Multi-objective Pareto frontier balancing simulation quality against behavioral novelty.* | *Schnakenberg morphogen Turing field interacting with moving Pymunk rigid walls.* |
 
-| Multi-Composition Frontier Comparison | Baseline Turing Pattern Morphology |
+| Point-Mover Chemotaxis (Barrier Gated) | Multi-Composition Frontier Comparison |
 | :---: | :---: |
-| ![Frontier Compare](figures/frontier_diversity_compare.png) | ![Turing Baseline](figures/01_baseline_turing.png) |
-| *Cross-composition behavioral feature distribution across experiment spaces.* | *Continuous Schnakenberg activator-inhibitor concentration field.* |
+| ![Field-Guided Movers](figures/06_field_guided_movers_closed.png) | ![Frontier Compare](figures/frontier_diversity_compare.png) |
+| *Particles performing gradient-guided chemotaxis through dynamic barrier channels.* | *Cross-composition behavioral feature distribution across experiment spaces.* |
 
 ---
 

@@ -407,29 +407,6 @@ def adaptive_run_id_of(
     return sha256(payload.encode("utf-8")).hexdigest()[:24]
 
 
-class AdaptiveSweepSelection:
-    """Adaptive selection over existing legitimate candidates."""
-
-    def __init__(
-        self,
-        profile=None,
-        actions: Sequence[str] | None = None,
-    ):
-        self.profile = profile
-        self.actions = tuple(str(a) for a in (actions or []))
-
-    def select_next(
-        self,
-        available_actions: Sequence[str],
-        current_index: int = 0,
-        evaluated_signals: Mapping[str, AdaptiveSignal] | None = None,
-    ) -> str | None:
-        sorted_avail = sorted(str(a) for a in available_actions)
-        if not sorted_avail:
-            return None
-        idx = min(int(current_index), len(sorted_avail) - 1)
-        return sorted_avail[idx]
-
 
 class AdaptiveSweepRunner:
     """Bounded adaptive execution controller (Stage 2)."""
@@ -544,7 +521,7 @@ class AdaptiveSelectionResult:
 
     def __post_init__(self) -> None:
         if not isinstance(self.proposal, AdaptiveProposal):
-            raise ValueError("proposal must be AdaptiveProposal")
+            raise TypeError("proposal must be AdaptiveProposal")
         if not self.selection_identity or not isinstance(self.selection_identity, str):
             raise ValueError("selection_identity required")
 
@@ -608,7 +585,7 @@ class AdaptiveSweepSelection:
         budget_remaining: int = 5,
     ) -> AdaptiveSelectionResult:
         """Stage 3 deterministic proposal with dedup and budget."""
-        eval_set = set(str(i) for i in evaluated_action_ids)
+        eval_set = {str(i) for i in evaluated_action_ids}
         remaining = [str(a) for a in available_actions if str(a) not in eval_set]
         remaining_sorted = sorted(remaining)
         profile_str = str(profile_name) if profile_name else None

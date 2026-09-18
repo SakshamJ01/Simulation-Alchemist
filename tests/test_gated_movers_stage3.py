@@ -43,6 +43,7 @@ def test_d_variant_count() -> None:
     spaces = repository_parameter_spaces()
     row = _d_catalog_row(build_repository_catalog())
     d_binding = next(b for b in spaces.values() if b.composition_id == row.composition_id)
+    assert d_binding.space is not None
     assert d_binding.space.variant_count == 4  # 2 × 2
 
 
@@ -50,6 +51,7 @@ def test_d_space_paths() -> None:
     spaces = repository_parameter_spaces()
     row = _d_catalog_row(build_repository_catalog())
     d_binding = next(b for b in spaces.values() if b.composition_id == row.composition_id)
+    assert d_binding.space is not None
     paths = {dim.path for dim in d_binding.space.dimensions}
     assert paths == {"config.gate_threshold", "config.gate_cooldown"}
 
@@ -111,6 +113,7 @@ def test_d_baseline_and_variants_stamp_composition_id() -> None:
     for b in result.bindings:
         assert b.composition_id == d_binding.composition_id
         # baseline run
+        assert b.baseline_run_id is not None
         base = store.get_run(b.baseline_run_id)
         assert base is not None
         assert base.composition_id == b.composition_id
@@ -192,12 +195,12 @@ def test_d_observables_contain_gate_metrics() -> None:
 def test_a_b_c_unchanged() -> None:
     """A, B have no space; C keeps its 27‑variant network space."""
     spaces = repository_parameter_spaces()
-    catalog = build_repository_catalog(generate_worlds=True)
     with_space = [b for b in spaces.values() if b.has_space]
     # Exactly two compositions have a real space: C and D
     assert len(with_space) == 2
     # C's variant count stays 27
-    c_binding = next(b for b in with_space if "components.network.config.loss" in {dim.path for dim in b.space.dimensions})
+    c_binding = next(b for b in with_space if b.space is not None and "components.network.config.loss" in {dim.path for dim in b.space.dimensions})
+    assert c_binding.space is not None
     assert c_binding.space.variant_count == 27
     # D's variant count is 4 (verified elsewhere)
     d_ids = {b.composition_id for b in with_space}

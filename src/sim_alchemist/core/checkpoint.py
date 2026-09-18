@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from sim_alchemist.core.capabilities import SimulationEngine
 from sim_alchemist.core.clock import SimulationClock
 
 
@@ -66,7 +65,7 @@ class WorldCheckpoint:
 
 def capture_checkpoint(
     clock: SimulationClock,
-    engines: Mapping[str, SimulationEngine] | None = None,
+    engines: Mapping[str, Any] | None = None,
     seed: int | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> WorldCheckpoint:
@@ -90,7 +89,7 @@ def capture_checkpoint(
 def restore_checkpoint(
     checkpoint: WorldCheckpoint,
     clock: SimulationClock,
-    engines: Mapping[str, SimulationEngine] | None = None,
+    engines: Mapping[str, Any] | None = None,
 ) -> None:
     """Restore simulation clock and engines from a checkpoint.
 

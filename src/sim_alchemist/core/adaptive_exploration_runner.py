@@ -55,9 +55,8 @@ def _derive_actions_from_spec(spec: AdaptiveExplorationSpec) -> tuple[str, ...]:
     actions = []
     if "C" in spec.composition_ids:
         actions.extend(["baseline", "variant_loss"])
-    if "A" in spec.composition_ids or "B" in spec.composition_ids:
-        if "baseline" not in actions:
-            actions.append("baseline")
+    if ("A" in spec.composition_ids or "B" in spec.composition_ids) and "baseline" not in actions:
+        actions.append("baseline")
     return tuple(sorted(set(actions)))
 
 
@@ -136,7 +135,7 @@ def execute_adaptive_exploration(
     for pass_index in range(max_passes):
         if budget_remaining <= 0:
             termination_reason = "BUDGET_EXHAUSTED"
-            final_decision = "STOP" if final_decision != "CONTINUE" else "STOP"
+            final_decision = "STOP"
             break
 
         # Select next proposal from existing pool (dedup, budget-aware)
@@ -197,5 +196,5 @@ def execute_adaptive_exploration(
         final_decision=final_decision,
         termination_reason=termination_reason,
         total_simulated=total_simulated,
-        status="VALID" if termination_reason in ("STOP", "BUDGET_EXHAUSTED") else "VALID",
+        status="VALID",
     )

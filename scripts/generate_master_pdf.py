@@ -8,14 +8,13 @@ Phase 4 enterprise extensions, and validation matrices.
 from __future__ import annotations
 
 import os
-import sys
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.pdfgen import canvas
 from reportlab.platypus import (
     HRFlowable,
-    KeepTogether,
     PageBreak,
     Paragraph,
     SimpleDocTemplate,
@@ -99,14 +98,6 @@ def build_pdf(filename: str = "SIMULATION_ALCHEMIST_MASTER_DOCUMENTATION.pdf") -
         textColor=colors.HexColor("#0284c7"),
         alignment=0,
     )
-    meta_style = ParagraphStyle(
-        "CoverMeta",
-        parent=base_styles["Normal"],
-        fontName="Helvetica",
-        fontSize=9,
-        leading=14,
-        textColor=colors.HexColor("#475569"),
-    )
     h1_style = ParagraphStyle(
         "Heading1_Custom",
         parent=base_styles["Heading1"],
@@ -129,17 +120,6 @@ def build_pdf(filename: str = "SIMULATION_ALCHEMIST_MASTER_DOCUMENTATION.pdf") -
         spaceAfter=4,
         keepWithNext=True,
     )
-    h3_style = ParagraphStyle(
-        "Heading3_Custom",
-        parent=base_styles["Heading3"],
-        fontName="Helvetica-Bold",
-        fontSize=10,
-        leading=14,
-        textColor=colors.HexColor("#1e293b"),
-        spaceBefore=6,
-        spaceAfter=2,
-        keepWithNext=True,
-    )
     body_style = ParagraphStyle(
         "Body_Custom",
         parent=base_styles["Normal"],
@@ -148,14 +128,6 @@ def build_pdf(filename: str = "SIMULATION_ALCHEMIST_MASTER_DOCUMENTATION.pdf") -
         leading=12.5,
         textColor=colors.HexColor("#1e293b"),
         spaceAfter=5,
-    )
-    code_style = ParagraphStyle(
-        "Code_Custom",
-        parent=base_styles["Normal"],
-        fontName="Courier",
-        fontSize=7.5,
-        leading=10,
-        textColor=colors.HexColor("#0f172a"),
     )
     table_cell = ParagraphStyle(
         "TableCell",

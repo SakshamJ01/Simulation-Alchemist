@@ -414,58 +414,101 @@ def get_default_interestingness_profile(template_name: str) -> InterestingnessPr
     raise ValueError(f"No default ranking profile declared for template '{template_name}'.")
 
 
-def serialize_discovery_trajectory(trajectory: Any) -> dict[str, Any]:
-    """Serialize trajectory arrays into web-ready decimation payloads."""
+def serialize_discovery_trajectory(trajectory: Any, max_visual_frames: int = 250) -> dict[str, Any]:
+    """Serialize trajectory arrays into web-ready decimation payloads with synchronous decimation."""
     if trajectory is None:
-        return {"available": False, "total_steps": 0, "field_frames": [], "movers": {}, "walls": {}}
+        return {
+            "available": False,
+            "total_steps": 0,
+            "stride": 1,
+            "is_strided": False,
+            "visual_frames_count": 0,
+            "field_frames": [],
+            "movers": {},
+            "walls": {},
+            "active_gates": [],
+            "suppressed_gates": [],
+            "gate_deposits": [],
+            "gate_switches": [],
+            "speeds": [],
+            "force_mags": [],
+            "gradient_mags": [],
+        }
 
     u_snaps = getattr(trajectory, "u_snaps", [])
     total_steps = len(u_snaps) if u_snaps else 0
+    if total_steps == 0:
+        positions_dict = getattr(trajectory, "positions", {})
+        if positions_dict:
+            first_pts = next(iter(positions_dict.values()), [])
+            total_steps = len(first_pts)
 
-    field_frames: list[dict[str, Any]] = []
-    step_indices = list(range(total_steps))
-    if total_steps > 50:
-        step_stride = max(1, total_steps // 30)
-        sampled_indices = set(range(0, total_steps, step_stride))
+    if total_steps > max_visual_frames:
+        stride = math.ceil(total_steps / max_visual_frames)
+        sampled_indices = set(range(0, total_steps, stride))
         sampled_indices.add(total_steps - 1)
         step_indices = sorted(sampled_indices)
+    else:
+        stride = 1
+        step_indices = list(range(total_steps))
 
+    field_frames: list[dict[str, Any]] = []
     for idx in step_indices:
-        arr = u_snaps[idx]
-        if hasattr(arr, "tolist"):
-            min_val = float(np.min(arr))
-            max_val = float(np.max(arr))
-            field_frames.append({
-                "step": idx,
-                "shape": list(arr.shape),
-                "min": min_val,
-                "max": max_val,
-                "grid": [[round(float(v), 3) for v in row] for row in arr],
-            })
+        if idx < len(u_snaps):
+            arr = u_snaps[idx]
+            if hasattr(arr, "tolist"):
+                min_val = float(np.min(arr))
+                max_val = float(np.max(arr))
+                field_frames.append({
+                    "step": idx,
+                    "shape": list(arr.shape),
+                    "min": min_val,
+                    "max": max_val,
+                    "grid": [[round(float(v), 3) for v in row] for row in arr],
+                })
 
     positions_dict = getattr(trajectory, "positions", {})
     movers_data: dict[str, list[list[float]]] = {}
     for m_id, pts in positions_dict.items():
-        movers_data[str(m_id)] = [[round(float(x), 4), round(float(y), 4)] for (x, y) in pts]
+        movers_data[str(m_id)] = [
+            [round(float(pts[idx][0]), 4), round(float(pts[idx][1]), 4)]
+            for idx in step_indices
+            if idx < len(pts)
+        ]
 
     wall_tracks = getattr(trajectory, "wall_tracks", {})
     walls_data: dict[str, list[list[float]]] = {}
     for w_id, pts in wall_tracks.items():
-        walls_data[str(w_id)] = [[round(float(coord), 4) for coord in pt] for pt in pts]
+        walls_data[str(w_id)] = [
+            [round(float(coord), 4) for coord in pts[idx]]
+            for idx in step_indices
+            if idx < len(pts)
+        ]
+
+    active_gates = getattr(trajectory, "active_gates", [])
+    suppressed_gates = getattr(trajectory, "suppressed_gates", [])
+    gate_deposits = getattr(trajectory, "gate_deposits", [])
+    gate_switches = getattr(trajectory, "gate_switches", [])
+    speeds = getattr(trajectory, "speeds", [])
+    force_mags = getattr(trajectory, "force_mags", [])
+    gradient_mags = getattr(trajectory, "gradient_mags", [])
 
     return {
         "available": True,
         "total_steps": total_steps,
+        "stride": stride,
+        "is_strided": stride > 1,
+        "visual_frames_count": len(step_indices),
         "field_frames": field_frames,
         "movers": movers_data,
         "walls": walls_data,
-        "active_gates": [int(g) for g in getattr(trajectory, "active_gates", [])],
-        "suppressed_gates": [int(g) for g in getattr(trajectory, "suppressed_gates", [])],
-        "gate_deposits": [int(g) for g in getattr(trajectory, "gate_deposits", [])],
-        "gate_switches": [int(g) for g in getattr(trajectory, "gate_switches", [])],
-        "speeds": [round(float(s), 5) for s in getattr(trajectory, "speeds", [])],
-        "force_mags": [round(float(f), 5) for f in getattr(trajectory, "force_mags", [])],
-        "gradient_mags": [round(float(g), 5) for g in getattr(trajectory, "gradient_mags", [])],
+        "active_gates": [int(active_gates[idx]) for idx in step_indices if idx < len(active_gates)],
+        "suppressed_gates": [int(suppressed_gates[idx]) for idx in step_indices if idx < len(suppressed_gates)],
+        "gate_deposits": [int(gate_deposits[idx]) for idx in step_indices if idx < len(gate_deposits)],
+        "gate_switches": [int(gate_switches[idx]) for idx in step_indices if idx < len(gate_switches)],
+        "speeds": [round(float(speeds[idx]), 5) for idx in step_indices if idx < len(speeds)],
+        "force_mags": [round(float(force_mags[idx]), 5) for idx in step_indices if idx < len(force_mags)],
+        "gradient_mags": [round(float(gradient_mags[idx]), 5) for idx in step_indices if idx < len(gradient_mags)],
     }
 
 

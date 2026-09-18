@@ -6,6 +6,7 @@ import threading
 import time
 from collections.abc import Generator
 
+import numpy as np
 import pytest
 from playwright.sync_api import expect, sync_playwright
 from werkzeug.serving import make_server
@@ -153,4 +154,83 @@ def test_workbench_3d_viewport_toggle(live_workbench_url: str) -> None:
         expect(container_3d).not_to_be_visible()
 
         browser.close()
+
+
+def test_workbench_unbounded_steps_and_decimation(live_workbench_url: str) -> None:
+    """Test that max_steps is completely unbounded and trajectory decimation is synchronous."""
+    from workbench.app import _serialize_trajectory
+
+    # 1. Test unit decimation mechanics for large horizon (e.g. 1000 steps)
+    class MockLargeTrajectory:
+        def __init__(self) -> None:
+            self.u_snaps = [np.zeros((10, 10)) for _ in range(1000)]
+            self.positions = {"mover_0": [(i * 0.001, i * 0.001) for i in range(1000)]}
+            self.wall_tracks = {"wall_0": [(float(i),) for i in range(1000)]}
+            self.active_gates = [i % 2 for i in range(1000)]
+            self.suppressed_gates = [0] * 1000
+            self.gate_deposits = [0] * 1000
+            self.gate_switches = [0] * 1000
+            self.speeds = [0.1 * i for i in range(1000)]
+            self.force_mags = [0.05 * i for i in range(1000)]
+            self.gradient_mags = [0.02 * i for i in range(1000)]
+
+    mock_traj = MockLargeTrajectory()
+    serialized = _serialize_trajectory(mock_traj, max_visual_frames=250)
+
+    assert serialized["available"] is True
+    assert serialized["total_steps"] == 1000
+    assert serialized["stride"] == 4
+    assert serialized["is_strided"] is True
+    assert serialized["visual_frames_count"] <= 251
+    assert len(serialized["field_frames"]) == serialized["visual_frames_count"]
+    assert len(serialized["movers"]["mover_0"]) == serialized["visual_frames_count"]
+    assert len(serialized["walls"]["wall_0"]) == serialized["visual_frames_count"]
+    assert len(serialized["active_gates"]) == serialized["visual_frames_count"]
+    assert len(serialized["speeds"]) == serialized["visual_frames_count"]
+    # Check boundary inclusion (0 and 999)
+    assert serialized["field_frames"][0]["step"] == 0
+    assert serialized["field_frames"][-1]["step"] == 999
+
+    # 2. Test in headless Chromium browser that max attribute is removed
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(live_workbench_url, timeout=30000)
+
+        max_steps_input = page.locator("#max_steps")
+        expect(max_steps_input).to_be_visible()
+
+        # Verify max attribute is removed (unbounded horizon)
+        max_attr = max_steps_input.get_attribute("max")
+        assert max_attr is None or max_attr == ""
+
+        # Set unbounded step count (e.g. 10000)
+        max_steps_input.fill("10000")
+        assert max_steps_input.input_value() == "10000"
+
+        # 3. Test API endpoint with unbounded step count (> 500)
+        request_context = p.request.new_context(base_url=live_workbench_url, timeout=90000)
+        run_resp = request_context.post(
+            "/run",
+            data={
+                "exp_id": "field_guided_movers",
+                "max_steps": 520,
+                "seed": 42,
+                "tags": ["unbounded_test"],
+            },
+            timeout=90000,
+        )
+        assert run_resp.status in (200, 201)
+        res_json = run_resp.json()
+        assert "trajectory" in res_json
+        traj = res_json["trajectory"]
+        assert traj["total_steps"] == 520
+        assert traj["stride"] > 1
+        assert traj["is_strided"] is True
+        assert len(traj["field_frames"]) <= 251
+        assert len(traj["field_frames"]) == traj["visual_frames_count"]
+
+        request_context.dispose()
+        browser.close()
+
 

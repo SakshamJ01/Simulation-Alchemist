@@ -52,7 +52,7 @@
                             <span>Max Simulation Steps</span>
                             <span class="param-value-val" id="val-max_steps">12</span>
                         </label>
-                        <input type="number" min="1" max="500" value="12" id="max_steps" name="max_steps" oninput="document.getElementById('val-max_steps').textContent = this.value">
+                        <input type="number" min="1" value="12" id="max_steps" name="max_steps" placeholder="e.g. 1000" oninput="document.getElementById('val-max_steps').textContent = this.value">
                     </div>
 
                     <div class="param-row">
@@ -1327,9 +1327,9 @@
 
             // Setup Scrubber & Draw Canvas Frame 0
             if (currentTrajectory && currentTrajectory.available) {
-                const totalSteps = currentTrajectory.total_steps || maxSteps;
+                const totalFrames = (currentTrajectory.field_frames && currentTrajectory.field_frames.length) || currentTrajectory.total_steps || maxSteps;
                 const scrubber = document.getElementById('step-scrubber');
-                scrubber.max = totalSteps > 0 ? totalSteps - 1 : 0;
+                scrubber.max = totalFrames > 0 ? totalFrames - 1 : 0;
                 scrubber.value = 0;
                 document.getElementById('step-telemetry').style.display = 'flex';
                 drawFrame(0);
@@ -1557,8 +1557,8 @@
     function draw3DFrame(frameIdx) {
         if (!currentTrajectory || !scene3D || typeof THREE === 'undefined') return;
 
-        let fieldSnap = currentTrajectory.field_frames && currentTrajectory.field_frames.length > 0
-            ? (currentTrajectory.field_frames.find(f => f.step === frameIdx) || currentTrajectory.field_frames[0])
+        let fieldSnap = (currentTrajectory.field_frames && currentTrajectory.field_frames.length > 0)
+            ? (currentTrajectory.field_frames[frameIdx] || currentTrajectory.field_frames[0])
             : null;
 
         let minVal = 0, maxVal = 1, range = 1;
@@ -1679,7 +1679,13 @@
 
         document.getElementById('step-scrubber').value = frameIdx;
         const total = currentTrajectory.total_steps || 1;
-        document.getElementById('step-display').textContent = `Step ${frameIdx} / ${total - 1}`;
+        const currentStep = (currentTrajectory.field_frames && currentTrajectory.field_frames[frameIdx])
+            ? currentTrajectory.field_frames[frameIdx].step
+            : frameIdx;
+        const strideInfo = (currentTrajectory.stride && currentTrajectory.stride > 1)
+            ? ` (Stride: ${currentTrajectory.stride}x)`
+            : '';
+        document.getElementById('step-display').textContent = `Step ${currentStep} / ${total - 1}${strideInfo}`;
 
         // Update telemetry
         const speed = currentTrajectory.speeds && currentTrajectory.speeds[frameIdx] !== undefined ? currentTrajectory.speeds[frameIdx] : 0;
@@ -1699,10 +1705,7 @@
 
         // 1. Draw Field Heatmap
         if (traj.field_frames && traj.field_frames.length > 0) {
-            let fieldSnap = traj.field_frames.find(f => f.step === frameIdx);
-            if (!fieldSnap) {
-                fieldSnap = traj.field_frames[0];
-            }
+            let fieldSnap = traj.field_frames[frameIdx] || traj.field_frames[0];
             if (fieldSnap && fieldSnap.grid) {
                 const grid = fieldSnap.grid;
                 const rows = grid.length;
@@ -1779,11 +1782,11 @@
         if (!currentTrajectory || !currentTrajectory.available) return;
         isPlaying = true;
         document.getElementById('play-btn').textContent = 'Pause';
-        const total = currentTrajectory.total_steps || 12;
+        const totalFrames = (currentTrajectory.field_frames && currentTrajectory.field_frames.length) || currentTrajectory.total_steps || 12;
 
         playbackInterval = setInterval(() => {
             currentFrameIdx++;
-            if (currentFrameIdx >= total) {
+            if (currentFrameIdx >= totalFrames) {
                 currentFrameIdx = 0;
             }
             drawFrame(currentFrameIdx);
@@ -1802,8 +1805,8 @@
     function stepForward() {
         pausePlayback();
         if (!currentTrajectory) return;
-        const total = currentTrajectory.total_steps || 12;
-        if (currentFrameIdx < total - 1) {
+        const totalFrames = (currentTrajectory.field_frames && currentTrajectory.field_frames.length) || currentTrajectory.total_steps || 12;
+        if (currentFrameIdx < totalFrames - 1) {
             currentFrameIdx++;
             drawFrame(currentFrameIdx);
         }
@@ -2594,10 +2597,10 @@
                 document.getElementById('export-btn').style.display = 'inline-flex';
 
                 // Setup Scrubber & Draw Frame 0
-                const totalSteps = traj.total_steps || record.max_steps || 12;
+                const totalFrames = (traj.field_frames && traj.field_frames.length) || traj.total_steps || record.max_steps || 12;
                 const scrubber = document.getElementById('step-scrubber');
                 if (scrubber) {
-                    scrubber.max = totalSteps > 0 ? totalSteps - 1 : 0;
+                    scrubber.max = totalFrames > 0 ? totalFrames - 1 : 0;
                     scrubber.value = 0;
                 }
                 const tel = document.getElementById('step-telemetry');
@@ -2638,10 +2641,10 @@
 
                 // Setup Scrubber & Draw Frame 0
                 if (currentTrajectory && currentTrajectory.available) {
-                    const totalSteps = currentTrajectory.total_steps || record.max_steps || 12;
+                    const totalFrames = (currentTrajectory.field_frames && currentTrajectory.field_frames.length) || currentTrajectory.total_steps || record.max_steps || 12;
                     const scrubber = document.getElementById('step-scrubber');
                     if (scrubber) {
-                        scrubber.max = totalSteps > 0 ? totalSteps - 1 : 0;
+                        scrubber.max = totalFrames > 0 ? totalFrames - 1 : 0;
                         scrubber.value = 0;
                     }
                     const tel = document.getElementById('step-telemetry');

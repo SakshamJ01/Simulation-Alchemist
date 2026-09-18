@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import threading
 import time
-from typing import Generator
+from collections.abc import Generator
+
 import pytest
-from playwright.sync_api import sync_playwright, expect
+from playwright.sync_api import expect, sync_playwright
 from werkzeug.serving import make_server
+
 from workbench.app import app
 
 
 @pytest.fixture(scope="session")
-def live_workbench_url() -> Generator[str, None, None]:
+def live_workbench_url() -> Generator[str]:
     """Start an ephemeral test server on port 5055 to ensure fresh template and route testing."""
     port = 5055
     server = make_server("127.0.0.1", port, app)

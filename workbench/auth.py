@@ -113,7 +113,14 @@ class AuthManager:
         """Check if session token has the required permission."""
         try:
             user = self.verify_token(token)
-            allowed = ROLE_PERMISSIONS.get(user.role, set())
-            return required_permission in allowed
+            return self.has_permission(user, required_permission)
         except PermissionError:
             return False
+
+    def get_user_permissions(self, user: User) -> set[Permission]:
+        """Return the set of permissions assigned to the user's role."""
+        return ROLE_PERMISSIONS.get(user.role, set())
+
+    def has_permission(self, user: User, required_permission: Permission) -> bool:
+        """Check if user has the required permission."""
+        return required_permission in self.get_user_permissions(user)

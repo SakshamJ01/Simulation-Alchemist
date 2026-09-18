@@ -47,7 +47,7 @@ from sim_alchemist.core.sensitivity import (
     ParameterRange,
     SensitivitySpec,
 )
-from workbench.auth import AuthManager, Role
+from workbench.auth import AuthManager, Permission, Role
 from workbench.discovery import (
     estimate_discovery_runtime,
     get_default_mutation_space,
@@ -1121,7 +1121,7 @@ def api_download_pdf() -> Any:
 @app.route("/api/platform/deep_surrogate", methods=["POST"])
 def api_deep_surrogate() -> Any:
     """Train and predict simulation metrics using PyTorch deep neural surrogate ensembles (Phase 4I)."""
-    payload = request.get_json() or {}
+    payload = request.get_json(silent=True) or {}
     gate_thresh = float(payload.get("gate_threshold", 0.5))
     gate_cooldown = float(payload.get("gate_cooldown", 4.0))
 
@@ -1135,32 +1135,30 @@ def api_deep_surrogate() -> Any:
     )
 
     ensemble = DeepSurrogateEnsemble(
-        input_dim=2,
-        hidden_dims=[32, 16],
-        output_dim=1,
         n_models=3,
-        activation="gelu",
-        seed=42,
+        layer_sizes=(16, 16),
+        base_seed=42,
     )
-    history = ensemble.fit(X_train, y_train.reshape(-1, 1), epochs=40, batch_size=8, lr=0.01)
+    history = ensemble.fit(X_train, y_train.reshape(-1, 1), epochs=40)
 
     x_query = np.array([[gate_thresh, gate_cooldown / 10.0]])
-    mean_pred, std_unc = ensemble.predict_with_uncertainty(x_query)
+    mean_pred, std_unc = ensemble.predict(x_query)
 
+    last_losses = history[0][-10:] if history and history[0] else []
     return jsonify({
         "success": True,
-        "prediction": float(mean_pred[0, 0]),
-        "uncertainty": float(std_unc[0, 0]),
-        "loss_history": [float(val) for val in history["losses"][-10:]],
+        "prediction": float(mean_pred[0]),
+        "uncertainty": float(std_unc[0]),
+        "loss_history": [float(val) for val in last_losses],
         "speedup_factor": "12,500x",
-        "model_architecture": "3-Model Deep MLP Ensemble (32-16-1, GeLU)",
+        "model_architecture": "3-Model Deep MLP Ensemble (16-16-1, GeLU)",
     })
 
 
 @app.route("/api/platform/rl_agent", methods=["POST"])
 def api_rl_agent() -> Any:
     """Simulate Reinforcement Learning Gym environment episodes (Phase 4I)."""
-    payload = request.get_json() or {}
+    payload = request.get_json(silent=True) or {}
     episodes = int(payload.get("episodes", 1))
     max_steps = min(int(payload.get("max_steps", 10)), 30)
 
@@ -1215,7 +1213,7 @@ def api_rl_agent() -> Any:
 @app.route("/api/platform/generate_distribution", methods=["POST"])
 def api_generate_distribution() -> Any:
     """Generate production HPC Slurm or Kubernetes cluster manifests (Phase 4J)."""
-    payload = request.get_json() or {}
+    payload = request.get_json(silent=True) or {}
     target = payload.get("target", "slurm").lower()
     job_name = payload.get("job_name", "alchemist_sweep")
     nodes = int(payload.get("nodes", 4))
@@ -1239,9 +1237,8 @@ def api_generate_distribution() -> Any:
             job_name=job_name,
             parallelism=nodes,
             completions=nodes * 4,
-            command=["/bin/sh", "-c", command],
         )
-        manifest = KubernetesJobGenerator.generate_job_yaml(k8s_config)
+        manifest = KubernetesJobGenerator.generate_job_manifest(k8s_config, ["/bin/sh", "-c", command])
         filename = f"{job_name}.yaml"
 
     return jsonify({
@@ -1255,7 +1252,7 @@ def api_generate_distribution() -> Any:
 @app.route("/api/platform/auth_test", methods=["POST"])
 def api_auth_test() -> Any:
     """Test multi-tenant RBAC authentication and role permission matrix (Phase 4J)."""
-    payload = request.get_json() or {}
+    payload = request.get_json(silent=True) or {}
     role_str = payload.get("role", "researcher").lower()
     role_map = {"admin": Role.ADMIN, "researcher": Role.RESEARCHER, "viewer": Role.VIEWER}
     role = role_map.get(role_str, Role.RESEARCHER)
@@ -1278,14 +1275,14 @@ def api_auth_test() -> Any:
         "role": user.role.value,
         "token": token,
         "permissions": perms,
-        "has_run_permission": auth_manager.has_permission(user, Role.RESEARCHER),
+        "has_run_permission": auth_manager.has_permission(user, Permission.RUN_SIMULATION),
     })
 
 
 @app.route("/api/platform/quantization_test", methods=["POST"])
 def api_quantization_test() -> Any:
     """Test Q32.32 fixed-point quantization and cross-CPU bitwise parity (Phase 4G)."""
-    payload = request.get_json() or {}
+    payload = request.get_json(silent=True) or {}
     raw_floats = payload.get("values", [3.14159265, 2.71828182, 0.57721566, 1.41421356])
     fractional_bits = int(payload.get("fractional_bits", 32))
 
@@ -1297,7 +1294,7 @@ def api_quantization_test() -> Any:
         raw_ints.append(fp.raw_int)
 
     arr = np.array(raw_floats, dtype=np.float64)
-    quantizer = FixedPointQuantizer(fractional_bits=fractional_bits)
+    quantizer = FixedPointQuantizer(bits=min(fractional_bits, 16))
     sha256_hash = quantizer.bitwise_hash(arr)
 
     return jsonify({

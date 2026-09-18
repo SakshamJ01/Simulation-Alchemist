@@ -108,6 +108,11 @@ class DeterministicQuantizer:
         q = self.quantize(array)
         return hashlib.sha256(q.tobytes()).hexdigest()
 
+    bitwise_hash = checksum
+
+
+FixedPointQuantizer = DeterministicQuantizer
+
 
 @dataclass(frozen=True)
 class ParityReport:

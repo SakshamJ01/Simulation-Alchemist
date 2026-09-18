@@ -325,7 +325,10 @@
             <h2 style="font-size: 1.2rem; font-weight: 700;">Persistent Run History</h2>
             <p style="font-size: 0.85rem; color: var(--text-secondary);">Durable SQLite records preserved across server restarts.</p>
         </div>
-        <button type="button" class="btn btn-secondary" onclick="loadHistory()">Refresh Records</button>
+        <div style="display: flex; gap: 0.5rem;">
+            <button type="button" class="btn btn-secondary" onclick="loadHistory()">Refresh Records</button>
+            <button type="button" class="btn" onclick="clearAllHistoryRecords()" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35);">🗑️ Clear All Records</button>
+        </div>
     </div>
 
     <!-- Filter Bar -->
@@ -338,6 +341,7 @@
                 <option value="field_guided_movers">Field-guided movers (B)</option>
                 <option value="adaptive_network">Adaptive network (C)</option>
                 <option value="gated_movers">Gated movers (D)</option>
+                <option value="fluid_active_matter">Fluid-structure active matter (E)</option>
             </select>
         </div>
 
@@ -1385,8 +1389,9 @@
         for (const [k, v] of Object.entries(metrics)) {
             const tile = document.createElement('div');
             tile.className = 'metric-tile';
+            const displayName = k.replace(/:/g, ' · ').replace(/_/g, ' ');
             tile.innerHTML = `
-                <span class="metric-name">${k}</span>
+                <span class="metric-name" title="${k}">${displayName}</span>
                 <span class="metric-value">${typeof v === 'number' ? v.toFixed(4) : v}</span>
             `;
             grid.appendChild(tile);
@@ -2030,14 +2035,46 @@
                     <td><span class="exp-tag" style="color: ${r.status === 'completed' ? 'var(--status-success)' : 'var(--status-error)'}">${r.status}</span></td>
                     <td style="font-size: 0.75rem; color: var(--text-secondary);">${metricsSummary || 'None'}</td>
                     <td>
-                        <button type="button" class="btn btn-secondary" style="padding: 0.2rem 0.45rem; font-size: 0.72rem;" onclick="replayRecord('${r.record_id}')">Replay</button>
-                        <button type="button" class="btn btn-secondary" style="padding: 0.2rem 0.45rem; font-size: 0.72rem;" onclick="window.location.href='/export/${r.record_id}?level=2'">Export</button>
+                        <div style="display: flex; gap: 0.3rem;">
+                            <button type="button" class="btn btn-secondary" style="padding: 0.2rem 0.45rem; font-size: 0.72rem;" onclick="replayRecord('${r.record_id}')">Replay</button>
+                            <button type="button" class="btn btn-secondary" style="padding: 0.2rem 0.45rem; font-size: 0.72rem;" onclick="window.location.href='/export/${r.record_id}?level=2'">Export</button>
+                            <button type="button" class="btn" style="padding: 0.2rem 0.45rem; font-size: 0.72rem; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);" onclick="deleteHistoryRecord('${r.record_id}')">Delete</button>
+                        </div>
                     </td>
                 `;
                 tbody.appendChild(tr);
             }
         } catch (err) {
             tbody.innerHTML = `<tr><td colspan="9" style="color: var(--status-error); padding: 1.5rem;">Failed to load history: ${err.message}</td></tr>`;
+        }
+    }
+
+    async function deleteHistoryRecord(recordId) {
+        if (!confirm(`Are you sure you want to delete record ${recordId}? This will remove stored trajectory and record data to free disk space.`)) {
+            return;
+        }
+        try {
+            const resp = await fetch(`/api/records/${recordId}`, { method: 'DELETE' });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || 'Failed to delete record');
+            loadHistory();
+        } catch (err) {
+            alert('Delete Error: ' + err.message);
+        }
+    }
+
+    async function clearAllHistoryRecords() {
+        if (!confirm('Are you sure you want to delete ALL stored simulation records and trajectories? This cannot be undone.')) {
+            return;
+        }
+        try {
+            const resp = await fetch('/api/records/clear_all', { method: 'POST' });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || 'Failed to clear records');
+            alert(`Deleted ${data.deleted_count || 0} records. Storage space reclaimed.`);
+            loadHistory();
+        } catch (err) {
+            alert('Clear Records Error: ' + err.message);
         }
     }
 

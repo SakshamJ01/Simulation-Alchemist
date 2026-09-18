@@ -555,13 +555,21 @@ def update_record(record_id: str) -> Any:
     return jsonify({"success": True, "record": record.as_dict() if record else None})
 
 
-@app.delete("/api/records/<record_id>")
+@app.route("/api/records/<record_id>", methods=["DELETE", "POST"])
+@app.post("/api/records/<record_id>/delete")
 def delete_record_route(record_id: str) -> Any:
     """Delete an experiment record and its trajectory."""
     deleted = store.delete_record(record_id)
     if not deleted:
         return jsonify({"error": "Record not found"}), 404
     return jsonify({"success": True, "deleted_record_id": record_id})
+
+
+@app.post("/api/records/clear_all")
+def clear_all_records_route() -> Any:
+    """Delete all experiment records and trajectories to free disk space."""
+    count = store.clear_all_records()
+    return jsonify({"success": True, "deleted_count": count})
 
 
 @app.post("/api/replay/<record_id>")

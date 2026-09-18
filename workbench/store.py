@@ -377,11 +377,29 @@ class WorkbenchStore:
     def delete_record(self, record_id: str) -> bool:
         """Delete an experiment record and its associated trajectory."""
         with self._session() as conn:
+            conn.execute(
+                "DELETE FROM experiment_trajectories WHERE record_id = ?",
+                (record_id,),
+            )
             cursor = conn.execute(
                 "DELETE FROM experiment_records WHERE record_id = ?",
                 (record_id,),
             )
-            return cursor.rowcount > 0
+            deleted = cursor.rowcount > 0
+        if deleted:
+            with contextlib.suppress(Exception), self._session() as conn:
+                conn.execute("VACUUM")
+        return deleted
+
+    def clear_all_records(self) -> int:
+        """Delete all experiment records and trajectories to free space and VACUUM the database."""
+        with self._session() as conn:
+            conn.execute("DELETE FROM experiment_trajectories")
+            cursor = conn.execute("DELETE FROM experiment_records")
+            count = cursor.rowcount
+        with contextlib.suppress(Exception), self._session() as conn:
+            conn.execute("VACUUM")
+        return count
 
     def update_notes_and_tags(
         self,

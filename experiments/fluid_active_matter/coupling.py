@@ -226,6 +226,10 @@ def build_fluid_active_matter_operations(
 
     def run_field_step(dt: float) -> None:
         pde.step(config.macro_timestep)
+        field = pde.get_field()
+        if field is not None and (np.max(np.abs(fluid.u_x)) > 1e-5 or np.max(np.abs(fluid.u_y)) > 1e-5):
+            field.state[0].data[:] = fluid.advect_scalar_field(field.u, config.macro_timestep)
+            field.state[1].data[:] = fluid.advect_scalar_field(field.v, config.macro_timestep)
 
     def run_fluid_buoyancy(dt: float) -> None:
         # Chemical concentration u exerts buoyancy torque driving fluid circulation

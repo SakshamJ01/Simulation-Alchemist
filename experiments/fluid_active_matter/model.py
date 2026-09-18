@@ -99,6 +99,11 @@ class FluidEngineAdapter(BaseAdapter):
         self.u_x = np.zeros((self.n, self.n), dtype=np.float64)
         self.u_y = np.zeros((self.n, self.n), dtype=np.float64)
 
+        # Coordinate grid for Semi-Lagrangian advection
+        x = (np.arange(self.n) + 0.5) / self.n
+        y = (np.arange(self.n) + 0.5) / self.n
+        self.X, self.Y = np.meshgrid(x, y, indexing="ij")
+
         # Precompute Fourier wavevectors for spectral Poisson solver (nabla^2 psi = -omega)
         kx = 2.0 * np.pi * np.fft.fftfreq(self.n, d=self.dx)
         ky = 2.0 * np.pi * np.fft.fftfreq(self.n, d=self.dx)
@@ -110,11 +115,42 @@ class FluidEngineAdapter(BaseAdapter):
         return CapabilitySet(set(self.CAPABILITIES))
 
     def initialize(self, config: dict[str, Any] | None = None) -> None:
-        super().initialize(config or {})
+        cfg = config or {}
+        super().initialize(cfg)
+        if "viscosity" in cfg:
+            self.viscosity = float(cfg["viscosity"])
+        if "buoyancy_coef" in cfg:
+            self.buoyancy_coef = float(cfg["buoyancy_coef"])
+        if "fluid_damping" in cfg:
+            self.damping = float(cfg["fluid_damping"])
         self.omega.fill(0.0)
         self.psi.fill(0.0)
         self.u_x.fill(0.0)
         self.u_y.fill(0.0)
+
+    def advect_scalar_field(self, field_arr: np.ndarray, dt: float, blend: float = 0.3) -> np.ndarray:
+        """Advect a 2D scalar field (u or v) by the fluid velocity field using Semi-Lagrangian transport."""
+        X_back = (self.X - self.u_x * dt) % 1.0
+        Y_back = (self.Y - self.u_y * dt) % 1.0
+        gx = X_back * self.n - 0.5
+        gy = Y_back * self.n - 0.5
+
+        i0 = np.floor(gx).astype(int) % self.n
+        j0 = np.floor(gy).astype(int) % self.n
+        i1 = (i0 + 1) % self.n
+        j1 = (j0 + 1) % self.n
+
+        fx = gx - np.floor(gx)
+        fy = gy - np.floor(gy)
+
+        advected = (
+            (1.0 - fx) * (1.0 - fy) * field_arr[i0, j0]
+            + fx * (1.0 - fy) * field_arr[i1, j0]
+            + (1.0 - fx) * fy * field_arr[i0, j1]
+            + fx * fy * field_arr[i1, j1]
+        )
+        result = (1.0 - blend) * field_arr + blend * advected
+        return np.clip(result, 0.01, 12.0)
 
     def solve_streamfunction_and_velocity(self) -> None:
         """Solve Poisson equation nabla^2 psi = -omega and compute velocity u = (d_y psi, -d_x psi)."""
@@ -139,18 +175,32 @@ class FluidEngineAdapter(BaseAdapter):
         self.omega += torque
 
     def step(self, dt: float) -> None:
-        """Advance vorticity transport: spectral advection-diffusion-damping."""
+        """Advance vorticity transport: semi-lagrangian advection + spectral diffusion & damping."""
         self.solve_streamfunction_and_velocity()
 
-        omega_hat = np.fft.fft2(self.omega)
-        domega_dx = np.real(np.fft.ifft2(1j * self.KX * omega_hat))
-        domega_dy = np.real(np.fft.ifft2(1j * self.KY * omega_hat))
-        advection = -(self.u_x * domega_dx + self.u_y * domega_dy)
+        # Semi-Lagrangian advection of vorticity
+        X_back = (self.X - self.u_x * dt) % 1.0
+        Y_back = (self.Y - self.u_y * dt) % 1.0
+        gx = X_back * self.n - 0.5
+        gy = Y_back * self.n - 0.5
+        i0 = np.floor(gx).astype(int) % self.n
+        j0 = np.floor(gy).astype(int) % self.n
+        i1 = (i0 + 1) % self.n
+        j1 = (j0 + 1) % self.n
+        fx = gx - np.floor(gx)
+        fy = gy - np.floor(gy)
 
-        adv_hat = np.fft.fft2(advection)
+        adv_omega = (
+            (1.0 - fx) * (1.0 - fy) * self.omega[i0, j0]
+            + fx * (1.0 - fy) * self.omega[i1, j0]
+            + (1.0 - fx) * fy * self.omega[i0, j1]
+            + fx * fy * self.omega[i1, j1]
+        )
+
+        # Spectral viscous diffusion and damping
+        omega_hat = np.fft.fft2(adv_omega)
         decay = np.exp(-(self.viscosity * self.K_sq + self.damping) * dt)
-        new_omega_hat = (omega_hat + adv_hat * dt) * decay
-        self.omega = np.real(np.fft.ifft2(new_omega_hat))
+        self.omega = np.real(np.fft.ifft2(omega_hat * decay))
 
         self.solve_streamfunction_and_velocity()
 
@@ -253,7 +303,23 @@ class SwimmersAdapter(BaseAdapter):
         return CapabilitySet(set(self.CAPABILITIES))
 
     def initialize(self, config: dict[str, Any] | None = None) -> None:
-        super().initialize(config or {})
+        cfg = config or {}
+        super().initialize(cfg)
+        if "n_swimmers" in cfg:
+            self.n_swimmers = int(cfg["n_swimmers"])
+        if "swimmer_speed" in cfg:
+            self.swimmer_speed = float(cfg["swimmer_speed"])
+        if "swimmer_radius" in cfg:
+            self.swimmer_radius = float(cfg["swimmer_radius"])
+        if "advection_drag" in cfg:
+            self.drag_coef = float(cfg["advection_drag"])
+        if "chemotaxis_strength" in cfg:
+            self.chemotaxis_kappa = float(cfg["chemotaxis_strength"])
+        if "rotational_diffusion" in cfg:
+            self.rot_diff = float(cfg["rotational_diffusion"])
+        if "seed" in cfg:
+            self.seed = int(cfg["seed"])
+
         self.space = pymunk.Space()
         self.space.gravity = (0.0, 0.0)
         self.space.damping = 0.6
@@ -315,10 +381,10 @@ class SwimmersAdapter(BaseAdapter):
                 angle_diff = (target_theta - sw.orientation + math.pi) % (2.0 * math.pi) - math.pi
                 sw.orientation += self.chemotaxis_kappa * angle_diff * dt
 
-            sw.orientation += float(self._rng.normal(0.0, math.sqrt(2.0 * self.rot_diff * dt)))
+            sw.orientation += float(self._rng.normal(0.0, math.sqrt(max(1e-8, 2.0 * self.rot_diff * dt))))
 
-            prop_fx = sw.speed * math.cos(sw.orientation)
-            prop_fy = sw.speed * math.sin(sw.orientation)
+            prop_fx = sw.speed * 8.0 * math.cos(sw.orientation)
+            prop_fy = sw.speed * 8.0 * math.sin(sw.orientation)
             sw.body.apply_force_at_local_point((prop_fx, prop_fy), (0, 0))
 
     def step(self, dt: float) -> None:
@@ -328,9 +394,24 @@ class SwimmersAdapter(BaseAdapter):
             self.space.step(sub_dt)
 
         for sw in self.swimmers:
-            px = max(0.02, min(0.98, sw.body.position.x))
-            py = max(0.02, min(0.98, sw.body.position.y))
+            px = sw.body.position.x
+            py = sw.body.position.y
+            vx = sw.body.velocity.x
+            vy = sw.body.velocity.y
+            if px <= 0.03:
+                px = 0.03
+                vx = abs(vx) * 0.5 + 0.01
+            elif px >= 0.97:
+                px = 0.97
+                vx = -abs(vx) * 0.5 - 0.01
+            if py <= 0.03:
+                py = 0.03
+                vy = abs(vy) * 0.5 + 0.01
+            elif py >= 0.97:
+                py = 0.97
+                vy = -abs(vy) * 0.5 - 0.01
             sw.body.position = (px, py)
+            sw.body.velocity = (vx, vy)
 
     def get_positions(self) -> dict[str, tuple[float, float]]:
         return {f"swimmer_{sw.id}": (float(sw.body.position.x), float(sw.body.position.y)) for sw in self.swimmers}

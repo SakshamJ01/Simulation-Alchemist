@@ -102,33 +102,88 @@
         </div>
 
         <!-- Spatial & Observables Section -->
-        <div style="display: grid; grid-template-columns: minmax(340px, 512px) 1fr; gap: 1.5rem;">
+        <div style="display: grid; grid-template-columns: minmax(360px, 540px) 1fr; gap: 1.5rem;">
             <!-- Spatial Canvas Card -->
             <div class="card" style="display: flex; flex-direction: column; gap: 0.75rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3 style="font-size: 0.95rem; font-weight: 600;">2D Spatial Viewport</h3>
-                    <span id="canvas-badge" class="exp-tag">Field & Movers</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <h3 style="font-size: 0.95rem; font-weight: 700; font-family: var(--font-display);">Simulation Viewport</h3>
+                        <span id="canvas-badge" class="exp-tag">Field &amp; Movers</span>
+                    </div>
+
+                    <!-- 2D vs 3D Mode Switcher -->
+                    <div class="view-mode-toolbar">
+                        <button type="button" class="view-mode-btn active" id="btn-view-2d" onclick="setViewMode('2d')">
+                            <span>🗺️</span>
+                            <span>2D Heatmap</span>
+                        </button>
+                        <button type="button" class="view-mode-btn" id="btn-view-3d" onclick="setViewMode('3d')">
+                            <span>🌐</span>
+                            <span>3D Terrain</span>
+                        </button>
+                    </div>
                 </div>
                 
-                <div class="canvas-container">
-                    <canvas id="sim-canvas" width="512" height="384"></canvas>
+                <div class="canvas-container" id="canvas-viewport-box">
+                    <canvas id="sim-canvas" width="540" height="400"></canvas>
+                    <div id="sim-canvas-3d-container"></div>
                 </div>
 
-                <!-- Canvas Legend -->
-                <div style="display: flex; gap: 0.8rem; font-size: 0.75rem; color: var(--text-secondary); background: rgba(15, 23, 42, 0.7); padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-color); flex-wrap: wrap;">
-                    <div style="display: flex; align-items: center; gap: 0.3rem;">
-                        <span style="display: inline-block; width: 10px; height: 10px; background: linear-gradient(to right, #440154, #21918c, #fde725); border-radius: 2px;"></span>
+                <!-- 3D Interactive Controls Toolbar (Only active in 3D Mode) -->
+                <div id="controls-3d-toolbar" style="display: none; background: rgba(10, 15, 29, 0.85); border: 1px solid var(--border-glass); border-radius: 8px; padding: 0.5rem 0.8rem; flex-direction: column; gap: 0.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-size: 0.75rem;">
+                        <!-- Camera Presets -->
+                        <div style="display: flex; align-items: center; gap: 0.3rem;">
+                            <span style="color: var(--text-muted); font-weight: 600; font-size: 0.7rem;">CAMERA:</span>
+                            <button type="button" class="btn btn-secondary" style="padding: 0.18rem 0.5rem; font-size: 0.72rem;" onclick="set3DCameraPreset('perspective')">Perspective</button>
+                            <button type="button" class="btn btn-secondary" style="padding: 0.18rem 0.5rem; font-size: 0.72rem;" onclick="set3DCameraPreset('top')">Top-Down</button>
+                            <button type="button" class="btn btn-secondary" style="padding: 0.18rem 0.5rem; font-size: 0.72rem;" onclick="set3DCameraPreset('iso')">Isometric</button>
+                            <button type="button" class="btn btn-secondary" style="padding: 0.18rem 0.5rem; font-size: 0.72rem;" onclick="reset3DCamera()">Reset</button>
+                        </div>
+
+                        <!-- 3D Toggles -->
+                        <div style="display: flex; align-items: center; gap: 0.6rem;">
+                            <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer; color: var(--text-secondary); font-size: 0.72rem;">
+                                <input type="checkbox" id="wireframe-toggle" onchange="toggle3DWireframe(this.checked)" style="accent-color: var(--accent-cyan);">
+                                <span>Wireframe</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.3rem; cursor: pointer; color: var(--text-secondary); font-size: 0.72rem;">
+                                <input type="checkbox" id="turntable-toggle" onchange="toggle3DTurntable(this.checked)" style="accent-color: var(--accent-cyan);">
+                                <span>Auto-Rotate</span>
+                            </label>
+                            <select id="colormap-3d-select" onchange="change3DColormap(this.value)" style="background: rgba(6, 9, 17, 0.8); border: 1px solid var(--border-glass); color: var(--text-primary); border-radius: 4px; padding: 0.15rem 0.4rem; font-size: 0.72rem;">
+                                <option value="viridis">Viridis Heatmap</option>
+                                <option value="cyberpunk">Cyberpunk Neon</option>
+                                <option value="plasma">Plasma Glow</option>
+                                <option value="sunset">Sunset Terrain</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Elevation Height Scale Slider -->
+                    <div style="display: flex; align-items: center; gap: 0.8rem; font-size: 0.74rem;">
+                        <span style="color: var(--text-muted); white-space: nowrap;">ELEVATION SCALE:</span>
+                        <input type="range" id="elevation-scale-slider" min="0.2" max="3.0" step="0.1" value="1.0" oninput="set3DElevationScale(parseFloat(this.value))" style="flex: 1; accent-color: var(--accent-cyan);">
+                        <span id="elevation-scale-val" style="font-family: var(--font-mono); color: var(--accent-cyan); min-width: 35px;">1.0x</span>
+                        <span style="color: var(--text-muted); font-size: 0.7rem;">(💡 Drag to Orbit • Right-click Pan • Wheel Zoom)</span>
+                    </div>
+                </div>
+
+                <!-- Canvas Legend (For 2D) -->
+                <div id="canvas-2d-legend" style="display: flex; gap: 0.8rem; font-size: 0.74rem; color: var(--text-secondary); background: rgba(10, 15, 29, 0.7); padding: 0.4rem 0.6rem; border-radius: 8px; border: 1px solid var(--border-glass); flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 0.35rem;">
+                        <span style="display: inline-block; width: 12px; height: 10px; background: linear-gradient(to right, #440154, #21918c, #fde725); border-radius: 2px;"></span>
                         <span>Field $u$ (Viridis)</span>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 0.3rem;">
+                    <div style="display: flex; align-items: center; gap: 0.35rem;">
                         <span style="display: inline-block; width: 8px; height: 8px; background: #34d399; border-radius: 50%;"></span>
-                        <span>Mover & Trail</span>
+                        <span>Mover &amp; Trail</span>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 0.3rem;">
+                    <div style="display: flex; align-items: center; gap: 0.35rem;">
                         <span style="display: inline-block; width: 8px; height: 8px; border: 2px solid #34d399; border-radius: 50%;"></span>
                         <span>Gate Open</span>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 0.3rem;">
+                    <div style="display: flex; align-items: center; gap: 0.35rem;">
                         <span style="display: inline-block; width: 8px; height: 8px; border: 2px solid #fbbf24; border-radius: 50%;"></span>
                         <span>Gate Closed</span>
                     </div>
@@ -1306,14 +1361,321 @@
         }
     }
 
+    // ==========================================
+    // 3D Interactive WebGL Simulation Engine
+    // ==========================================
+    let currentViewMode = '2d';
+    let scene3D = null;
+    let camera3D = null;
+    let renderer3D = null;
+    let controls3D = null;
+    let terrainMesh3D = null;
+    let moverMeshes3D = {};
+    let gateRings3D = {};
+    let elevationScale3D = 1.0;
+    let isWireframe3D = false;
+    let isTurntable3D = false;
+    let currentColormap3D = 'viridis';
+
+    const COLORMAPS_3D = {
+        viridis: [
+            [68, 1, 84], [72, 40, 120], [62, 74, 137], [49, 104, 142],
+            [38, 130, 142], [31, 158, 137], [53, 183, 121], [108, 206, 89],
+            [180, 222, 44], [253, 231, 37]
+        ],
+        cyberpunk: [
+            [10, 15, 30], [55, 18, 90], [120, 25, 140], [210, 40, 140],
+            [240, 90, 120], [14, 165, 233], [0, 255, 200]
+        ],
+        plasma: [
+            [13, 8, 135], [84, 2, 163], [139, 10, 165], [185, 50, 137],
+            [219, 92, 104], [244, 136, 73], [254, 188, 43], [240, 249, 33]
+        ],
+        sunset: [
+            [20, 5, 30], [90, 15, 50], [180, 30, 40], [230, 80, 25],
+            [250, 150, 30], [255, 220, 100]
+        ]
+    };
+
+    function getColorRGB(cmapName, normVal) {
+        normVal = Math.max(0, Math.min(1, normVal));
+        const map = COLORMAPS_3D[cmapName] || COLORMAPS_3D.viridis;
+        const scaled = normVal * (map.length - 1);
+        const idx = Math.floor(scaled);
+        const frac = scaled - idx;
+        if (idx >= map.length - 1) {
+            const c = map[map.length - 1];
+            return { r: c[0] / 255, g: c[1] / 255, b: c[2] / 255 };
+        }
+        const c1 = map[idx];
+        const c2 = map[idx + 1];
+        return {
+            r: (c1[0] + frac * (c2[0] - c1[0])) / 255,
+            g: (c1[1] + frac * (c2[1] - c1[1])) / 255,
+            b: (c1[2] + frac * (c2[2] - c1[2])) / 255
+        };
+    }
+
+    function init3DScene() {
+        const container = document.getElementById('sim-canvas-3d-container');
+        if (!container || scene3D || typeof THREE === 'undefined') return;
+
+        const w = container.clientWidth || 540;
+        const h = container.clientHeight || 400;
+
+        scene3D = new THREE.Scene();
+        scene3D.background = new THREE.Color(0x060911);
+
+        camera3D = new THREE.PerspectiveCamera(45, w / h, 0.1, 1000);
+        camera3D.position.set(0, -45, 36);
+        camera3D.up.set(0, 0, 1);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+        scene3D.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0x38bdf8, 0.85);
+        dirLight.position.set(30, -30, 50);
+        scene3D.add(dirLight);
+
+        const rimLight = new THREE.DirectionalLight(0xa855f7, 0.45);
+        rimLight.position.set(-30, 30, 20);
+        scene3D.add(rimLight);
+
+        renderer3D = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer3D.setSize(w, h);
+        renderer3D.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        container.innerHTML = '';
+        container.appendChild(renderer3D.domElement);
+
+        if (typeof THREE.OrbitControls !== 'undefined') {
+            controls3D = new THREE.OrbitControls(camera3D, renderer3D.domElement);
+            controls3D.enableDamping = true;
+            controls3D.dampingFactor = 0.05;
+            controls3D.maxPolarAngle = Math.PI / 2 + 0.05;
+            controls3D.target.set(0, 0, 0);
+            controls3D.update();
+        }
+
+        const gridHelper = new THREE.GridHelper(50, 20, 0x0ea5e9, 0x1e293b);
+        gridHelper.rotation.x = Math.PI / 2;
+        gridHelper.position.z = -0.1;
+        scene3D.add(gridHelper);
+
+        function animate3DLoop() {
+            requestAnimationFrame(animate3DLoop);
+            if (isTurntable3D && controls3D) {
+                controls3D.autoRotate = true;
+                controls3D.autoRotateSpeed = 2.0;
+            } else if (controls3D) {
+                controls3D.autoRotate = false;
+            }
+            if (controls3D) controls3D.update();
+            if (renderer3D && scene3D && camera3D) {
+                renderer3D.render(scene3D, camera3D);
+            }
+        }
+        animate3DLoop();
+    }
+
+    function setViewMode(mode) {
+        currentViewMode = mode;
+        const canvas2d = document.getElementById('sim-canvas');
+        const container3d = document.getElementById('sim-canvas-3d-container');
+        const btn2d = document.getElementById('btn-view-2d');
+        const btn3d = document.getElementById('btn-view-3d');
+        const toolbar3d = document.getElementById('controls-3d-toolbar');
+        const legend2d = document.getElementById('canvas-2d-legend');
+
+        if (mode === '3d') {
+            if (canvas2d) canvas2d.style.display = 'none';
+            if (container3d) container3d.style.display = 'block';
+            if (btn2d) btn2d.classList.remove('active');
+            if (btn3d) btn3d.classList.add('active');
+            if (toolbar3d) toolbar3d.style.display = 'flex';
+            if (legend2d) legend2d.style.display = 'none';
+            init3DScene();
+            if (currentTrajectory) {
+                draw3DFrame(currentFrameIdx);
+            }
+        } else {
+            if (canvas2d) canvas2d.style.display = 'block';
+            if (container3d) container3d.style.display = 'none';
+            if (btn2d) btn2d.classList.add('active');
+            if (btn3d) btn3d.classList.remove('active');
+            if (toolbar3d) toolbar3d.style.display = 'none';
+            if (legend2d) legend2d.style.display = 'flex';
+            if (currentTrajectory) {
+                drawFrame(currentFrameIdx);
+            }
+        }
+    }
+
+    function set3DCameraPreset(preset) {
+        if (!camera3D || !controls3D) return;
+        if (preset === 'perspective') {
+            camera3D.position.set(0, -45, 36);
+        } else if (preset === 'top') {
+            camera3D.position.set(0, 0, 58);
+        } else if (preset === 'iso') {
+            camera3D.position.set(34, -34, 34);
+        }
+        controls3D.target.set(0, 0, 0);
+        controls3D.update();
+    }
+
+    function reset3DCamera() {
+        set3DCameraPreset('perspective');
+    }
+
+    function toggle3DWireframe(enabled) {
+        isWireframe3D = enabled;
+        if (terrainMesh3D) {
+            terrainMesh3D.material.wireframe = enabled;
+        }
+    }
+
+    function toggle3DTurntable(enabled) {
+        isTurntable3D = enabled;
+    }
+
+    function set3DElevationScale(val) {
+        elevationScale3D = val;
+        const readout = document.getElementById('elevation-scale-val');
+        if (readout) readout.textContent = val.toFixed(1) + 'x';
+        if (currentTrajectory) {
+            draw3DFrame(currentFrameIdx);
+        }
+    }
+
+    function change3DColormap(val) {
+        currentColormap3D = val;
+        if (currentTrajectory) {
+            draw3DFrame(currentFrameIdx);
+        }
+    }
+
+    function draw3DFrame(frameIdx) {
+        if (!currentTrajectory || !scene3D || typeof THREE === 'undefined') return;
+
+        let fieldSnap = currentTrajectory.field_frames && currentTrajectory.field_frames.length > 0
+            ? (currentTrajectory.field_frames.find(f => f.step === frameIdx) || currentTrajectory.field_frames[0])
+            : null;
+
+        let minVal = 0, maxVal = 1, range = 1;
+        let grid = null;
+        if (fieldSnap && fieldSnap.grid) {
+            grid = fieldSnap.grid;
+            minVal = fieldSnap.min;
+            maxVal = fieldSnap.max;
+            range = (maxVal - minVal) > 1e-5 ? (maxVal - minVal) : 1.0;
+        }
+
+        const size = 40;
+        if (grid) {
+            const rows = grid.length;
+            const cols = grid[0].length;
+
+            if (!terrainMesh3D || terrainMesh3D.userData.cols !== cols || terrainMesh3D.userData.rows !== rows) {
+                if (terrainMesh3D) scene3D.remove(terrainMesh3D);
+                const geom = new THREE.PlaneGeometry(size, size, cols - 1, rows - 1);
+                const colors = new Float32Array(geom.attributes.position.count * 3);
+                geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+                const mat = new THREE.MeshStandardMaterial({
+                    vertexColors: true,
+                    roughness: 0.35,
+                    metalness: 0.25,
+                    wireframe: isWireframe3D,
+                    side: THREE.DoubleSide
+                });
+                terrainMesh3D = new THREE.Mesh(geom, mat);
+                terrainMesh3D.userData = { cols, rows };
+                scene3D.add(terrainMesh3D);
+            }
+
+            const posAttr = terrainMesh3D.geometry.attributes.position;
+            const colAttr = terrainMesh3D.geometry.attributes.color;
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const idx = r * cols + c;
+                    const val = grid[r][c];
+                    const norm = Math.max(0, Math.min(1, (val - minVal) / range));
+                    const heightZ = (norm - 0.5) * 12.0 * elevationScale3D;
+                    posAttr.setZ(idx, heightZ);
+
+                    const rgb = getColorRGB(currentColormap3D, norm);
+                    colAttr.setXYZ(idx, rgb.r, rgb.g, rgb.b);
+                }
+            }
+            posAttr.needsUpdate = true;
+            colAttr.needsUpdate = true;
+            terrainMesh3D.geometry.computeVertexNormals();
+        }
+
+        // 3D Movers & Trails
+        if (currentTrajectory.movers) {
+            for (const [mId, path] of Object.entries(currentTrajectory.movers)) {
+                if (!path || path.length === 0) continue;
+                const ptIdx = Math.min(frameIdx, path.length - 1);
+                const pt = path[ptIdx];
+                const wx = (pt[0] - 0.5) * size;
+                const wy = -(pt[1] - 0.5) * size;
+
+                let wz = 1.0;
+                if (grid) {
+                    const r = Math.min(grid.length - 1, Math.max(0, Math.floor(pt[1] * grid.length)));
+                    const c = Math.min(grid[0].length - 1, Math.max(0, Math.floor(pt[0] * grid[0].length)));
+                    const v = grid[r][c];
+                    const n = Math.max(0, Math.min(1, (v - minVal) / range));
+                    wz = (n - 0.5) * 12.0 * elevationScale3D + 1.2;
+                }
+
+                if (!moverMeshes3D[mId]) {
+                    const spGeom = new THREE.SphereGeometry(1.0, 16, 16);
+                    const spMat = new THREE.MeshStandardMaterial({
+                        color: 0x34d399,
+                        emissive: 0x059669,
+                        emissiveIntensity: 0.8,
+                        roughness: 0.2
+                    });
+                    const mMesh = new THREE.Mesh(spGeom, spMat);
+                    scene3D.add(mMesh);
+                    moverMeshes3D[mId] = mMesh;
+                }
+                moverMeshes3D[mId].position.set(wx, wy, wz);
+
+                // Gating Ring Indicator for D
+                if (currentTrajectory.active_gates && currentTrajectory.active_gates[ptIdx] !== undefined) {
+                    const isOpen = currentTrajectory.active_gates[ptIdx] > 0;
+                    if (!gateRings3D[mId]) {
+                        const ringGeom = new THREE.TorusGeometry(1.6, 0.15, 8, 24);
+                        const ringMat = new THREE.MeshBasicMaterial({ color: isOpen ? 0x34d399 : 0xfbbf24 });
+                        const ringMesh = new THREE.Mesh(ringGeom, ringMat);
+                        scene3D.add(ringMesh);
+                        gateRings3D[mId] = ringMesh;
+                    }
+                    gateRings3D[mId].position.set(wx, wy, wz + 0.3);
+                    gateRings3D[mId].material.color.setHex(isOpen ? 0x34d399 : 0xfbbf24);
+                }
+            }
+        }
+    }
+
     function drawFrame(frameIdx) {
         if (!currentTrajectory) return;
-        const canvas = document.getElementById('sim-canvas');
-        const ctx = canvas.getContext('2d');
-        const w = canvas.width;
-        const h = canvas.height;
+        currentFrameIdx = frameIdx;
 
-        drawTrajectoryFrame(ctx, w, h, currentTrajectory, frameIdx);
+        const canvas = document.getElementById('sim-canvas');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            drawTrajectoryFrame(ctx, w, h, currentTrajectory, frameIdx);
+        }
+
+        if (currentViewMode === '3d' || scene3D) {
+            draw3DFrame(frameIdx);
+        }
 
         document.getElementById('step-scrubber').value = frameIdx;
         const total = currentTrajectory.total_steps || 1;

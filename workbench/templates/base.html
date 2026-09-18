@@ -403,7 +403,7 @@
     <div class="header">
         <div class="header-brand">
             <h1>Simulation Alchemist</h1>
-            <span class="version-badge">v3.0 Discovery Lab</span>
+            <span class="version-badge">v4.0 Platform & Lab</span>
         </div>
 
         <div class="nav-tabs">
@@ -419,14 +419,24 @@
             <button type="button" class="nav-tab-btn" id="tab-btn-discovery" onclick="switchMainTab('discovery')">
                 Discovery & Automation
             </button>
+            <button type="button" class="nav-tab-btn" id="tab-btn-platform" onclick="switchMainTab('platform')">
+                Phase 4 Platform & AI
+            </button>
+            <button type="button" class="nav-tab-btn" id="tab-btn-roadmap" onclick="switchMainTab('roadmap')">
+                Master Roadmap & Specs
+            </button>
         </div>
 
         <div class="header-status">
+            <a href="/api/docs/download_pdf" target="_blank" class="btn btn-accent" style="padding: 0.25rem 0.65rem; font-size: 0.78rem; text-decoration: none; display: flex; align-items: center; gap: 0.35rem;">
+                <span>📄</span>
+                <span>Download PDF Manual</span>
+            </a>
             <div class="status-indicator">
                 <span class="status-dot"></span>
                 <span id="header-status-text">Ready</span>
             </div>
-            <div id="header-session-info" style="font-family: var(--font-mono);">
+            <div id="header-session-info" style="font-family: var(--font-mono); font-size: 0.8rem;">
                 Record: <span style="color: var(--accent-sky);" id="header-record-label">None</span>
             </div>
         </div>

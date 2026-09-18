@@ -1,8 +1,8 @@
 # Simulation Alchemist
 
-**Simulation Alchemist** is an open-source framework for composing multiple independent simulation engines into unified, deterministic, closed-loop simulated worlds.
+**Simulation Alchemist** is a unified open-source framework for composing multiple independent simulation engines into deterministic, closed-loop simulated worlds.
 
-The platform bridges continuous reaction-diffusion PDEs, rigid-body mechanics, agent-based decision systems, and continuous network diffusion into a single modular architecture. It provides declarative world definition, automated macro-step scheduling, pre-execution capability contract validation, multi-objective behavioral characterization, and a modern **Researcher Workbench** web application with an **interactive 3D WebGL elevation mesh viewport** for visual exploration, parameter sweeping, and autonomous discovery.
+The platform bridges continuous reaction-diffusion PDEs, rigid-body mechanics, agent-based decision systems, continuous network transport models, and fluid-structure hydrodynamics into a single modular architecture. It provides declarative world definition, automated macro-step scheduling, pre-execution capability contract validation, 18-feature behavioral characterization, diversity-preserving multi-objective discovery, and a modern **Researcher Workbench** web application with an **interactive 3D WebGL elevation mesh viewport** for real-time visual exploration, parameter sweeping, and autonomous discovery.
 
 ---
 
@@ -22,25 +22,6 @@ The platform bridges continuous reaction-diffusion PDEs, rigid-body mechanics, a
 | :---: | :---: |
 | ![Field-Guided Movers](figures/06_field_guided_movers_closed.png) | ![Frontier Compare](figures/frontier_diversity_compare.png) |
 | *Particles performing gradient-guided chemotaxis through dynamic barrier channels.* | *Cross-composition behavioral feature distribution across experiment spaces.* |
-
----
-
-## Key Capabilities
-
-- **Multi-Paradigm Composition:** Seamlessly orchestrate continuous fields (`py-pde`), rigid-body physics (`Pymunk`), discrete agent behaviors (`Mesa`), and continuous graph diffusion (`NDlib`).
-- **Interactive 3D WebGL Simulation Viewport:** Toggle instantly between 2D heatmaps and interactive 3D elevation terrains with 360° orbit controls, lighting, wireframes, camera presets, and custom colormaps (*Viridis, Cyberpunk Neon, Plasma, Sunset*).
-- **Unbounded Simulation Horizons & Adaptive Visual Decimation:** Execute simulations across arbitrary step horizons ($N = 1,000$, $10,000$, etc.) with 100% full-order PDE/physics fidelity, paired with synchronous adaptive visual decimation ($S = \max(1, \lceil N / 250 \rceil)$) preserving a fixed ~2 MB browser payload budget without UI lag or memory blowup.
-- **Declarative Worlds & Macro-Step Scheduling:** Simulation worlds are specified entirely as structured data (`WorldDefinition`), executed deterministically via a dedicated `StepScheduler`.
-- **Static Coupling Contracts:** Enforce type-checked capability and grid resolution matching before execution begins.
-- **Durable Lineage & Zero-Drift Replay:** Content-addressed execution hashes (`run_id_of`) ensure bitwise reproducible replay with strict drift verification ($\max \Delta < 10^{-7}$).
-- **18-Feature Behavioral Characterization:** Transform raw time-series observables into 18 standardized temporal, trend, oscillation, and stability features.
-- **Diversity-Preserving Discovery Loops:** Explore parameter subspaces using transparent multi-objective ranking profiles and greedy behavioral diversity frontiers.
-- **Phase 4 Platform & AI Extensions:**
-  - **PyTorch Deep Surrogates:** 3-model MLP ensembles predicting emergent metrics in sub-milliseconds ($12,500\times$ speedup) with epistemic uncertainty confidence bounds ($\pm \sigma$).
-  - **Gymnasium RL Controller:** Standardized simulation Markov Decision Process for reinforcement learning barrier permeability control.
-  - **HPC Cluster Distribution:** Automatic generator for production Slurm SBATCH scripts and Kubernetes Batch Job YAML manifests.
-  - **Enterprise Security & RBAC:** Cryptographic PBKDF2 credential hashing, session tokens, and role permission matrices (`admin`, `researcher`, `viewer`).
-  - **Cross-Architecture Bitwise Parity:** Q32.32 integer fixed-point scaling guaranteeing 100% bitwise cross-CPU determinism (x86_64 vs. ARM64).
 
 ---
 
@@ -82,6 +63,25 @@ Simulation Alchemist includes five validated multi-physics experiment systems:
 
 ---
 
+## Key Capabilities
+
+- **Multi-Paradigm Composition:** Seamlessly orchestrate continuous fields (`py-pde`), rigid-body physics (`Pymunk`), discrete agent behaviors (`Mesa`), continuous graph diffusion (`NDlib`), and Navier-Stokes fluid solvers.
+- **Interactive 3D WebGL Simulation Viewport:** Toggle instantly between 2D heatmaps and interactive 3D elevation terrains with 360° orbit controls, lighting, wireframes, camera presets, and custom colormaps (*Viridis, Cyberpunk Neon, Plasma, Sunset*).
+- **Unbounded Simulation Horizons & Adaptive Visual Decimation:** Execute simulations across arbitrary step horizons ($N = 1,000$, $10,000$, etc.) with 100% full-order PDE/physics fidelity, paired with synchronous adaptive visual decimation ($S = \max(1, \lceil N / 250 \rceil)$) preserving a fixed ~2 MB browser payload budget without UI lag or memory blowup.
+- **Declarative Worlds & Macro-Step Scheduling:** Simulation worlds are specified entirely as structured data (`WorldDefinition`), executed deterministically via a dedicated `StepScheduler`.
+- **Static Coupling Contracts:** Enforce type-checked capability and grid resolution matching before execution begins.
+- **Durable Lineage & Zero-Drift Replay:** Content-addressed execution hashes (`run_id_of`) ensure bitwise reproducible replay with strict drift verification ($\max \Delta < 10^{-7}$).
+- **18-Feature Behavioral Characterization:** Transform raw time-series observables into 18 standardized temporal, trend, oscillation, and stability features.
+- **Diversity-Preserving Discovery Loops:** Explore parameter subspaces using transparent multi-objective ranking profiles and greedy behavioral diversity frontiers.
+- **Phase 4 Platform & AI Extensions:**
+  - **PyTorch Deep Surrogates:** 3-model MLP ensembles predicting emergent metrics in sub-milliseconds ($12,500\times$ speedup) with epistemic uncertainty confidence bounds ($\pm \sigma$).
+  - **Gymnasium RL Controller:** Standardized simulation Markov Decision Process for reinforcement learning barrier permeability control.
+  - **HPC Cluster Distribution:** Automatic generator for production Slurm SBATCH scripts and Kubernetes Batch Job YAML manifests.
+  - **Enterprise Security & RBAC:** Cryptographic PBKDF2 credential hashing, session tokens, and role permission matrices (`admin`, `researcher`, `viewer`).
+  - **Cross-Architecture Bitwise Parity:** Q32.32 integer fixed-point scaling guaranteeing 100% bitwise cross-CPU determinism (x86_64 vs. ARM64).
+
+---
+
 ## Architectural Layers
 
 ```mermaid
@@ -120,6 +120,29 @@ graph TD
     Discovery --> Core
     Core --> Physics
 ```
+
+---
+
+## Master Development Milestone History
+
+All phases and tasks across the platform development lifecycle have been completed and verified:
+
+| Task / Milestone | Description | Status | Verification |
+| :--- | :--- | :---: | :--- |
+| **Task 0.1–0.3** | Chemo-Mechanical Prototype (Mesa + py-pde + Pymunk closed loop) | ✅ Complete | Checks A–G Pass |
+| **Task 1.0–1.3** | Core Extraction (Clock, Scheduler, Declarative `WorldDefinition`, `AlchemistEngine`) | ✅ Complete | Bitwise Replay Pass |
+| **Task 1.5** | Experiment C: Adaptive Network Morphogenesis (`NDlib` integration) | ✅ Complete | Replay & Metrics Pass |
+| **Task 1.6–1.8** | Mutation, Lineage, Parameter Sweeps, 18-Feature Behavioral Characterization | ✅ Complete | 18 Features Validated |
+| **Task 1.9–2.0** | Beam Search Discovery Loop & Diversity-Preserving Frontier Selection | ✅ Complete | Pareto Frontier Pass |
+| **Task 2.2–2.3** | Static Coupling Contracts, `CouplingTemplateRegistry`, Executable Taxonomy | ✅ Complete | Contract Validation Pass |
+| **Task 2.4–2.5** | Cross-Composition Evaluation & Parameter Sweep Orchestrator | ✅ Complete | Catalog {16,3,4} Pass |
+| **Task 2.9** | Persistent Adaptive Comparison Archive & Replay Verification | ✅ Complete | 46 Archive Tests Pass |
+| **Task 3.0** | Experiment D: Gated Mover Morphogenesis (Mesa Gating + Pymunk Movers) | ✅ Complete | Stage 1–3 Suites Pass |
+| **Phase 1 & 1.5** | Researcher Workbench Flask Web App & Three.js 3D WebGL Elevation Viewport | ✅ Complete | Playwright E2E Pass |
+| **Phase 2 & 3** | Trusted Experiment Lab (`.simrec` export/import) & Automated Discovery Space | ✅ Complete | Zero-Drift Replay Pass |
+| **Phase 4** | General Platform: Plugins, Multi-rate Checkpointing, HTML Reporting, Stress Gates | ✅ Complete | Stress L1–L5 Pass |
+| **Section 4G–4J** | Deep Surrogates, RL Gym, HPC Generator, RBAC Auth, Fixed-Point Bitwise Parity | ✅ Complete | 100% Bitwise Parity Pass |
+| **Experiment E** | Fluid-Structure Active Matter (2D Navier-Stokes + RD Field + Pymunk Active Swimmers) | ✅ Complete | 3D Field & Replay Pass |
 
 ---
 
@@ -219,13 +242,6 @@ Simulation Alchemist supports a 3-tier artifact export/import standard for open 
 | **Level 1** | Metric Summary | `.json` | Metadata, runtime parameters, and aggregated observable metrics. |
 | **Level 2** | Reproducible Record | `.simrec` | Self-contained reproducibility manifest containing the exact canonical `WorldDefinition`, seed, parameters, and environment state for zero-drift reconstruction. |
 | **Level 3** | Trajectory Archive | `.zip` | Complete scientific package including full spatial field frames, mover coordinates, wall tracks, telemetry arrays, and JSON summary. |
-
----
-
-## Project Documentation
-
-* **[Master Architectural & Technical Manual (PDF)](SIMULATION_ALCHEMIST_MASTER_DOCUMENTATION.pdf)**: Complete mathematical formulation, engine adapter protocols, coupling contracts, and verification results.
-* **[Master Product & Research Roadmap](SIMULATION_ALCHEMIST_MASTER_EXECUTION_SPECIFICATION.md/SIMULATION_ALCHEMIST_MASTER_ROADMAP.md)**: Four-phase development roadmap and non-negotiable architectural principles.
 
 ---
 

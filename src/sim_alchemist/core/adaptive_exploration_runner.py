@@ -5,22 +5,18 @@ No new simulation concept; no new engine; experiment-free.
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Sequence, Callable
 
 from sim_alchemist.core.adaptive_exploration import (
     AdaptiveExplorationSpec,
-    AdaptiveExplorationStatus,
-    AdaptiveExplorationResult,
-    filter_subspace,
-    evaluate_exploration_spec,
     adaptive_exploration_id_of,
+    evaluate_exploration_spec,
 )
 from sim_alchemist.core.adaptive_sweep import (
+    AdaptiveSignal,
     AdaptiveSweepRunner,
     AdaptiveSweepSelection,
-    AdaptiveSignal,
-    AdaptiveRunResult,
 )
 
 

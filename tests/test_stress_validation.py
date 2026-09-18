@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+
 from run_stress_validation import (
     check_l1_long_horizon_stability,
     check_l2_lifecycle_stability,

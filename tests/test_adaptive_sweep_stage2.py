@@ -38,14 +38,12 @@ from sim_alchemist.core.adaptive_sweep import (
     AdaptiveDecision,
     AdaptiveRunResult,
     AdaptiveSignal,
-    AdaptiveState,
     AdaptiveStepRecord,
     AdaptiveSweepRunner,
     AdaptiveSweepSelection,
-    evaluate_adaptive_decision,
     adaptive_run_id_of,
+    evaluate_adaptive_decision,
 )
-
 
 # ---------------------------------------------------------------------------
 # A / B — Runner init / selection
@@ -251,7 +249,6 @@ def test_m_invalid_action_rejected_by_order():
 
 def test_n_no_optimizer_imports_in_core():
     # Core must not import optimizer libraries; verify by import scan
-    import sys, importlib
     # Ensure no forbidden module loaded via adaptive_sweep
     forbidden_mods = ["sklearn", "scipy.optimize", "bayesian_optimization"]
     for mod in forbidden_mods:
@@ -260,10 +257,12 @@ def test_n_no_optimizer_imports_in_core():
         pass
     # Source guard only if source available
     try:
-        import inspect, sim_alchemist.core.adaptive_sweep as mod
+        import inspect
+
+        import sim_alchemist.core.adaptive_sweep as mod
         src = inspect.getsource(mod)
         for token in ("sklearn", "scipy.optimize", "evolutionary", "reinforcement"):
-            assert token not in src.lower(), f"optimizer token in source"
+            assert token not in src.lower(), "optimizer token in source"
     except OSError:
         pass  # source unavailable in some environments; import check sufficient
 
@@ -277,11 +276,13 @@ def test_o_real_experiment_c_bounded_integration():
     # network output, evaluates signal, decides, and stops.
     # Use minimal horizon to keep bounded.
     try:
+        import yaml
+
         from experiments.network_morphogenesis.experiment import (
-            PARAMETER_SPECS, build_network_metrics, run_network_world
+            build_network_metrics,
+            run_network_world,
         )
         from sim_alchemist.core.world import WorldDefinition
-        import yaml
     except Exception:
         pytest.skip("Experiment C executor not available")
 
@@ -363,8 +364,8 @@ def test_q_action_derived_from_existing_space():
 
 def test_r_regression_unchanged():
     # Confirm Stage 1 APIs still import cleanly and basic behavior works
-    from sim_alchemist.core.behavior import BehaviorFeatures
     from sim_alchemist.core.adaptive_sweep import AdaptiveSignal
+    from sim_alchemist.core.behavior import BehaviorFeatures
     assert BehaviorFeatures is not None
     sig = AdaptiveSignal(name="check", value=1.0)
     assert sig.name == "check"
@@ -403,7 +404,9 @@ def test_t_stage_3_not_started():
     assert not hasattr(AdaptiveSweepRunner, "rank_compositions")
     assert not hasattr(AdaptiveSweepRunner, "select_frontier")
     try:
-        import inspect, sim_alchemist.core.adaptive_sweep as mod
+        import inspect
+
+        import sim_alchemist.core.adaptive_sweep as mod
         src = inspect.getsource(mod)
         for token in ("rank_compositions", "select_diverse_frontier", "frontier"):
             # Only assert absence of actual execution calls, not docstrings

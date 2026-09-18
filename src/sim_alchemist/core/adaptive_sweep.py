@@ -531,7 +531,7 @@ class AdaptiveProposal:
             "selection_reason": self.selection_reason,
             "profile_used": self.profile_used,
             "budget_remaining": self.budget_remaining,
-            "evaluated_ids": list(sorted(self.evaluated_ids)),
+            "evaluated_ids": sorted(self.evaluated_ids),
         }.items()))
 
 

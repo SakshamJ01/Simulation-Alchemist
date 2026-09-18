@@ -46,6 +46,9 @@ All validations pass: A–G, S1–S6, L1–L5, Pyright 0 errors, Ruff clean, ful
 - Phase 3 — Discovery & Research Automation (`workbench/discovery.py`, automated parameter sweeps, multi-objective frontier selection, zero-drift candidate replay)
 - Phase 4 — General Simulation Platform (`src/sim_alchemist/core/plugins.py`, `interfaces.py`, `graph.py`, `checkpoint.py`, `reporting.py`, `run_stress_validation.py`; Slices 4.1–4.6)
 - Phase 4 Advanced Extensions — First-class coupling primitives (`couplings.py`), Global sensitivity analysis (`sensitivity.py`), Intelligent multi-objective search & surrogate modeling (`intelligent_search.py`), Advanced Workbench REST APIs & reports (`app.py`, `reporting.py`)
+- Section 4I — Advanced Deep Learning & RL (`src/sim_alchemist/core/deep_surrogates.py` vectorized MLP ensembles & Adam optimization, `src/sim_alchemist/core/rl_agents.py` Gym environments, Q-Table, Policy Gradient agents)
+- Section 4J — Multi-Node Enterprise & Cloud Distribution (`src/sim_alchemist/core/distribution.py` Slurm & Kubernetes job generators, workload sharding; `workbench/auth.py` multi-tenant RBAC auth; `scripts/build_installer.py` desktop installer & PyInstaller wizard)
+- Section 4G — Cross-Architecture Floating-Point Bitwise Equality (`src/sim_alchemist/core/quantization.py` FixedPointFloat, QuantizedArray, DeterministicQuantizer, CrossPlatformFloatParity)
 
 ## Current experiments
 - A — Chemo-Mechanical Morphogenesis (Mesa + py-pde + Pymunk)

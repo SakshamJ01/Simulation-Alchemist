@@ -5,26 +5,15 @@ Uses existing behavior / ranking / frontier machinery; no execution; no lineage 
 """
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Sequence, Mapping
+
+from sim_alchemist.core.adaptive_exploration import AdaptiveExplorationResult
 
 # Reuse existing analysis/behavior primitives (no new simulation concept)
 from sim_alchemist.core.behavior import (
-    behavior_vector,
-    behavior_distance,
-    select_diverse_frontier,
-    compute_frontier_diagnostics,
-    FrontierDiagnostics,
     InterestingnessProfile,
-    BehaviorFeatures,
 )
-from sim_alchemist.core.composition_analysis import (
-    rank_compositions,
-    select_frontier,
-    CompositionAnalysisResult,
-    CompositionAnalyst,
-)
-from sim_alchemist.core.adaptive_exploration import AdaptiveExplorationResult
 
 
 @dataclass(frozen=True)
@@ -57,8 +46,8 @@ class AdaptiveDiscoveryAnalyst:
         feature_vectors: Mapping[str, list[float]] | None = None,
     ) -> AdaptiveComparisonResult:
         """Compare adaptive discovery outcomes using actual feature data when available."""
-        from hashlib import sha256
         import json
+        from hashlib import sha256
         ids_sorted = tuple(sorted(str(r.exploration_id) for r in session_results))
         payload = json.dumps({
             "session_ids": ids_sorted,

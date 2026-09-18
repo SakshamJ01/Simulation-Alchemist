@@ -99,7 +99,7 @@ def test_stage3_none_space_baseline_only():
 def test_stage3_core_purity_no_experiment_refs():
     """Adaptive core module contains no experiment/engine references (O)."""
     import inspect  # noqa: I001 (inside test function)
-    import sim_alchemist.core.adaptive_sweep as mod  # noqa: I001
+    import sim_alchemist.core.adaptive_sweep as mod
     src = inspect.getsource(mod)
     for bad in ("net_morphogenesis", "chemomech", "field_guided", "Mesa", "Pymunk",
                 "py-pde", "NDlib", "scipy.optimize", "sklearn"):
@@ -135,11 +135,16 @@ def test_stage3_ranking_reference_preserved():
 
 def test_stage4_real_c_continuation_loop_with_configured_threshold():
     """Real Experiment C bounded adaptive loop: proposal → execute → observe → CONTINUE → next → execute/observe → termination (Q2)."""
-    import sys, yaml
+    import sys
+
+    import yaml
     sys.path.insert(0, "src")
-    from experiments.network_morphogenesis.experiment import build_network_metrics, run_network_world
+    from experiments.network_morphogenesis.experiment import (
+        build_network_metrics,
+        run_network_world,
+    )
+    from sim_alchemist.core.adaptive_sweep import AdaptiveSignal, AdaptiveSweepRunner
     from sim_alchemist.core.world import WorldDefinition
-    from sim_alchemist.core.adaptive_sweep import AdaptiveSweepRunner, AdaptiveSignal
 
     with open("worlds/adaptive_network.yaml") as f:
         d = yaml.safe_load(f)
@@ -180,11 +185,16 @@ def test_stage4_real_c_continuation_loop_with_configured_threshold():
 
 def test_stage4_real_c_default_threshold_stops_immediately():
     """Real short-run C with default threshold 0.3 produces STOP (not CONTINUE); explains why CONTINUE impossible at default config (Q2 honesty)."""
-    import sys, yaml
+    import sys
+
+    import yaml
     sys.path.insert(0, "src")
-    from experiments.network_morphogenesis.experiment import build_network_metrics, run_network_world
+    from experiments.network_morphogenesis.experiment import (
+        build_network_metrics,
+        run_network_world,
+    )
+    from sim_alchemist.core.adaptive_sweep import AdaptiveSignal, AdaptiveSweepRunner
     from sim_alchemist.core.world import WorldDefinition
-    from sim_alchemist.core.adaptive_sweep import AdaptiveSweepRunner, AdaptiveSignal
 
     with open("worlds/adaptive_network.yaml") as f:
         d = yaml.safe_load(f)

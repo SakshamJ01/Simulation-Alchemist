@@ -46,19 +46,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 from sim_alchemist.core.cross_composition_behavior import (
-    CrossCompositionBehaviorError,
     CrossCompositionBehaviorResult,
     CrossCompositionObservation,
     aggregate_sweep_behavior,
 )
 from sim_alchemist.core.cross_sweep import (
-    CrossCompositionSweepResult,
     CompositionSpaceBinding,
+    CrossCompositionSweepResult,
     CrossCompositionSweepSpec,
 )
-from sim_alchemist.core.lineage import LineageStore, RunRecord
+from sim_alchemist.core.lineage import LineageStore
 from sim_alchemist.core.observables import CommonObservable, CommonObservableSet
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -423,7 +421,7 @@ class TestCrossCompositionBehaviorStage3:
         # Monkey-patch get_run to return a lightweight object with metrics
         # for every run_id referenced by the result bindings.
         class _MockRun:
-            __slots__ = ("run_id", "metrics", "composition_id")
+            __slots__ = ("composition_id", "metrics", "run_id")
             def __init__(self, run_id: str, metrics: dict, cid: str):
                 self.run_id = run_id
                 self.metrics = metrics

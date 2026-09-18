@@ -18,6 +18,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+
 sys.path.insert(0, "src")
 
 from sim_alchemist.core.adaptive_sweep import (
@@ -28,7 +29,6 @@ from sim_alchemist.core.adaptive_sweep import (
     AdaptiveSweepSelection,
     adaptive_run_id_of,
 )
-from sim_alchemist.core.lineage import LineageStore
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -55,7 +55,9 @@ def _load_session_result_from_db(session_id: str) -> AdaptiveExplorationResult |
                 if row is not None:
                     # Rebuild minimal result from durable session record
                     # Feature vectors not in session schema; comparison will note missing features
-                    from sim_alchemist.core.adaptive_exploration import AdaptiveExplorationResult
+                    from sim_alchemist.core.adaptive_exploration import (
+                        AdaptiveExplorationResult,
+                    )
                     return AdaptiveExplorationResult(
                         exploration_id=str(row.get("adaptive_exploration_id", session_id)),
                         spec_dict=json.loads(row.get("spec_dict", "{}")),
@@ -85,7 +87,8 @@ def _load_session_result_from_db(session_id: str) -> AdaptiveExplorationResult |
         pass
     # Fallback to default temp DB used in verification
     try:
-        import tempfile, os
+        import os
+        import tempfile
         temp_path = os.path.join(tempfile.gettempdir(), "sim_alchemist_lineage.db")
         if os.path.exists(temp_path):
             store = LineageStore(temp_path)

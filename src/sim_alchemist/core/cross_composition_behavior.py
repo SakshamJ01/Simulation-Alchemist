@@ -17,17 +17,18 @@ that layer.
 """
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from sim_alchemist.core.cross_sweep import CrossCompositionSweepResult, CompositionSpaceBinding
+from sim_alchemist.core.cross_sweep import (
+    CrossCompositionSweepResult,
+)
 from sim_alchemist.core.lineage import LineageStore
-from sim_alchemist.core.observables import CommonObservable, CommonObservableSet
+from sim_alchemist.core.observables import CommonObservable
 
 __all__ = [
-    "CrossCompositionObservation",
     "CrossCompositionBehaviorResult",
+    "CrossCompositionObservation",
     "aggregate_sweep_behavior",
 ]
 

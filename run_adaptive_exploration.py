@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import argparse
 import sys
+
 sys.path.insert(0, "src")
 
-from sim_alchemist.core.adaptive_exploration import AdaptiveExplorationSpec, adaptive_exploration_id_of
+from sim_alchemist.core.adaptive_exploration import (
+    AdaptiveExplorationSpec,
+    adaptive_exploration_id_of,
+)
 from sim_alchemist.core.adaptive_exploration_runner import execute_adaptive_exploration
 
 
@@ -52,7 +56,11 @@ def run_analysis_only(args):
 
 def run_adaptive_continuation(args):
     import yaml
-    from experiments.network_morphogenesis.experiment import build_network_metrics, run_network_world
+
+    from experiments.network_morphogenesis.experiment import (
+        build_network_metrics,
+        run_network_world,
+    )
     from sim_alchemist.core.world import WorldDefinition
 
     with open("worlds/adaptive_network.yaml") as f:

@@ -2,10 +2,14 @@
 from __future__ import annotations
 
 import sys
+
 sys.path.insert(0, "src")
 
+from sim_alchemist.core.adaptive_exploration import (
+    AdaptiveExplorationSpec,
+    adaptive_exploration_id_of,
+)
 from sim_alchemist.core.lineage import LineageStore
-from sim_alchemist.core.adaptive_exploration import AdaptiveExplorationSpec, adaptive_exploration_id_of
 
 
 def test_stage3_lineage_schema_exists():
@@ -94,8 +98,9 @@ def test_stage3_no_duplicate_logical_exploration():
 
 def test_stage3_existing_lineage_preserved():
     """I. RunRecord / sweep / composition IDs preserved; no overload."""
-    from sim_alchemist.core.lineage import RunRecord, LineageStore
     import tempfile
+
+    from sim_alchemist.core.lineage import LineageStore
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tf:
         store = LineageStore(str(tf.name))
         # Existing functionality preserved

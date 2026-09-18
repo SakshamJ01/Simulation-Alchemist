@@ -29,7 +29,6 @@ T  Performance: evaluator overhead negligible (< 1 ms per evaluation)
 from __future__ import annotations
 
 import inspect
-import math
 import time
 
 import pytest
@@ -42,7 +41,6 @@ from sim_alchemist.core.adaptive_sweep import (
     adaptive_state_canonical,
     evaluate_adaptive_decision,
 )
-
 
 # ---------------------------------------------------------------------------
 # A / B / C — Signal construction / validation / missing
@@ -204,7 +202,11 @@ def test_m_integration_with_behavior_features():
     # Use real repository data patterns without running simulations.
     # Import deferred inside helper; if import fails we skip gracefully.
     try:
-        from sim_alchemist.core.behavior import BehaviorFeatures, UnitFeatures, InterestingnessProfile
+        from sim_alchemist.core.behavior import (
+            BehaviorFeatures,
+            InterestingnessProfile,
+            UnitFeatures,
+        )
     except Exception:
         pytest.skip("behavior module not available")
     # Build a synthetic BehaviorFeatures (does not require a run)
@@ -236,6 +238,7 @@ def test_m_integration_with_behavior_features():
 
 def test_n_no_sweep_search_adapter_run_tokens_in_source():
     import inspect
+
     import sim_alchemist.core.adaptive_sweep as mod
     src = inspect.getsource(mod)
     forbidden = [
@@ -261,7 +264,6 @@ def test_o_no_sweep_runner_call():
 
 def test_q_no_lineage_mutation():
     # Evaluate never writes to DB or creates RunRecord.
-    from sim_alchemist.core.lineage import LineageStore
     # Just confirm the module does not reference LineageStore.
     import sim_alchemist.core.adaptive_sweep as mod
     src = inspect.getsource(mod)

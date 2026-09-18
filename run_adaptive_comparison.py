@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 """Task 2.8 — Adaptive Discovery Comparison CLI (analysis-only)."""
 from __future__ import annotations
+
 import sys
+
 sys.path.insert(0, "src")
 
 import argparse
+
 from sim_alchemist.core.adaptive_comparison import AdaptiveDiscoveryAnalyst
 from sim_alchemist.core.adaptive_exploration import AdaptiveExplorationResult
 

@@ -56,7 +56,9 @@ from experiments.catalog import (
     repository_parameter_spaces,
 )
 from experiments.gated_movers.experiment import specs_by_path as gated_specs_by_path
-from experiments.network_morphogenesis.experiment import specs_by_path as network_specs_by_path
+from experiments.network_morphogenesis.experiment import (
+    specs_by_path as network_specs_by_path,
+)
 from sim_alchemist.core.catalog import CompositionCatalog
 from sim_alchemist.core.composition import CompositionSpace
 from sim_alchemist.core.cross_composition_sweep import (

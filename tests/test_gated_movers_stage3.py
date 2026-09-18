@@ -7,14 +7,19 @@ observed metrics land in the common‑observable vocabulary.
 
 from __future__ import annotations
 
-import pytest
-
-from experiments.catalog import build_repository_catalog, repository_parameter_spaces, repository_executors
-from experiments.gated_movers.experiment import PARAMETER_SPECS, specs_by_path as gated_specs_by_path
+from experiments.catalog import (
+    build_repository_catalog,
+    repository_executors,
+    repository_parameter_spaces,
+)
+from experiments.gated_movers.experiment import specs_by_path as gated_specs_by_path
 from sim_alchemist.core.catalog import CompositionCatalog
-from sim_alchemist.core.cross_composition_sweep import CrossCompositionSweep, CrossCompositionSweepSpec
+from sim_alchemist.core.cross_composition_sweep import (
+    CrossCompositionSweep,
+    CrossCompositionSweepSpec,
+)
 from sim_alchemist.core.lineage import LineageStore
-from sim_alchemist.core.sweep import MutationSpace, ParameterSweep
+from sim_alchemist.core.sweep import ParameterSweep
 
 
 def _d_catalog_row(catalog: CompositionCatalog):

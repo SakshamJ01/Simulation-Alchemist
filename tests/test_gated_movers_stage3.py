@@ -178,7 +178,7 @@ def test_d_observables_contain_gate_metrics() -> None:
     # Find observations belonging to D
     d_obs = [o for o in agg.observations if o.composition_id == d_binding.composition_id]
     assert len(d_obs) == 5  # baseline + 4 variants
-    names = {o.name for o in agg.vocabulary}
+    names = set(agg.union_vocabulary)
     # Gate‑policy metrics must appear in the vocabulary
     assert "deposition_events" in names
     assert "deposition_suppression" in names

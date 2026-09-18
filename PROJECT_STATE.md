@@ -45,6 +45,7 @@ All validations pass: A–G, S1–S6, L1–L5, Pyright 0 errors, Ruff clean, ful
 - Phase 2 — Trusted Experiment Lab (`workbench/export_import.py`, lineage store migration, verified experiment replay & bundle export/import)
 - Phase 3 — Discovery & Research Automation (`workbench/discovery.py`, automated parameter sweeps, multi-objective frontier selection, zero-drift candidate replay)
 - Phase 4 — General Simulation Platform (`src/sim_alchemist/core/plugins.py`, `interfaces.py`, `graph.py`, `checkpoint.py`, `reporting.py`, `run_stress_validation.py`; Slices 4.1–4.6)
+- Phase 4 Advanced Extensions — First-class coupling primitives (`couplings.py`), Global sensitivity analysis (`sensitivity.py`), Intelligent multi-objective search & surrogate modeling (`intelligent_search.py`), Advanced Workbench REST APIs & reports (`app.py`, `reporting.py`)
 
 ## Current experiments
 - A — Chemo-Mechanical Morphogenesis (Mesa + py-pde + Pymunk)

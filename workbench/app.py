@@ -27,7 +27,17 @@ PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+from sim_alchemist.core.intelligent_search import (
+    IntelligentSearchRunner,
+    IntelligentSearchSpec,
+    SearchParameterRange,
+)
 from sim_alchemist.core.lineage import run_id_of
+from sim_alchemist.core.sensitivity import (
+    MorrisSensitivityAnalyzer,
+    ParameterRange,
+    SensitivitySpec,
+)
 from workbench.discovery import (
     estimate_discovery_runtime,
     get_default_mutation_space,
@@ -43,9 +53,10 @@ from workbench.export_import import (
 from workbench.reporting import (
     generate_experiment_html_report,
     generate_experiment_markdown_report,
+    generate_intelligent_search_markdown_report,
+    generate_sensitivity_markdown_report,
 )
 from workbench.store import ExperimentRecord, WorkbenchStore
-
 
 app = Flask(__name__)
 store = WorkbenchStore()
@@ -915,6 +926,170 @@ def api_report_experiment_markdown(record_id: str) -> Any:
         mimetype="text/markdown",
         headers={"Content-Disposition": f'attachment; filename="report_{record_id[:8]}.md"'},
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 Advanced APIs: Couplings, Global Sensitivity, Intelligent Search
+# ---------------------------------------------------------------------------
+
+@app.get("/api/couplings/primitives")
+def api_couplings_primitives() -> Any:
+    """List available coupling transformer primitives and transfer metadata."""
+    return jsonify({
+        "success": True,
+        "primitives": [
+            {
+                "name": "HysteresisFilter",
+                "category": "Bistable State Machine",
+                "description": "Dual-threshold trigger with refractory cooldown timer for dynamic barriers/gates.",
+                "parameters": ["low_threshold", "high_threshold", "cooldown_steps", "active_value", "inactive_value"],
+            },
+            {
+                "name": "TemporalDelayBuffer",
+                "category": "Temporal Memory",
+                "description": "Discrete-step FIFO delay buffer introducing fixed time lag into coupling signals.",
+                "parameters": ["delay_steps", "default_value"],
+            },
+            {
+                "name": "SigmoidTransfer",
+                "category": "Non-Linear Transduction",
+                "description": "Smooth bounded activation function y = lower + (upper - lower) / (1 + exp(-k * (x - x0))).",
+                "parameters": ["midpoint", "steepness", "lower_bound", "upper_bound"],
+            },
+            {
+                "name": "SaturationFilter",
+                "category": "Linear Clamping",
+                "description": "Linear scaling and hard bounding filter clamping signal within [min_val, max_val].",
+                "parameters": ["min_val", "max_val", "scale", "bias"],
+            },
+        ],
+    })
+
+
+@app.post("/api/sensitivity/analyze")
+def api_sensitivity_analyze() -> Any:
+    """Run Morris Elementary Effects global sensitivity analysis on an experiment."""
+    data = request.get_json(force=True, silent=True) or {}
+    template = data.get("template", "gated_movers")
+    target_metric = data.get("target_metric", "final_field_mean")
+    n_trajectories = int(data.get("n_trajectories", 6))
+    seed = int(data.get("seed", 42))
+
+    # Build model evaluation function using existing catalog executor
+    from experiments.catalog import build_repository_catalog
+    cat = build_repository_catalog(generate_worlds=True)
+    candidate = None
+    for c in cat.executable():
+        if c.template == template or c.composition_id == template:
+            candidate = c
+            break
+
+    if candidate is None or candidate.composition_id is None:
+        return jsonify({"success": False, "error": f"Template '{template}' not found"}), 404
+
+    comp_id = candidate.composition_id
+
+    specs = _parameter_spec_bounds(candidate.template or "")
+    param_ranges = []
+    for p_name, p_info in specs.items():
+        min_v = float(p_info.get("min", 0.0))
+        max_v = float(p_info.get("max", 1.0))
+        if min_v >= max_v:
+            max_v = min_v + 1.0
+        param_ranges.append(ParameterRange(name=p_name, min_val=min_v, max_val=max_v))
+
+    if not param_ranges:
+        param_ranges.append(ParameterRange(name="dummy_param", min_val=0.0, max_val=1.0))
+
+    spec = SensitivitySpec(
+        parameters=param_ranges,
+        target_metric=target_metric,
+        n_trajectories=n_trajectories,
+        seed=seed,
+    )
+
+    def model_fn(params: dict[str, float]) -> float:
+        res = _run_simulation(
+            comp_id,
+            params,
+            max_steps=6,
+            seed=seed,
+        )
+        return float(res["outcome"].metrics.get(target_metric, 0.0))
+
+    result = MorrisSensitivityAnalyzer.analyze(model_fn, spec)
+    return jsonify({
+        "success": True,
+        "template": template,
+        "result": result.as_dict(),
+        "markdown_report": generate_sensitivity_markdown_report(result.as_dict()),
+    })
+
+
+@app.post("/api/intelligent_search/run")
+def api_intelligent_search_run() -> Any:
+    """Run surrogate-assisted multi-objective optimization session."""
+    data = request.get_json(force=True, silent=True) or {}
+    template = data.get("template", "gated_movers")
+    name = data.get("name", f"search_{template}")
+    objectives_raw = data.get("target_objectives") or [["final_field_mean", "maximize"]]
+    objectives = tuple((str(k), str(d)) for k, d in objectives_raw)
+    n_initial = int(data.get("n_initial_samples", 3))
+    n_iter = int(data.get("n_iterations", 2))
+    candidates_per_iter = int(data.get("candidates_per_iter", 2))
+    seed = int(data.get("seed", 42))
+
+    from experiments.catalog import build_repository_catalog
+    cat = build_repository_catalog(generate_worlds=True)
+    candidate = None
+    for c in cat.executable():
+        if c.template == template or c.composition_id == template:
+            candidate = c
+            break
+
+    if candidate is None or candidate.composition_id is None:
+        return jsonify({"success": False, "error": f"Template '{template}' not found"}), 404
+
+    search_comp_id = candidate.composition_id
+
+    specs = _parameter_spec_bounds(candidate.template or "")
+    search_param_ranges = []
+    for p_name, p_info in specs.items():
+        min_v = float(p_info.get("min", 0.0))
+        max_v = float(p_info.get("max", 1.0))
+        if min_v >= max_v:
+            max_v = min_v + 1.0
+        search_param_ranges.append(SearchParameterRange(name=p_name, min_val=min_v, max_val=max_v))
+
+    if not search_param_ranges:
+        search_param_ranges.append(SearchParameterRange(name="dummy_param", min_val=0.0, max_val=1.0))
+
+    spec = IntelligentSearchSpec(
+        name=name,
+        parameter_ranges=search_param_ranges,
+        target_objectives=objectives,
+        n_initial_samples=n_initial,
+        n_iterations=n_iter,
+        candidates_per_iter=candidates_per_iter,
+        seed=seed,
+    )
+
+    def evaluate_fn(params: dict[str, float]) -> dict[str, float]:
+        res = _run_simulation(
+            search_comp_id,
+            params,
+            max_steps=6,
+            seed=seed,
+        )
+        return {k: float(v) for k, v in res["outcome"].metrics.items() if isinstance(v, (int, float))}
+
+    result = IntelligentSearchRunner.run(evaluate_fn, spec)
+    return jsonify({
+        "success": True,
+        "template": template,
+        "result": result.as_dict(),
+        "markdown_report": generate_intelligent_search_markdown_report(result.as_dict()),
+    })
 
 
 def main() -> None:

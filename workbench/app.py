@@ -94,6 +94,7 @@ def _discover_experiments() -> dict[str, dict[str, Any]]:
             "field_guided_movers": "Field-guided movers (B)",
             "adaptive_network": "Adaptive network (C)",
             "gated_movers": "Gated mover morphogenesis (D)",
+            "fluid_active_matter": "Fluid-structure active matter (E)",
         }
         experiments[template] = {
             "id": comp_id,
@@ -104,6 +105,7 @@ def _discover_experiments() -> dict[str, dict[str, Any]]:
                 "field_guided_movers": "py-pde field + Pymunk movers (unconditional chemotaxis)",
                 "adaptive_network": "NDlib network + py-pde + Pymunk",
                 "gated_movers": "Mesa gating layer + py-pde + Pymunk movers",
+                "fluid_active_matter": "2D Navier-Stokes fluid mechanics + py-pde field + Pymunk active swimmers",
             }.get(template, template),
         }
     return experiments
@@ -119,6 +121,7 @@ def _serialize_trajectory(trajectory: Any, max_visual_frames: int = 250) -> dict
             "is_strided": False,
             "visual_frames_count": 0,
             "field_frames": [],
+            "velocity_frames": [],
             "movers": {},
             "walls": {},
             "active_gates": [],
@@ -128,6 +131,8 @@ def _serialize_trajectory(trajectory: Any, max_visual_frames: int = 250) -> dict
             "speeds": [],
             "force_mags": [],
             "gradient_mags": [],
+            "fluid_energies": [],
+            "vorticities": [],
         }
 
     u_snaps = getattr(trajectory, "u_snaps", [])
@@ -162,7 +167,37 @@ def _serialize_trajectory(trajectory: Any, max_visual_frames: int = 250) -> dict
                     "grid": [[round(float(v), 3) for v in row] for row in arr],
                 })
 
-    # Extract mover positions synchronously across step_indices (B & D)
+    # Velocity Vector Field frames (E)
+    ux_snaps = getattr(trajectory, "ux_snaps", [])
+    uy_snaps = getattr(trajectory, "uy_snaps", [])
+    velocity_frames: list[dict[str, Any]] = []
+    if ux_snaps and uy_snaps:
+        for idx in step_indices:
+            if idx < len(ux_snaps) and idx < len(uy_snaps):
+                ux_arr = ux_snaps[idx]
+                uy_arr = uy_snaps[idx]
+                n_grid = ux_arr.shape[0]
+                v_stride = max(1, n_grid // 8)
+                vectors: list[dict[str, float]] = []
+                for r in range(0, n_grid, v_stride):
+                    for c in range(0, n_grid, v_stride):
+                        vx = float(ux_arr[r, c])
+                        vy = float(uy_arr[r, c])
+                        x_norm = (c + 0.5) / n_grid
+                        y_norm = (r + 0.5) / n_grid
+                        mag = math.hypot(vx, vy)
+                        vectors.append({
+                            "x": round(x_norm, 3),
+                            "y": round(y_norm, 3),
+                            "vx": round(vx, 4),
+                            "vy": round(vy, 4),
+                            "ux": round(vx, 4),
+                            "uy": round(vy, 4),
+                            "mag": round(mag, 4),
+                        })
+                velocity_frames.append({"step": idx, "vectors": vectors})
+
+    # Extract mover/swimmer positions synchronously across step_indices (B, D, E)
     positions_dict = getattr(trajectory, "positions", {})
     movers_data: dict[str, list[list[float]]] = {}
     for m_id, pts in positions_dict.items():
@@ -192,6 +227,8 @@ def _serialize_trajectory(trajectory: Any, max_visual_frames: int = 250) -> dict
     speeds = getattr(trajectory, "speeds", [])
     force_mags = getattr(trajectory, "force_mags", [])
     gradient_mags = getattr(trajectory, "gradient_mags", [])
+    fluid_energies = getattr(trajectory, "fluid_energies", [])
+    vorticities = getattr(trajectory, "vorticities", [])
 
     return {
         "available": True,
@@ -200,6 +237,7 @@ def _serialize_trajectory(trajectory: Any, max_visual_frames: int = 250) -> dict
         "is_strided": stride > 1,
         "visual_frames_count": len(step_indices),
         "field_frames": field_frames,
+        "velocity_frames": velocity_frames,
         "movers": movers_data,
         "walls": walls_data,
         "active_gates": [int(active_gates[idx]) for idx in step_indices if idx < len(active_gates)],
@@ -209,6 +247,8 @@ def _serialize_trajectory(trajectory: Any, max_visual_frames: int = 250) -> dict
         "speeds": [round(float(speeds[idx]), 5) for idx in step_indices if idx < len(speeds)],
         "force_mags": [round(float(force_mags[idx]), 5) for idx in step_indices if idx < len(force_mags)],
         "gradient_mags": [round(float(gradient_mags[idx]), 5) for idx in step_indices if idx < len(gradient_mags)],
+        "fluid_energies": [round(float(fluid_energies[idx]), 5) for idx in step_indices if idx < len(fluid_energies)],
+        "vorticities": [round(float(vorticities[idx]), 5) for idx in step_indices if idx < len(vorticities)],
     }
 
 
@@ -218,6 +258,12 @@ def _parameter_spec_bounds(exp_id: str) -> dict[str, dict[str, Any]]:
         return {
             "gate_threshold": {"min": 0.0, "max": 1.0, "step": 0.01, "default": 0.5},
             "gate_cooldown": {"min": 0, "max": 20, "step": 1, "default": 4},
+        }
+    if exp_id == "fluid_active_matter":
+        return {
+            "viscosity": {"min": 0.005, "max": 0.5, "step": 0.005, "default": 0.05},
+            "buoyancy_coef": {"min": 0.0, "max": 3.0, "step": 0.1, "default": 0.8},
+            "swimmer_speed": {"min": 0.005, "max": 0.3, "step": 0.01, "default": 0.08},
         }
     return {}
 
@@ -270,6 +316,7 @@ def _run_simulation(
         "field_guided_movers": "Field-guided movers (B)",
         "adaptive_network": "Adaptive network (C)",
         "gated_movers": "Gated mover morphogenesis (D)",
+        "fluid_active_matter": "Fluid-structure active matter (E)",
     }
 
     serialized_traj = _serialize_trajectory(outcome.trajectory)

@@ -44,9 +44,9 @@ The platform bridges continuous reaction-diffusion PDEs, rigid-body mechanics, a
 
 ---
 
-## The Four Experiment Universes
+## The Five Experiment Universes
 
-Simulation Alchemist includes four validated multi-physics experiment systems:
+Simulation Alchemist includes five validated multi-physics experiment systems:
 
 ```
 +----------------------------------------------------------------------------------------------------+
@@ -56,6 +56,7 @@ Simulation Alchemist includes four validated multi-physics experiment systems:
 | Experiment B: Field-Guided Movers  | py-pde Turing Field + Pymunk Dynamic Particle Movers          |
 | Experiment C: Adaptive Network     | NDlib Graph Diffusion + py-pde Turing Field + Pymunk Physics  |
 | Experiment D: Gated Mover System   | Mesa Hysteresis Gating + py-pde Field + Pymunk Particle Movers|
+| Experiment E: Fluid Active Matter  | Navier-Stokes Fluid + py-pde Field + Pymunk Active Swimmers   |
 +------------------------------------+---------------------------------------------------------------+
 ```
 
@@ -75,6 +76,10 @@ Simulation Alchemist includes four validated multi-physics experiment systems:
 - **Subsystems:** `Mesa` (Gating Layer) + `py-pde` (Reaction-Diffusion) + `Pymunk` (Particle Movers).
 - **Dynamics:** Introduces sensory hysteresis gating ($T_{\text{gate}}$, cooldown). Movers switch dynamically between active chemotaxis and resting states, exhibiting distinct behavioral regimes and morphological structures.
 
+### 5. Experiment E: Fluid-Structure Active Matter
+- **Subsystems:** `2D Navier-Stokes / Streamfunction-Vorticity Solver` + `py-pde` (Reaction-Diffusion) + `Pymunk` (Active Swimmers).
+- **Dynamics:** Simulates continuous-discrete bio-fluid active matter. Chemical concentration gradients exert buoyancy torques that drive fluid circulation ($-\nabla^2 \psi = \omega$), while background hydrodynamic drag ($\mathbf{F}_{\text{drag}} = \gamma (\mathbf{u}_f - \mathbf{v})$) advects active micro-swimmers steered by chemotaxis. Includes full 3D and 2D velocity vector field visualization.
+
 ---
 
 ## Architectural Layers
@@ -82,7 +87,7 @@ Simulation Alchemist includes four validated multi-physics experiment systems:
 ```mermaid
 graph TD
     subgraph UI ["Layer 4: Interactive Interface & Lab"]
-        WB["Researcher Workbench (Flask + Three.js 3D WebGL)"]
+        WB["Researcher Workbench (Flask + Three.js 3D WebGL + 3D Velocity Vector Field)"]
         CLI["Discovery & Sweep CLI Tools"]
         AI["Platform & AI Laboratory (Surrogates, RL, HPC)"]
     end
@@ -103,9 +108,10 @@ graph TD
 
     subgraph Physics ["Layer 1: Simulation Subsystems"]
         PDE["py-pde (Reaction-Diffusion)"]
-        Physics2D["Pymunk (Rigid Body / Movers)"]
+        Physics2D["Pymunk (Rigid Body / Swimmers / Movers)"]
         Agents["Mesa (Agent Decision Logic)"]
         Network["NDlib (Graph Diffusion)"]
+        Fluid["Navier-Stokes (Vorticity-Streamfunction Solver)"]
     end
 
     WB --> Discovery

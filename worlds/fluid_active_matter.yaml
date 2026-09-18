@@ -1,0 +1,82 @@
+# Fluid-Structure Active Matter — declarative world definition (Experiment E)
+#
+# Declarative twin of the programmatic world built by
+# `experiments.fluid_active_matter.coupling.build_fluid_active_matter_world`.
+# Loading it with `sim_alchemist.core.world.load_world_yaml` produces an
+# identical WorldDefinition.
+#
+# Composition: py-pde continuous field + 2D Navier-Stokes fluid mechanics + Pymunk
+# active swimmer particles.
+
+id: fluid_active_matter
+
+components:
+  - id: py-pde
+    config:
+      n: 32
+      du: 0.005
+      dv: 0.2
+      a: 0.1
+      b: 0.9
+      dt: 5.0e-4
+      seed: 42
+      field_step: 0.2
+  - id: fluid
+    config:
+      n: 32
+      viscosity: 0.05
+      buoyancy_coef: 0.8
+      fluid_damping: 0.02
+  - id: pymunk
+    variant: swimmers
+    config:
+      n_swimmers: 8
+      swimmer_speed: 0.08
+      swimmer_radius: 0.04
+      advection_drag: 1.2
+      chemotaxis_strength: 0.6
+      rotational_diffusion: 0.1
+      seed: 42
+
+requires:
+  - reaction_diffusion
+  - velocity_field
+  - particle_positions
+  - field_gradient
+
+schedule:
+  - field.step
+  - fluid.buoyancy
+  - fluid.step
+  - swimmers.advect
+  - swimmers.steer
+  - swimmers.step
+  - field.source
+  - observables.record
+
+macro_timestep: 0.2
+max_steps: 160
+seed: 42
+
+config:
+  n: 32
+  seed: 42
+  pde_dt: 5.0e-4
+  du: 0.005
+  dv: 0.2
+  a: 0.1
+  b: 0.9
+  macro_timestep: 0.2
+  n_steps: 160
+  viscosity: 0.05
+  buoyancy_coef: 0.8
+  fluid_damping: 0.02
+  n_swimmers: 8
+  swimmer_speed: 0.08
+  swimmer_radius: 0.04
+  advection_drag: 1.2
+  chemotaxis_strength: 0.6
+  rotational_diffusion: 0.1
+  source_u: 0.02
+  source_v: -0.03
+  source_radius: 0.04

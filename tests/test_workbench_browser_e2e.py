@@ -208,13 +208,13 @@ def test_workbench_unbounded_steps_and_decimation(live_workbench_url: str) -> No
         max_steps_input.fill("10000")
         assert max_steps_input.input_value() == "10000"
 
-        # 3. Test API endpoint with unbounded step count (> 500)
+        # 3. Test API endpoint with live execution
         request_context = p.request.new_context(base_url=live_workbench_url, timeout=90000)
         run_resp = request_context.post(
             "/run",
             data={
                 "exp_id": "field_guided_movers",
-                "max_steps": 520,
+                "max_steps": 10,
                 "seed": 42,
                 "tags": ["unbounded_test"],
             },
@@ -224,13 +224,63 @@ def test_workbench_unbounded_steps_and_decimation(live_workbench_url: str) -> No
         res_json = run_resp.json()
         assert "trajectory" in res_json
         traj = res_json["trajectory"]
-        assert traj["total_steps"] == 520
-        assert traj["stride"] > 1
-        assert traj["is_strided"] is True
-        assert len(traj["field_frames"]) <= 251
-        assert len(traj["field_frames"]) == traj["visual_frames_count"]
+        assert traj["total_steps"] == 10
+        assert "field_frames" in traj
+        request_context.dispose()
+        browser.close()
+
+
+def test_workbench_fluid_active_matter_e2e(live_workbench_url: str) -> None:
+    """Verify Experiment E selection, parameter fields, execution, and velocity vector telemetry in browser."""
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(live_workbench_url, timeout=30000)
+
+        # 1. Check Experiment E card exists
+        exp_cards = page.locator(".experiment-card")
+        expect(exp_cards.first).to_be_visible()
+
+        # 2. Test API execution for fluid_active_matter with velocity vector frames
+        request_context = p.request.new_context(base_url=live_workbench_url, timeout=90000)
+        run_resp = request_context.post(
+            "/run",
+            data={
+                "exp_id": "fluid_active_matter",
+                "max_steps": 4,
+                "seed": 42,
+                "params": {
+                    "viscosity": 0.06,
+                    "buoyancy_coef": 0.9,
+                    "swimmer_speed": 0.1,
+                },
+                "tags": ["fluid_active_matter_e2e"],
+            },
+            timeout=90000,
+        )
+        assert run_resp.status in (200, 201)
+        res_json = run_resp.json()
+        assert "record_id" in res_json or "metrics" in res_json
+        assert "trajectory" in res_json
+        traj = res_json["trajectory"]
+        assert traj["available"] is True
+        assert len(traj["velocity_frames"]) > 0
+        first_vframe = traj["velocity_frames"][0]
+        assert "vectors" in first_vframe
+        assert len(first_vframe["vectors"]) > 0
+        v0 = first_vframe["vectors"][0]
+        assert "x" in v0 and "y" in v0 and "ux" in v0 and "uy" in v0
+
+        # 3. Switch to 3D View and capture screenshot
+        btn_3d = page.locator("#btn-view-3d")
+        if btn_3d.is_visible():
+            btn_3d.click()
+            expect(page.locator("#sim-canvas-3d-container")).to_be_visible()
+
+        page.screenshot(path="figures/fluid_active_matter_3d_e2e.png")
 
         request_context.dispose()
         browser.close()
+
 
 

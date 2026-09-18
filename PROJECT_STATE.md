@@ -49,12 +49,14 @@ All validations pass: A–G, S1–S6, L1–L5, Pyright 0 errors, Ruff clean, ful
 - Section 4I — Advanced Deep Learning & RL (`src/sim_alchemist/core/deep_surrogates.py` vectorized MLP ensembles & Adam optimization, `src/sim_alchemist/core/rl_agents.py` Gym environments, Q-Table, Policy Gradient agents)
 - Section 4J — Multi-Node Enterprise & Cloud Distribution (`src/sim_alchemist/core/distribution.py` Slurm & Kubernetes job generators, workload sharding; `workbench/auth.py` multi-tenant RBAC auth; `scripts/build_installer.py` desktop installer & PyInstaller wizard)
 - Section 4G — Cross-Architecture Floating-Point Bitwise Equality (`src/sim_alchemist/core/quantization.py` FixedPointFloat, QuantizedArray, DeterministicQuantizer, CrossPlatformFloatParity)
+- Experiment E — Fluid-Structure Active Matter (`experiments/fluid_active_matter/`, `worlds/fluid_active_matter.yaml`; 2D Navier-Stokes streamfunction-vorticity solver + py-pde reaction-diffusion + Pymunk active swimmer particles; 3D/2D velocity vector field visualization, zero-drift bitwise replay, catalog integration)
 
 ## Current experiments
 - A — Chemo-Mechanical Morphogenesis (Mesa + py-pde + Pymunk)
 - B — Field-Guided Movers (py-pde + Pymunk)
 - C — Adaptive Network Morphogenesis (NDlib + py-pde + Pymunk)
 - D — Gated Mover Morphogenesis (Mesa gating layer + py-pde + Pymunk movers; Task 3.0; `experiments/gated_movers/`)
+- E — Fluid-Structure Active Matter (Navier-Stokes fluid mechanics + py-pde + Pymunk active swimmers; `experiments/fluid_active_matter/`, `worlds/fluid_active_matter.yaml`)
 
 ## Current architecture
 `src/sim_alchemist/core/`:
